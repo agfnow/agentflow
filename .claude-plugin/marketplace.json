@@ -1,0 +1,13 @@
+{
+  "name": "agentflow",
+  "owner": {
+    "name": "agfnow"
+  },
+  "plugins": [
+    {
+      "name": "agentflow",
+      "source": "./",
+      "description": "File-logged conversation protocol and on-demand development pipeline: the owner converses through devlog.md; wishes that change product behavior run the requirements → specification → acceptance chain."
+    }
+  ]
+}
