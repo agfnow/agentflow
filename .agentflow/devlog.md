@@ -44,3 +44,9 @@ Streams: none.
 - **Gate:** Outcome PASS and Minimality PASS; Conformance BLOCKING because the frozen coordinator facts file was absent from the reviewed commit.
 - **Correction:** include the frozen facts and brief in the bootstrap commit, update the exact commit reference, and rerun the targeted review.
 
+## [RUN-004] Event — 2026-09-05 16:09 (during round A-001)
+
+- **Review result:** the final allowed external-runner-v1 attempt completed in an independent no-remote clone, but the frozen dispatch supplied `2b4bd696cde3c56ea036e62f687a9f2fd14ef3d` instead of the actual implementation commit `2b4bd69243513e57f7f8e61c4ac42557757de9c4`.
+- **Gate:** the worker inspected the candidate HEAD but returned Outcome, Minimality, Conformance, and Verdict BLOCKING; no PASS report was produced.
+- **Recovery:** the cross-check stage reached its fixed three-start ceiling; no further automatic review starts are permitted. The round remains open and no Reply was written.
+
