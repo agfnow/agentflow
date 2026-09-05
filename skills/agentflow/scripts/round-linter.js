@@ -6,6 +6,8 @@ const ag_settings = require('./ag-settings.js');
 const delegation_route = require('./delegation-route.js');
 const suite_evidence = require('./suite-evidence.js');
 const queue_contract = require('./queue-contract.js');
+const model_sensitive_harness = require('./model-sensitive-harness.js');
+const model_stable_harness = require('./model-stable-harness.js');
 
 const ask_heading_pattern = /^# → Ask \/ (A-\d+)(?: \([^)\r\n]*\))?[ \t]*\r?$/gm;
 const stamp_pattern = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?/g;
@@ -57,6 +59,39 @@ const material_claim_kinds = Object.freeze([
   'acceptance',
   'limitations',
   'push'
+]);
+
+const round_check_order = Object.freeze([
+  'terminal_one_line',
+  'timestamps_sane',
+  'reply_structure',
+  'round_boundaries',
+  'next_ask_scaffold',
+  'tracker',
+  'checkpoint_still_to_do',
+  'checkpoint_verification',
+  'round_reporting',
+  'direct_route_completion',
+  'evidence_classification',
+  'material_claims',
+  'report_only_validation',
+  'route_decision',
+  'executor_decision',
+  'large_work_route',
+  'queue_contract',
+  'review_preflight',
+  'review_attempts',
+  'progress_boundaries',
+  'security_disposition',
+  'acceptance_disposition',
+  'formal_repair',
+  'pipeline_artifacts',
+  'quality_gate',
+  'cross_check',
+  'no_invented_ask',
+  'push_claim_valid',
+  'configuration_valid',
+  'status_projection_valid'
 ]);
 
 const make_check = (id, name, status, detail) => ({ id, name, status, detail });
@@ -3299,42 +3334,54 @@ const lint_round = context => {
     : context.claims !== undefined
       ? { claims: context.claims, evidence: context.evidence, repository_state: context.repository_state }
       : undefined;
-  const checks = [
-    lint_terminal_output(context.terminal_output),
-    lint_timestamps(devlog_text, now_ms, future_skew_min, max_age_hours),
-    lint_reply_structure(devlog_text, substantial),
-    lint_round_boundaries(devlog_text),
-    lint_next_ask_scaffold(devlog_text),
-    lint_tracker(context.tracker),
-    lint_checkpoint_still_to_do(devlog_text),
-    lint_checkpoint_verification(devlog_text, context.checkpoint_verification),
-    lint_round_reporting(reporting_facts, devlog_text),
-    lint_direct_route_completion(direct_facts, context),
-    lint_evidence_classification(context.evidence_classification ?? context.defect_classes),
-    lint_material_claims(material_claim_facts),
-    lint_report_only_validation(context.report_only ?? context.report_only_validation),
-    lint_route_decision(context.route_decision),
-    lint_executor_decision(context.executor_decision ?? context.executor_decisions),
-    lint_large_work_route(context.large_work),
-    lint_queue_contract(context.queue_contract ?? context.make_plans),
-    lint_review_preflight(context.preflight),
-    lint_review_context(context),
-    lint_progress_boundaries(context.progress),
-    lint_security_disposition(context.security),
-    lint_acceptance_disposition(context.acceptance),
-    lint_formal_repair(context.formal_repair),
-    lint_pipeline_artifacts(context.pipeline),
-    lint_quality_gate(context.quality_gate, devlog_text),
-    lint_cross_check(devlog_text, context.project_root, context.review_decision),
-    lint_no_invented_ask(devlog_text, context.owner_ask_ids),
-    lint_push_claim(devlog_text, context.terminal_output, context.push),
-    lint_configuration(context),
-    lint_status_projection(devlog_text, context.require_status_projection)
-  ];
+  const implementations = {
+    terminal_one_line: () => lint_terminal_output(context.terminal_output),
+    timestamps_sane: () => lint_timestamps(devlog_text, now_ms, future_skew_min, max_age_hours),
+    reply_structure: () => lint_reply_structure(devlog_text, substantial),
+    round_boundaries: () => lint_round_boundaries(devlog_text),
+    next_ask_scaffold: () => lint_next_ask_scaffold(devlog_text),
+    tracker: () => lint_tracker(context.tracker),
+    checkpoint_still_to_do: () => lint_checkpoint_still_to_do(devlog_text),
+    checkpoint_verification: () => lint_checkpoint_verification(devlog_text, context.checkpoint_verification),
+    round_reporting: () => lint_round_reporting(reporting_facts, devlog_text),
+    direct_route_completion: () => lint_direct_route_completion(direct_facts, context),
+    evidence_classification: () => lint_evidence_classification(context.evidence_classification ?? context.defect_classes),
+    material_claims: () => lint_material_claims(material_claim_facts),
+    report_only_validation: () => lint_report_only_validation(context.report_only ?? context.report_only_validation),
+    route_decision: () => lint_route_decision(context.route_decision),
+    executor_decision: () => lint_executor_decision(context.executor_decision ?? context.executor_decisions),
+    large_work_route: () => lint_large_work_route(context.large_work),
+    queue_contract: () => lint_queue_contract(context.queue_contract ?? context.make_plans),
+    review_preflight: () => lint_review_preflight(context.preflight),
+    review_attempts: () => lint_review_context(context),
+    progress_boundaries: () => lint_progress_boundaries(context.progress),
+    security_disposition: () => lint_security_disposition(context.security),
+    acceptance_disposition: () => lint_acceptance_disposition(context.acceptance),
+    formal_repair: () => lint_formal_repair(context.formal_repair),
+    pipeline_artifacts: () => lint_pipeline_artifacts(context.pipeline),
+    quality_gate: () => lint_quality_gate(context.quality_gate, devlog_text),
+    cross_check: () => lint_cross_check(devlog_text, context.project_root, context.review_decision),
+    no_invented_ask: () => lint_no_invented_ask(devlog_text, context.owner_ask_ids),
+    push_claim_valid: () => lint_push_claim(devlog_text, context.terminal_output, context.push),
+    configuration_valid: () => lint_configuration(context),
+    status_projection_valid: () => lint_status_projection(devlog_text, context.require_status_projection)
+  };
+  const harnesses = {
+    model_sensitive: model_sensitive_harness.run(implementations),
+    model_stable: model_stable_harness.run(implementations)
+  };
+  const grouped_checks = new Map(
+    [...harnesses.model_sensitive, ...harnesses.model_stable].map(check => [check.id, check])
+  );
+  if (grouped_checks.size !== round_check_order.length || round_check_order.some(id => !grouped_checks.has(id))) {
+    throw new TypeError('round harnesses must partition every check exactly once');
+  }
+  const checks = round_check_order.map(id => grouped_checks.get(id));
 
   return {
     ok: checks.every(check => check.status !== 'fail'),
-    checks
+    checks,
+    harnesses
   };
 };
 

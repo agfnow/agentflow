@@ -1,6 +1,6 @@
 # STATUS
 
-Project: agentflow
+Project: agentflow-on-omarchy
 
 Notebook: .agentflow/devlog.md — root.
 
@@ -27,6 +27,7 @@ Streams: none.
 # → Ask / A-001
 
 + godev
++ 值得去做且合理的話，再把程式裡可能因為 model 進步而改變與幾乎不會因為 model 進步的 harness 分開
 
 ## [RUN-001] Event — 2026-09-05 15:56 (during round A-001)
 
@@ -50,3 +51,15 @@ Streams: none.
 - **Gate:** the worker inspected the candidate HEAD but returned Outcome, Minimality, Conformance, and Verdict BLOCKING; no PASS report was produced.
 - **Recovery:** the cross-check stage reached its fixed three-start ceiling; no further automatic review starts are permitted. The round remains open and no Reply was written.
 
+## [RUN-005] Event — 2026-09-06 00:57 (during round A-001)
+
+- **Route:** direct.
+- **Task start:** inspect the current harness boundaries and change history, then separate model-sensitive policy from model-stable mechanics only if a smaller boundary has a concrete maintenance benefit.
+- **Scope:** source, focused tests, required Agentflow records, and review evidence only; preserve the existing untracked Agentflow installation and unrelated work.
+
+## [RUN-006] Event — 2026-09-06 01:03 (during round A-001)
+
+- **Design result:** the split is justified by the repository's own distinction between model-dependent record hygiene and model-independent integrity boundaries; all existing checks remain enforced and the legacy flat result order remains compatible.
+- **Red proof:** `node --test harness-boundaries.test.js` failed because the two harness modules did not exist.
+- **Green proof:** elevated `node --test harness-boundaries.test.js round-linter.test.js` passed all 293 tests; `git diff --check` passed.
+- **Scope:** four new harness boundary/test files plus `round-linter.js`, its scripts README, and this required record; pre-existing `.agents/` and `skills-lock.json` remain untouched.

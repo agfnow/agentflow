@@ -14,6 +14,16 @@ not a general guarantee that code or a model claim is honest.
 
 - **`round-linter.js`** — host-neutral, no-AI validation of a completed round. Its `cross_check` gate refuses a completed implementation unless the named current-Ask report is a bounded regular file with standard worker boundaries, exactly one PASS each for Outcome, Minimality, and Conformance plus one overall PASS verdict, and the same final implementation commit recorded by the round. Matching pipeline acceptance may supply that report. Exact current-Ask `skip-review: <accepted tradeoff>` skips this review only. A valid report stamp with a different model or effort produces a warning. The gate does not request a model review for first-time Agentflow bookkeeping when Git proves that the repository has no product files and only Agentflow records, the bootstrap `ag.json`, and `.gitignore` were created.
 
+- **`model-sensitive-harness.js` / `model-stable-harness.js`** — partition every
+  `round-linter` check exactly once without changing the legacy flat result order.
+  Model-sensitive checks cover record-writing compatibility such as Reply,
+  checkpoint, tracker, and terminal-output conventions. Model-stable checks
+  cover evidence, authority, safety, filesystem, Git, artifact, and
+  configuration boundaries. Both groups remain mandatory; the split identifies
+  which maintenance decisions may respond to improved model instruction
+  following and prevents those decisions from weakening stable integrity gates.
+  `harness-group.js` enforces each group's declared check identity at runtime.
+
 - **`terminal-preflight.js`** — coordinator-run wrapper around the complete round linter. The Reply writer runs the same candidate check under its existing lock before notebook replacement and optional draft consumption. `notebook-write.js --input-stdin` accepts the complete WIP or Reply without creating a named draft file; the existing `--input <draft>` route remains compatible and consumes the unchanged draft after success. Run this wrapper before the terminal record commit; it prints every check and blocks terminal completion unless all required facts pass. The Stop hook independently checks the completed round again.
 
 - **`cross-check-plan.js`** — deterministic proportional-review selector. Give it a JSON facts file with changed paths, changed-line count, behavior, trust-boundary, breadth, and optional owner control; it returns `narrow`, `targeted`, `full`, or a valid explicit `skip` result and the exact reviewer obligations.
@@ -128,5 +138,5 @@ numbers, integers, strings, and arrays must retain their declared JSON types.
 Run from this directory:
 
 ```text
-node --test ag-settings.test.js agf.test.js alignment.test.js cross-check-plan.test.js delegation-route.test.js devlog-guard.test.js external-runner.test.js install-hook.test.js looper.test.js metrics.test.js prompt-compression.test.js queue-contract.test.js release.test.js resume-intake.test.js round-linter.test.js setup.test.js stop-hook.test.js suite-evidence.test.js terminal.test.js
+node --test ag-settings.test.js agf.test.js alignment.test.js cross-check-plan.test.js delegation-route.test.js devlog-guard.test.js external-runner.test.js harness-boundaries.test.js install-hook.test.js looper.test.js metrics.test.js prompt-compression.test.js queue-contract.test.js release.test.js resume-intake.test.js round-linter.test.js setup.test.js stop-hook.test.js suite-evidence.test.js terminal.test.js
 ```
