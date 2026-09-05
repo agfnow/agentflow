@@ -1,0 +1,17 @@
+{
+  "changed_files": [
+    ".agentflow/devlog.md",
+    "skills/agentflow/scripts/README.md",
+    "skills/agentflow/scripts/harness-boundaries.test.js",
+    "skills/agentflow/scripts/harness-group.js",
+    "skills/agentflow/scripts/model-sensitive-harness.js",
+    "skills/agentflow/scripts/model-stable-harness.js",
+    "skills/agentflow/scripts/round-linter.js"
+  ],
+  "changed_lines": 286,
+  "behavior_change": true,
+  "trust_boundary": false,
+  "broad_change": false,
+  "consequential_change": false,
+  "owner_control": "default"
+}
