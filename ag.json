@@ -1,0 +1,59 @@
+{
+  "schema-version": 7,
+  "switches": {
+    "target-doc": ".agentflow/devlog.md",
+    "workspace-dir": ".agentflow",
+    "cli-provider": "off",
+    "auto-reply": "on",
+    "lang": "en",
+    "streams": "ask",
+    "ask-names": "on",
+    "allow-ag": "on",
+    "metrics": "off",
+    "large-work-minutes": 120
+  },
+  "pipeline-roles": {
+    "requirements": "better",
+    "codewalk": "better",
+    "explore": "better",
+    "spike": "better",
+    "spec": "better",
+    "implementation": "basic",
+    "security-scan": "best",
+    "acceptance": "better",
+    "cross-check": "better",
+    "learn": "basic"
+  },
+  "external-workers": [
+    {
+      "id": "codex-default",
+      "command": [
+        "codex",
+        "exec"
+      ],
+      "priority": 3,
+      "family": "codex",
+      "tiers": {
+        "best": "gpt-5.6-sol/low",
+        "better": "gpt-5.6-terra/high",
+        "basic": "gpt-5.6-luna/max",
+        "cheap": "gpt-5.4/medium"
+      }
+    },
+    {
+      "id": "claude-default",
+      "command": [
+        "claude",
+        "-p"
+      ],
+      "priority": 3,
+      "family": "claude",
+      "tiers": {
+        "best": "claude-opus-5/high",
+        "better": "claude-opus-4-6/high",
+        "basic": "claude-sonnet-5/high",
+        "cheap": "haiku/high"
+      }
+    }
+  ]
+}
