@@ -7,7 +7,7 @@ const { format_local_timestamp, parse_numeric_timestamp } = require('./local-tim
 const MAX_BYTES = 64 * 1024
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex')
 const encode = record => JSON.stringify(record, null, 2) + '\n'
-const metadata_field = /^(?:Cross-check implementation|Cross-check review|Host review|Informational document|Non-behavioral change):/imu
+const metadata_field = /^(?:Cross-check implementation|Cross-check review|Review record|Host review|Informational document|Non-behavioral change):/imu
 const writer = () => require('./notebook-write')
 
 // Bind evidence to the authored report, allowing writer stamps and later owner answers.
@@ -193,6 +193,19 @@ const archive_facts = (info, hash) => {
 }
 
 const publish_reply = (reply, options) => {
+  if (!options?.read_only) {
+    const owner = require('./notebook-owner');
+    if (!options?.ownership) {
+      const root = fs.realpathSync(options.project_root);
+      const file = writer().resolve_path(root, options.notebook_path, 'notebook');
+      const lock = writer().acquire_close_round_lock(`${file}.close-round.lock`);
+      try {
+        const ownership = owner.guard({ root, notebook: options.notebook_path, ask: options.ask, host: options.host, session: options.session });
+        return publish_reply(reply, { ...options, ownership });
+      } finally { writer().release_close_round_lock(lock); }
+    }
+    owner.verify(options.ownership, { root: options.project_root, notebook: options.notebook_path, ask: options.ask, active: true });
+  }
   const { completion_metadata } = require('./round-linter')
   const span = fence_span(reply)
   if (!span) {
@@ -256,4 +269,71 @@ const publish_reply = (reply, options) => {
   return published
 }
 
-module.exports = { location, read_metadata, publish_reply }
+// These are observed review facts, not an isolation or authentication service.
+// Legacy external reports keep their original validation path.
+const validate_review_record = (record, policy = {}) => {
+  const text = value => typeof value === 'string' && value.trim().length > 0
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value)
+  if (!object(record) || record.version !== 1) return 'review record must use version 1'
+  const kinds = { 'external-review': 'external', 'native-review': 'internal', 'host-review': 'host' }
+  const kind = kinds[record.kind]
+  if (!kind) return 'review kind must be external-review, native-review or host-review'
+  const allowed = policy.allowed_worker || ['external', 'host']
+  if (!Array.isArray(allowed) || !allowed.length || new Set(allowed).size !== allowed.length || !allowed.every(value => ['external', 'internal', 'host'].includes(value))) return 'review needs a valid executor policy'
+  if (policy.review_policy !== undefined && !['prefer-independent', 'require-independent'].includes(policy.review_policy)) return 'review policy is invalid'
+  if (!allowed.includes(kind)) return `review executor ${kind} is not permitted`
+  if (!text(record.reviewer) || !text(record.host) || !text(record.report)) return 'review needs reviewer, host and report identities'
+  if (!Array.isArray(record.limitations) || !record.limitations.every(text)) return 'review limitations must be an explicit list'
+  if (!object(record.verdicts) || !['outcome', 'minimality', 'conformance'].every(key => record.verdicts[key] === 'PASS')) return 'review requires Outcome, Minimality and Conformance PASS'
+  const independence = record.independence
+  if (!object(independence) || typeof independence.separate_reviewer !== 'boolean'
+      || !['shared', 'fresh', 'unknown'].includes(independence.context)
+      || !['shared', 'restricted', 'unknown'].includes(independence.permissions)
+      || !['same', 'different', 'unknown'].includes(independence.family)
+      || ![true, false, 'unknown'].includes(independence.read_only_enforced)) return 'review must distinguish separation, context, permissions, family and read-only enforcement'
+  if (policy.enforced_read_only_required === true && independence.read_only_enforced !== true) return 'required read-only enforcement is not proven'
+  if (policy.fresh_context_required === true && independence.context !== 'fresh') return 'required fresh review context is not proven'
+  if (kind === 'host') {
+    if (record.reviewer !== record.host || independence.separate_reviewer !== false) return 'host review cannot claim a separate reviewer'
+    if (policy.review_policy !== 'prefer-independent' || policy.independent_required === true) return 'independent review is required; host review cannot satisfy it'
+    if (!Array.isArray(record.unavailable)) return 'host review must record separate-review unavailability'
+    for (const candidate of allowed.filter(value => value !== 'host')) {
+      const reasons = record.unavailable.filter(value => object(value) && value.kind === candidate && text(value.reason))
+      if (reasons.length !== 1) return `host review needs one unavailability reason for ${candidate}`
+    }
+    if (!record.limitations.length) return 'host review must disclose its independence limitation'
+  } else {
+    if (record.reviewer === record.host || independence.separate_reviewer !== true) return 'separate review requires a different reviewer identity'
+    if (!object(record.transport)) return 'separate review needs observed transport facts'
+    if (kind === 'internal' && (!text(record.transport.tool) || record.transport.handle !== record.reviewer)) return 'native review needs its actual tool and matching thread handle'
+    if (kind === 'external' && (record.transport.runner_id !== 'external-runner-v1' || !text(record.transport.clone))) return 'external review needs runner and clone facts'
+  }
+  if (independence.read_only_enforced === true && (!object(record.transport) || !text(record.transport.read_only_proof))) return 'enforced read-only claim needs observed enforcement evidence'
+  if (independence.context === 'fresh' && (!object(record.transport) || !text(record.transport.context_proof))) return 'fresh context claim needs observed context evidence'
+  const source = record.source
+  if (!object(source)) return 'review needs a source identity'
+  if (source.kind === 'git') {
+    if (!/^[a-f0-9]{40}$/u.test(source.commit || '')) return 'review requires an exact Git commit'
+  } else if (source.kind === 'no-git') {
+    if (!Array.isArray(source.files) || source.files.length === 0 || source.files.length > 128) return 'no-Git review needs a bounded declared file manifest'
+    const names = new Set()
+    for (const file of source.files) {
+      if (!object(file) || !text(file.path) || names.has(file.path) || !/^[a-f0-9]{64}$/u.test(file.sha256 || '')) return 'no-Git source files need unique paths and SHA-256 identities'
+      names.add(file.path)
+    }
+    if (Object.hasOwn(source, 'commit')) return 'no-Git review must not invent a commit'
+  } else return 'review source kind must be git or no-git'
+  return null
+}
+
+const verify_review_files = (root, source) => {
+  for (const file of source.files) {
+    const absolute = safe_path(root, file.path)
+    const first = writer().read_regular_file(absolute, 'review source')
+    const second = writer().read_regular_file(absolute, 'review source')
+    if (first.hash !== file.sha256 || first.hash !== second.hash || JSON.stringify(first.identity) !== JSON.stringify(second.identity)) throw Error(`review source changed: ${file.path}`)
+  }
+  return digest(JSON.stringify(source.files))
+}
+
+module.exports = { location, read_metadata, publish_reply, validate_review_record, verify_review_files }

@@ -10,6 +10,9 @@ const { execFileSync, spawnSync } = require('node:child_process')
 const agf = require('./agf.js')
 const ag_settings = require('./ag-settings.js')
 const setup = require('./setup.js')
+const ownership_fixture = require('./fixtures/notebook-owner')
+ownership_fixture.configure()
+process.env.AGF_TEST_CONTEXT = '1'
 const install_hook = require('./install-hook.js')
 const { format_local_timestamp } = require('./local-time.js')
 
@@ -144,7 +147,10 @@ test('start argument parsing requires an explicit host, repository, and message 
 	})
 	assert.match(agf.parse_start_args(['--host', 'codex']).error, /repo/i)
 	assert.match(agf.parse_start_args(['--repo', '/tmp/repo', '--host', 'codex']).error, /message-stdin/i)
-	assert.match(agf.parse_start_args(['--repo', '/tmp/repo', '--host', 'other', '--message-stdin']).error, /host/i)
+	assert.deepEqual(agf.parse_start_args(['--repo', '/tmp/repo', '--host', 'example-agent', '--message-stdin']), {
+		repo: '/tmp/repo', host: 'example-agent', message_stdin: true, json: false,
+	})
+	assert.match(agf.parse_start_args(['--repo', '/tmp/repo', '--host', 'not safe!', '--message-stdin']).error, /host/i)
 })
 
 test('start combines initialization, exact owner input, intake, and structured JSON', () => {
@@ -168,7 +174,7 @@ test('start combines initialization, exact owner input, intake, and structured J
 		assert.equal(output.next_run_id, 'RUN-001')
 		assert.deepEqual(output.changed_paths.sort(), ['.agentflow/devlog.md', '.gitignore', 'ag.json'])
 		assert.equal(output.configuration.path, 'ag.json')
-		assert.equal(output.configuration.language, 'en')
+		assert.equal(output.configuration.language, ag_settings.detect_initial_language() || 'en-us')
 		assert.match(output.local_timestamp, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}$/u)
 		assert.deepEqual(output.stream_decision.reason, 'bootstrap_files_only')
 		assert.equal(Object.hasOwn(output, 'setup'), false)
@@ -258,21 +264,21 @@ for (const host of ['codex', 'claude']) test(`start treats bare godev as activat
 	execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: dir })
 	execFileSync('git', ['config', 'user.name', 'Agentflow Test'], { cwd: dir })
 	try {
-		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', host, '--message-stdin', '--json'], {
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', host, '--session', ownership_fixture.session, '--message-stdin', '--json'], {
 			cwd: dir, input: 'godev\n', encoding: 'utf8',
 		})
 		assert.equal(result.status, 0, result.stderr)
 		const output = JSON.parse(result.stdout)
 		assert.deepEqual(output.message, { inserted: false, reason: 'activation_only' })
-		assert.equal(output.configuration?.language, 'en')
-		assert.deepEqual(Object.keys(output).sort(), ['configuration', 'git', 'hooks_restart_required', 'message', 'notebook', 'repository', 'setup_created', 'setup_created_files'])
+		assert.equal(output.configuration?.language, ag_settings.detect_initial_language() || 'en-us')
+		assert.deepEqual(Object.keys(output).sort(), ['active_host', 'configuration', 'git', 'hooks_restart_required', 'message', 'notebook', 'repository', 'setup_created', 'setup_created_files'])
 		assert.match(fs.readFileSync(path.join(dir, '.agentflow/devlog.md'), 'utf8'), /# → Ask \/ A-001(?: \([^\r\n)]+\))?\n\n\+ ?\n$/u)
 		assert.ok(Buffer.byteLength(result.stdout) < 1024, `startup output was ${Buffer.byteLength(result.stdout)} bytes`)
 		const config_path = path.join(dir, 'ag.json')
 		const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
 		config.switches.lang = 'zh-tw'
 		fs.writeFileSync(config_path, JSON.stringify(config, null, 2) + '\n')
-		const repeated = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', host, '--message-stdin', '--json'], {
+		const repeated = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', host, '--session', ownership_fixture.session, '--message-stdin', '--json'], {
 			cwd: dir, input: 'godev\n', encoding: 'utf8',
 		})
 		assert.equal(repeated.status, 0, repeated.stderr)
@@ -291,6 +297,7 @@ test('start reports an existing Ask when bare godev resumes written owner conten
 		ag_settings.initialize_project({ repo_root: dir, active_host: 'codex' })
 		const notebook = path.join(dir, '.agentflow/devlog.md')
 		fs.writeFileSync(notebook, fs.readFileSync(notebook, 'utf8').replace(/\n\+ ?\n$/u, '\n+ written owner request\n'))
+		ownership_fixture.adopt(dir, '.agentflow/devlog.md')
 		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json'], {
 			cwd: dir, input: 'godev\n', encoding: 'utf8',
 		})
@@ -305,7 +312,7 @@ test('start reports an existing Ask when bare godev resumes written owner conten
 
 		const config_path = path.join(dir, 'ag.json')
 		const changed_config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
-		changed_config.switches.streams = 'off'
+		changed_config.switches['allow-ag'] = changed_config.switches['allow-ag'] === 'on' ? 'off' : 'on'
 		fs.writeFileSync(config_path, `${JSON.stringify(changed_config, null, 2)}\n`)
 		const changed = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json'], {
 			cwd: dir, input: 'godev\n', encoding: 'utf8',
@@ -332,8 +339,8 @@ test('start preserves the first scope baseline when bare godev resumes an existi
 		const start_args = [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json']
 		const first = spawnSync(process.execPath, start_args, { cwd: dir, input: 'continue the work\n', encoding: 'utf8' })
 		assert.equal(first.status, 0, first.stderr)
-		const receipt_name = fs.readdirSync(path.join(dir, '.codex')).find(name => name.startsWith('agentflow-input-'))
-		const receipt_path = path.join(dir, '.codex', receipt_name)
+		const receipt_name = fs.readdirSync(path.join(dir, '.agentflow', '.tmp')).find(name => name.startsWith('agentflow-input-'))
+		const receipt_path = path.join(dir, '.agentflow', '.tmp', receipt_name)
 		const first_scope = JSON.parse(fs.readFileSync(receipt_path, 'utf8')).scope
 		assert.ok(first_scope.paths['owner.js'])
 		fs.writeFileSync(path.join(dir, 'later.js'), 'module.exports = "later";\n')
@@ -544,6 +551,7 @@ for (const command of ['init', 'start']) for (const first_host of ['codex', 'cla
 		for (const markers of Object.values(ag_settings.host_markers)) for (const marker of markers) delete env[marker]
 		env[ag_settings.host_markers[host][0]] = '1'
 		const args = command === 'start' ? ['start', '--repo', dir, '--host', host, '--message-stdin', '--json'] : ['init']
+		if (command === 'start') args.push('--session', '1')
 		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), ...args], { cwd: dir, env, input: 'host selection regression\n', encoding: 'utf8' })
 		assert.equal(result.status, 0, result.stderr)
 	}
@@ -555,6 +563,7 @@ for (const command of ['init', 'start']) for (const first_host of ['codex', 'cla
 		run(hosts[0])
 		assert.equal(fs.readFileSync(first_path, 'utf8'), original)
 		assert.equal(fs.existsSync(path.join(dir, '.' + hosts[1])), false)
+		if (command === 'start') ownership_fixture.adopt(dir, '.agentflow/devlog.md', hosts[1], '1')
 		run(hosts[1])
 		assert.ok(fs.existsSync(install_hook.config_path_for(hosts[1], 'project', dir)))
 		assert.equal(fs.readFileSync(first_path, 'utf8'), original)
@@ -623,7 +632,7 @@ test('devlog_template writes STATUS, backlink and one empty Ask when there is no
 	assert.ok(out.includes('Project: ag — the skill'))
 	assert.ok(out.includes('Feature: search-page — active — 搜尋頁'))
 	assert.ok(out.includes('Backlink: main notebook `devlog.md`'))
-	assert.ok(out.includes('Configuration: features/search-page/ag.json — schema v7; validated for codex this round.'))
+	assert.ok(out.includes('Configuration: features/search-page/ag.json — schema v8; validated for codex this round.'))
 	assert.ok(!out.includes('Settings:'))
 	assert.ok(out.includes('# → Ask / A-001'))
 	assert.ok(!out.includes('A-002'))
@@ -778,6 +787,7 @@ const close_fixture = ({ remote = false } = {}) => {
 	})}---\n\n# → Ask / A-001\n\n+ finish the round\n`)
 	fixture.run(['add', '-A'])
 	fixture.run(['commit', '-m', 'close fixture'])
+	ownership_fixture.adopt(fixture.dir, 'devlog.md')
 	return fixture
 }
 
@@ -876,7 +886,7 @@ test('close performs one local notebook replacement and one scoped commit, then 
 		assert.equal((closed.match(/# ← Reply \/ A-001/g) || []).length, 1)
 		assert.match(closed, /# → Ask \/ A-002(?: \([^\r\n)]+\))?\n\n\+\n$/u)
 		assert.match(closed, /Notebook: devlog\.md — root\./u)
-		assert.match(closed, /Configuration: ag\.json — schema v7; validated for codex this round\./u)
+		assert.match(closed, /Configuration: ag\.json — schema v8; validated for codex this round\./u)
 		assert.match(closed, /Archived eras: none\./u)
 		assert.match(closed, /Streams: none\./u)
 		assert.equal(fixture.run(['status', '--porcelain']).trim(), '')
@@ -1074,7 +1084,7 @@ test('close preserves unrelated unstaged edits and untracked files outside its c
 	}
 })
 
-test('close scope preserves large outside moves and rejects changed exclusions, retries and later commits', () => {
+test('close scope preserves outside ownership during continued edits but reviews new, candidate and committed paths', () => {
 	const fixture = close_fixture()
 	const writer = require('./notebook-write')
 	const stop = () => spawnSync(process.execPath, [path.join(__dirname, 'stop-hook.js'), '--host', 'codex'], {
@@ -1086,18 +1096,45 @@ test('close scope preserves large outside moves and rejects changed exclusions, 
 	try {
 		const bytes = Buffer.alloc(2 * 1024 * 1024, 97)
 		fs.writeFileSync(path.join(fixture.dir, 'old-history.md'), bytes)
-		fixture.run(['add', '--', 'old-history.md'])
+		const notes = path.join(fixture.dir, 'owner-notes.md')
+		fs.writeFileSync(notes, 'committed notes\n')
+		const task_file = path.join(fixture.dir, 'task.js')
+		fs.writeFileSync(task_file, 'module.exports = 0;\n')
+		fixture.run(['add', '--', 'old-history.md', 'owner-notes.md', 'task.js'])
 		fixture.run(['commit', '-qm', 'old artifact'])
+		fs.writeFileSync(notes, 'notes at intake\n')
+		fs.writeFileSync(task_file, 'module.exports = 1;\n')
 		writer.append_input({ root: fixture.dir, notebook: 'devlog.md', text: 'complete the scoped closeout', host: 'codex' })
+		fs.writeFileSync(task_file, 'module.exports = 0;\n')
+		fs.writeFileSync(notes, 'notes at close\n')
 		fs.renameSync(path.join(fixture.dir, 'old-history.md'), path.join(fixture.dir, 'moved-history.md'))
+		const commit_hook = path.join(fixture.dir, '.git', 'hooks', 'pre-commit')
+		fs.writeFileSync(commit_hook, "#!/bin/sh\nprintf '%s\\n' 'notes during close' > owner-notes.md\n", { mode: 0o755 })
 		const manifest = close_manifest(fixture.dir)
+		manifest.allowed_paths.push('task.js')
 		const first = close(manifest)
 		assert.equal(first.status, 0, first.stdout + first.stderr)
+		fs.unlinkSync(commit_hook)
 		const first_stop = stop()
 		assert.equal(first_stop.status, 0, first_stop.stderr)
+		assert.equal(fs.readFileSync(notes, 'utf8'), 'notes during close\n')
+		assert.deepEqual(fixture.run(['show', '--pretty=', '--name-only', 'HEAD']).trim().split('\n'), ['devlog.md'])
+		fs.writeFileSync(task_file, 'module.exports = 1;\n')
+		assert.equal(stop().status, 2, 'a task-owned path cannot reuse its old intake exclusion after close')
+		fs.writeFileSync(task_file, 'module.exports = 0;\n')
+		const candidate = require('./completion-context').collect({
+			project_root: fixture.dir, notebook_path: 'devlog.md', active_host: 'codex',
+			devlog_text: fs.readFileSync(path.join(fixture.dir, 'devlog.md'), 'utf8'), candidate_paths: ['owner-notes.md'],
+		})
+		assert.ok(candidate.review_decision.changed_files.includes('owner-notes.md'), 'candidate paths cannot inherit an outside exclusion')
+		assert.equal(candidate.review_decision.status, 'required')
+		fs.writeFileSync(notes, 'notes at intake\n')
+		assert.equal(stop().status, 0, 'continued edits do not transfer outside-file ownership to the completed task')
+		fs.writeFileSync(notes, 'notes at close\n')
+		assert.equal(stop().status, 0)
 		assert.deepEqual(fs.readFileSync(path.join(fixture.dir, 'moved-history.md')), bytes)
 		assert.equal(close(manifest).status, 0)
-		const receipt = path.join(fixture.dir, '.codex', fs.readdirSync(path.join(fixture.dir, '.codex')).find(file => file.startsWith('agentflow-input-')))
+		const receipt = path.join(fixture.dir, '.agentflow', '.tmp', fs.readdirSync(path.join(fixture.dir, '.agentflow', '.tmp')).find(file => file.startsWith('agentflow-input-')))
 		const saved = fs.readFileSync(receipt, 'utf8')
 		for (const corrupt of [data => { delete data.scope.close }, data => { data.scope.close.commit = 'f'.repeat(40) }, data => { data.scope.close.notebook_hash = '0'.repeat(64) }, data => { data.scope.close.paths = [] }, data => { data.repository = '/wrong-repository' }]) {
 			const data = JSON.parse(saved)
@@ -1107,17 +1144,25 @@ test('close scope preserves large outside moves and rejects changed exclusions, 
 		}
 		fs.writeFileSync(receipt, saved)
 		fixture.run(['add', '--', 'moved-history.md'])
-		assert.equal(stop().status, 2, 'index changes invalidate the saved identity')
+		assert.equal(stop().status, 0, 'staging outside work does not put it in the completed task')
 		fixture.run(['restore', '--staged', '--', 'moved-history.md'])
 		fs.appendFileSync(path.join(fixture.dir, 'moved-history.md'), 'later change')
-		assert.equal(stop().status, 2)
-		assert.notEqual(close(manifest).status, 0, 'retry must not recapture changed outside work')
+		assert.equal(stop().status, 0)
+		assert.equal(close(manifest).status, 0, 'retry reuses established outside ownership')
+		assert.equal(fs.readFileSync(receipt, 'utf8'), saved, 'retry must not rewrite the captured scope')
 		fs.writeFileSync(path.join(fixture.dir, 'moved-history.md'), bytes)
 		assert.equal(stop().status, 0)
+		const preserved_notes = path.join(fixture.dir, '.git', 'preserved-notes')
+		fs.renameSync(notes, preserved_notes)
+		assert.equal(stop().status, 0, 'deletion remains outside the completed task')
+		fs.symlinkSync(preserved_notes, notes)
+		assert.equal(stop().status, 2, 'recorded ownership must not bypass unsafe path checks')
+		fs.unlinkSync(notes)
+		fs.renameSync(preserved_notes, notes)
 		fs.writeFileSync(path.join(fixture.dir, 'new-unreviewed.js'), 'new work\n')
 		assert.equal(stop().status, 2)
 		fs.renameSync(path.join(fixture.dir, 'new-unreviewed.js'), path.join(fixture.dir, '.git', 'new-unreviewed.js'))
-		fixture.run(['add', '--', 'old-history.md', 'moved-history.md'])
+		fixture.run(['add', '--', 'old-history.md', 'moved-history.md', 'owner-notes.md'])
 		fixture.run(['commit', '-qm', 'owner commits outside move'])
 		assert.equal(stop().status, 2, 'committed changes remain conservative until the next Ask')
 	} finally {
@@ -1143,6 +1188,60 @@ test('authorized push fetches and verifies a local remote without force', () => 
 	} finally {
 		fs.rmSync(fixture.dir, { recursive: true, force: true })
 		if (fixture.bare) fs.rmSync(fixture.bare, { recursive: true, force: true })
+	}
+})
+
+test('delivery retry uses the saved closeout commit after the next Ask is captured', () => {
+	const fixture = close_fixture({ remote: true })
+	const reject = path.join(fixture.bare, 'hooks', 'pre-receive')
+	try {
+		fs.writeFileSync(reject, '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+		const manifest = close_manifest(fixture.dir, { mode: 'push', remote: 'origin', branch: 'main' })
+		const first = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'close', '--manifest-stdin', '--push-authorized'], {
+			cwd: fixture.dir, input: JSON.stringify(manifest), encoding: 'utf8',
+		})
+		assert.notEqual(first.status, 0)
+		const original = JSON.parse(first.stdout).commit.sha
+		require('./notebook-write').append_input({ root: fixture.dir, notebook: 'devlog.md', host: 'codex', session: ownership_fixture.session, text: 'next Ask arrived during delivery' })
+		fs.unlinkSync(reject)
+		const retry = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'close', '--manifest-stdin', '--push-authorized'], {
+			cwd: fixture.dir, input: JSON.stringify(manifest), encoding: 'utf8',
+		})
+		assert.equal(retry.status, 0, `${retry.stdout}\n${retry.stderr}`)
+		const output = JSON.parse(retry.stdout)
+		assert.equal(output.commit.sha, original)
+		assert.equal(output.delivery.remote_sha, original)
+		assert.match(fs.readFileSync(path.join(fixture.dir, 'devlog.md'), 'utf8'), /next Ask arrived during delivery/)
+	} finally {
+		drop(fixture.dir, fixture.bare)
+	}
+})
+
+test('delivery retry refuses a trailer-only close commit when verified receipt evidence is absent', () => {
+	const fixture = close_fixture({ remote: true })
+	const reject = path.join(fixture.bare, 'hooks', 'pre-receive')
+	try {
+		fs.writeFileSync(reject, '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+		const manifest = close_manifest(fixture.dir, { mode: 'push', remote: 'origin', branch: 'main' })
+		const first = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'close', '--manifest-stdin', '--push-authorized'], {
+			cwd: fixture.dir, input: JSON.stringify(manifest), encoding: 'utf8',
+		})
+		assert.notEqual(first.status, 0)
+		const close_receipt = fs.readdirSync(path.join(fixture.dir, '.agentflow', '.tmp')).find(file => file.endsWith('.close.json'))
+		assert.ok(close_receipt)
+		fs.unlinkSync(path.join(fixture.dir, '.agentflow', '.tmp', close_receipt))
+		require('./notebook-write').append_input({ root: fixture.dir, notebook: 'devlog.md', host: 'codex', session: ownership_fixture.session, text: 'new Ask must keep ownership' })
+		fs.unlinkSync(reject)
+		const remote_before = fixture.run(['ls-remote', 'origin', 'refs/heads/main']).split('\t')[0]
+
+		const retry = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'close', '--manifest-stdin', '--push-authorized'], {
+			cwd: fixture.dir, input: JSON.stringify(manifest), encoding: 'utf8',
+		})
+
+		assert.notEqual(retry.status, 0)
+		assert.equal(fixture.run(['ls-remote', 'origin', 'refs/heads/main']).split('\t')[0], remote_before)
+	} finally {
+		drop(fixture.dir, fixture.bare)
 	}
 })
 
@@ -1231,6 +1330,15 @@ const child_process = require('node:child_process')
 const fs = require('node:fs')
 const real_git = ${JSON.stringify(real_git)}
 const args = process.argv.slice(2)
+if (${JSON.stringify(mode === 'local-delete-race')} && args[0] === 'update-ref' && args.includes('-d') && args.includes('refs/heads/login-page')) {
+  child_process.execFileSync(real_git, ['update-ref', 'refs/heads/login-page', process.env.AGF_TEST_UNVALIDATED_TIP])
+}
+if (${JSON.stringify(mode === 'remote-delete-race')} && args[0] === 'push' && args.includes(':refs/heads/login-page')) {
+  child_process.execFileSync(real_git, ['push', args[1], process.env.AGF_TEST_UNVALIDATED_TIP + ':refs/heads/login-page'])
+}
+if (${JSON.stringify(mode === 'inspection-failure')} && args[0] === 'for-each-ref' && args.includes('refs/heads/login-page')) process.exit(1)
+if (${JSON.stringify(mode === 'remote-inspection-failure')} && args[0] === 'ls-remote') process.exit(1)
+if (${JSON.stringify(mode === 'worktree-removal-failure')} && args[0] === 'worktree' && args[1] === 'remove') process.exit(1)
 const race_before_replace = ${JSON.stringify(mode === 'race-before-replace')}
 const is_head_identity = args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === 'HEAD'
 if (race_before_replace && is_head_identity) {
@@ -1274,6 +1382,12 @@ process.exit(result.status === null ? 1 : result.status)
 
 test('new opens branch, worktree, notebook and commit in a real repo', () => {
 	const { dir, run } = make_repo()
+	const root_config_path = path.join(dir, 'ag.json')
+	const root_config = JSON.parse(fs.readFileSync(root_config_path, 'utf8'))
+	root_config.switches['auto-reply'] = 'on'
+	fs.writeFileSync(root_config_path, `${JSON.stringify(root_config, null, 2)}\n`)
+	run(['add', 'ag.json'])
+	run(['commit', '-m', 'configure auto reply'])
 	const logs = []
 	const r = agf.main(['new', '搜尋頁', 'search-page'], dir, (m) => logs.push(m))
 
@@ -1285,6 +1399,7 @@ test('new opens branch, worktree, notebook and commit in a real repo', () => {
 	assert.equal(stream_config.switches['target-doc'], '.agentflow/features/search-page/search-page.devlog.md')
 	assert.equal(stream_config.switches['auto-reply'], 'on')
 	assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'ag.json'), 'utf8')).switches['target-doc'], 'devlog.md')
+	assert.equal(JSON.parse(fs.readFileSync(root_config_path, 'utf8')).switches['auto-reply'], 'on')
 	assert.ok(run(['branch', '--list', 'search-page']).includes('search-page'))
 	assert.equal(run(['status', '--porcelain'], r.dir).trim(), '')
 	assert.ok(logs.some((l) => l.includes('no remote configured')))
@@ -1421,10 +1536,10 @@ test('two parallel streams get independent adjacent configurations', () => {
 		const first_config_path = path.join(first, '.agentflow/features/search-page/ag.json')
 		const second_config_path = path.join(second, '.agentflow/features/billing-page/ag.json')
 		const root_config_path = path.join(dir, 'ag.json')
-		ag_settings.change_configuration(first_config_path, ['auto-reply: off'], { repo_root: first, active_host: 'codex', executables: ['codex', 'claude'] })
-		assert.equal(JSON.parse(fs.readFileSync(first_config_path, 'utf8')).switches['auto-reply'], 'off')
-		assert.equal(JSON.parse(fs.readFileSync(second_config_path, 'utf8')).switches['auto-reply'], 'on')
-		assert.equal(JSON.parse(fs.readFileSync(root_config_path, 'utf8')).switches['auto-reply'], 'on')
+		ag_settings.change_configuration(first_config_path, ['auto-reply: on'], { repo_root: first, active_host: 'codex', executables: ['codex', 'claude'] })
+		assert.equal(JSON.parse(fs.readFileSync(first_config_path, 'utf8')).switches['auto-reply'], 'on')
+		assert.equal(JSON.parse(fs.readFileSync(second_config_path, 'utf8')).switches['auto-reply'], 'off')
+		assert.equal(JSON.parse(fs.readFileSync(root_config_path, 'utf8')).switches['auto-reply'], 'off')
 	} finally {
 		drop(dir)
 	}
@@ -2172,6 +2287,90 @@ test('Git diagnostics remove terminal data and URL userinfo', () => {
 	assert.equal(agf.sanitize_diagnostic(raw), 'remote https://[redacted]@example.test/repo')
 })
 
+test('public Git timeout accepts a value above the legacy cap and wins over the test override', () => {
+	const previous_public = process.env.AGF_GIT_TIMEOUT_MS
+	const previous_test = process.env.AGF_TEST_GIT_TIMEOUT_MS
+	try {
+		process.env.AGF_GIT_TIMEOUT_MS = '60000'
+		process.env.AGF_TEST_GIT_TIMEOUT_MS = '7'
+		assert.equal(agf.git_timeout_ms(), 60000)
+	} finally {
+		if (previous_public === undefined) delete process.env.AGF_GIT_TIMEOUT_MS
+		else process.env.AGF_GIT_TIMEOUT_MS = previous_public
+		if (previous_test === undefined) delete process.env.AGF_TEST_GIT_TIMEOUT_MS
+		else process.env.AGF_TEST_GIT_TIMEOUT_MS = previous_test
+	}
+})
+
+test('invalid public Git timeout values fall back while the test override remains compatible', () => {
+	const previous_public = process.env.AGF_GIT_TIMEOUT_MS
+	const previous_test = process.env.AGF_TEST_GIT_TIMEOUT_MS
+	try {
+		delete process.env.AGF_TEST_GIT_TIMEOUT_MS
+		for (const value of ['', '0', '-1', '12.5', 'not-a-number']) {
+			process.env.AGF_GIT_TIMEOUT_MS = value
+			assert.equal(agf.git_timeout_ms(), 30000, `invalid public value ${JSON.stringify(value)}`)
+		}
+		process.env.AGF_GIT_TIMEOUT_MS = 'not-a-number'
+		process.env.AGF_TEST_GIT_TIMEOUT_MS = '7'
+		assert.equal(agf.git_timeout_ms(), 7)
+	} finally {
+		if (previous_public === undefined) delete process.env.AGF_GIT_TIMEOUT_MS
+		else process.env.AGF_GIT_TIMEOUT_MS = previous_public
+		if (previous_test === undefined) delete process.env.AGF_TEST_GIT_TIMEOUT_MS
+		else process.env.AGF_TEST_GIT_TIMEOUT_MS = previous_test
+	}
+})
+
+test('configured Git timeout stays scoped to each repository and stream', () => {
+	const first = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-timeout-first-')))
+	const second = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-timeout-second-')))
+	const previous_public = process.env.AGF_GIT_TIMEOUT_MS
+	const previous_test = process.env.AGF_TEST_GIT_TIMEOUT_MS
+	try {
+		delete process.env.AGF_GIT_TIMEOUT_MS
+		delete process.env.AGF_TEST_GIT_TIMEOUT_MS
+		for (const [repo, timeout] of [[first, 11000], [second, 22000]]) {
+			fs.mkdirSync(path.join(repo, '.git'))
+			const config = ag_settings.make_template('codex')
+			config.switches['git-timeout-ms'] = timeout
+			fs.writeFileSync(path.join(repo, 'ag.json'), `${JSON.stringify(config, null, 2)}\n`)
+		}
+		assert.equal(agf.git_timeout_ms(first), 11000)
+		assert.equal(agf.git_timeout_ms(path.join(first, 'nested')), 11000)
+		assert.equal(agf.git_timeout_ms(second), 22000)
+		process.env.AGF_GIT_TIMEOUT_MS = '55000'
+		assert.equal(agf.git_timeout_ms(first), 55000)
+		process.env.AGF_GIT_TIMEOUT_MS = 'invalid'
+		assert.equal(agf.git_timeout_ms(first), 11000)
+		delete process.env.AGF_GIT_TIMEOUT_MS
+		const independent = path.join(first, 'independent')
+		fs.mkdirSync(path.join(independent, '.git'), { recursive: true })
+		assert.equal(agf.git_timeout_ms(independent), 30000)
+
+		const stream = path.join(first, '.worktrees', 'search-page')
+		fs.mkdirSync(path.join(stream, '.agentflow', 'features', 'search-page'), { recursive: true })
+		fs.writeFileSync(path.join(stream, '.git'), 'gitdir: ../.git/worktrees/search-page\n')
+		fs.copyFileSync(path.join(first, 'ag.json'), path.join(stream, 'ag.json'))
+		const stream_config = ag_settings.make_template('codex')
+		stream_config.switches['git-timeout-ms'] = 33000
+		fs.writeFileSync(path.join(stream, '.agentflow', 'features', 'search-page', 'ag.json'), `${JSON.stringify(stream_config, null, 2)}\n`)
+		assert.equal(agf.git_timeout_ms(stream), 33000)
+		fs.renameSync(path.join(stream, '.agentflow'), path.join(stream, 'work..space'))
+		const bootstrap = JSON.parse(fs.readFileSync(path.join(stream, 'ag.json'), 'utf8'))
+		bootstrap.switches['workspace-dir'] = 'work..space'
+		fs.writeFileSync(path.join(stream, 'ag.json'), JSON.stringify(bootstrap))
+		assert.equal(agf.git_timeout_ms(stream), 33000, 'valid custom workspace names use their stream timeout')
+	} finally {
+		if (previous_public === undefined) delete process.env.AGF_GIT_TIMEOUT_MS
+		else process.env.AGF_GIT_TIMEOUT_MS = previous_public
+		if (previous_test === undefined) delete process.env.AGF_TEST_GIT_TIMEOUT_MS
+		else process.env.AGF_TEST_GIT_TIMEOUT_MS = previous_test
+		fs.rmSync(first, { recursive: true, force: true })
+		fs.rmSync(second, { recursive: true, force: true })
+	}
+})
+
 test('CLI diagnostics remove carriage-return overwrite text while preserving line feeds', () => {
 	const raw = 'trusted status\rOVERWRITE\nnext line'
 	const sanitized = agf.sanitize_diagnostic(raw)
@@ -2208,6 +2407,27 @@ test('Git timeout override can lower the deadline but cannot raise the thirty-se
 	}
 })
 
+test('the internal timeout override is ignored outside an explicit test context', () => {
+	const previous_context = process.env.AGF_TEST_CONTEXT
+	const previous_test = process.env.AGF_TEST_GIT_TIMEOUT_MS
+	const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-timeout-isolation-')))
+	try {
+		delete process.env.AGF_TEST_CONTEXT
+		process.env.AGF_TEST_GIT_TIMEOUT_MS = '7'
+		fs.mkdirSync(path.join(repo, '.git'))
+		const config = ag_settings.make_template('codex')
+		config.switches['git-timeout-ms'] = 11000
+		fs.writeFileSync(path.join(repo, 'ag.json'), `${JSON.stringify(config)}\n`)
+		assert.equal(agf.git_timeout_ms(repo), 11000)
+	} finally {
+		if (previous_context === undefined) delete process.env.AGF_TEST_CONTEXT
+		else process.env.AGF_TEST_CONTEXT = previous_context
+		if (previous_test === undefined) delete process.env.AGF_TEST_GIT_TIMEOUT_MS
+		else process.env.AGF_TEST_GIT_TIMEOUT_MS = previous_test
+		fs.rmSync(repo, { recursive: true, force: true })
+	}
+})
+
 test('Git timeout reports an unknown push result without claiming no mutation', () => {
 	const { dir, run, bare } = make_repo({ remote: true })
 	const wt = open_stream(dir, 'login page')
@@ -2224,7 +2444,7 @@ test('Git timeout reports an unknown push result without claiming no mutation', 
 		else process.env.AGF_TEST_GIT_TIMEOUT_MS = previous
 	}
 	const text = logs.join('\n')
-	assert.match(text, /timed out/)
+	assert.match(text, /timed out after 50ms/)
 	assert.match(text, /result is unknown/)
 	assert.doesNotMatch(text, /default branch was not changed|stream branch is unchanged/)
 	drop(dir, bare)
@@ -2309,6 +2529,31 @@ test('cleanup refuses to sweep a worktree with unsaved work in it', () => {
 	drop(dir)
 })
 
+for (const timing of ['before cleanup', 'after merge']) test(`cleanup preserves ignored worktree files added ${timing}`, () => {
+	const { dir, run, bare } = make_repo({ remote: true })
+	const wt = open_stream(dir, 'login page')
+	try {
+		fs.writeFileSync(path.join(wt, '.gitignore'), 'private/\n')
+		run(['add', '.gitignore'], wt)
+		run(['commit', '-m', 'ignore private files'], wt)
+		run(['push', 'origin', 'login-page'], wt)
+		const before = run(['rev-parse', 'login-page']).trim()
+		const saved = path.join(wt, 'private', 'notes.txt')
+		const write = () => {
+			fs.mkdirSync(path.dirname(saved), { recursive: true })
+			fs.writeFileSync(saved, 'unsaved private work\n')
+		}
+		if (timing === 'before cleanup') write()
+		const result = agf.main(['cleanup', 'login-page'], dir, message => {
+			if (timing === 'after merge' && message.includes('merged "login-page"')) write()
+		})
+		assert.equal(result, 1)
+		assert.equal(fs.readFileSync(saved, 'utf8'), 'unsaved private work\n')
+		assert.equal(run(['rev-parse', 'login-page']).trim(), before)
+		assert.equal(run(['rev-parse', 'refs/heads/login-page'], bare).trim(), before)
+	} finally { drop(dir, bare) }
+})
+
 test('cleanup undoes the merge and deletes nothing when the branch conflicts', () => {
 	const { dir, run } = make_repo()
 	const wt = open_stream(dir, 'login page')
@@ -2350,6 +2595,71 @@ test('cleanup pushes the merge and deletes the branch on the server', () => {
 	assert.equal(execFileSync('git', ['branch', '--list', 'login-page'], { cwd: bare, encoding: 'utf8' }).trim(), '')
 	assert.ok(run(['ls-remote', '--heads', 'origin', 'main']).includes('main'))
 	drop(dir, bare)
+})
+
+test('cleanup pushes the validated default branch to origin despite ambient push routing', () => {
+	const fixture = make_repo({ remote: true })
+	const other = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-cleanup-other-')))
+	try {
+		execFileSync('git', ['init', '--bare', '-b', 'main'], { cwd: other })
+		fixture.run(['remote', 'add', 'other', other])
+		fixture.run(['config', 'branch.main.pushRemote', 'other'])
+		open_stream(fixture.dir, 'login page')
+		const logs = []
+		assert.equal(agf.main(['cleanup', 'login-page'], fixture.dir, message => logs.push(message)).dir, fixture.dir)
+		assert.ok(fixture.run(['ls-remote', 'origin', 'refs/heads/main']).trim())
+		const other_main = spawnSync('git', ['show-ref', '--verify', 'refs/heads/main'], { cwd: other, encoding: 'utf8' })
+		assert.notEqual(other_main.status, 0)
+	} finally {
+		drop(fixture.dir, fixture.bare, other)
+	}
+})
+
+test('cleanup refuses remote-ahead stream work before deleting its branch', () => {
+	const fixture = make_repo({ remote: true })
+	const other = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-cleanup-remote-ahead-')))
+	try {
+		const wt = open_stream(fixture.dir, 'login page')
+		commit_stream_file(fixture.run, wt, 'feature.txt', 'local feature\n')
+		fixture.run(['push', 'origin', 'HEAD:login-page'], wt)
+		execFileSync('git', ['clone', '-q', fixture.bare, other])
+		execFileSync('git', ['config', 'user.email', 'remote@example.invalid'], { cwd: other })
+		execFileSync('git', ['config', 'user.name', 'remote'], { cwd: other })
+		execFileSync('git', ['switch', '-q', 'login-page'], { cwd: other })
+		fs.writeFileSync(path.join(other, 'remote-only.txt'), 'remote feature\n')
+		execFileSync('git', ['add', '.'], { cwd: other })
+		execFileSync('git', ['commit', '-qm', 'remote feature'], { cwd: other })
+		execFileSync('git', ['push', '-q', 'origin', 'HEAD:login-page'], { cwd: other })
+		const logs = []
+		assert.equal(agf.main(['cleanup', 'login-page'], fixture.dir, message => logs.push(message)), 1)
+		assert.match(logs.join('\n'), /remote|ahead|changed|integrat/i)
+		assert.ok(fs.existsSync(wt))
+		assert.ok(fixture.run(['ls-remote', 'origin', 'refs/heads/login-page']).trim())
+	} finally {
+		drop(fixture.dir, fixture.bare, other)
+	}
+})
+
+test('cleanup refuses an ignored destination collision before merging a stream', () => {
+	const { dir, run } = make_repo()
+	const wt = open_stream(dir, 'login page')
+	try {
+		fs.appendFileSync(path.join(dir, '.gitignore'), 'collision.txt\n')
+		run(['add', '.gitignore'])
+		run(['commit', '-m', 'ignore collision path'])
+		fs.writeFileSync(path.join(dir, 'collision.txt'), 'local ignored bytes\n')
+		fs.writeFileSync(path.join(wt, 'collision.txt'), 'incoming tracked bytes\n')
+		run(['add', '-f', 'collision.txt'], wt)
+		run(['commit', '-m', 'feature collision'], wt)
+		const before = fs.readFileSync(path.join(dir, 'collision.txt'), 'utf8')
+		const logs = []
+		assert.equal(agf.main(['cleanup', 'login-page'], dir, message => logs.push(message)), 1)
+		assert.match(logs.join('\n'), /ignored|collision|nothing was swept/i)
+		assert.equal(fs.readFileSync(path.join(dir, 'collision.txt'), 'utf8'), before)
+		assert.ok(fs.existsSync(wt))
+	} finally {
+		drop(dir)
+	}
 })
 
 test('cleanup stops before sweeping when fetch or default-branch push fails', () => {
@@ -2424,6 +2734,115 @@ test('stream_doc accepts only the canonical notebook name', () => {
 })
 
 // ----- agf ditch -----
+
+for (const target of ['local', 'remote', 'worktree']) test(`ditch preserves ${target} changes made during confirmation`, () => {
+	const { dir, run, bare } = make_repo({ remote: true })
+	const wt = open_stream(dir, 'login page')
+	try {
+		let changed
+		const result = agf.main(['ditch', 'login-page'], dir, () => {}, () => {
+			if (target === 'worktree') fs.writeFileSync(path.join(wt, 'new-work.txt'), 'new work')
+			else {
+				changed = run(['commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'concurrent work'], wt).trim()
+				if (target === 'local') run(['update-ref', 'refs/heads/login-page', changed])
+				else run(['push', 'origin', `${changed}:refs/heads/login-page`])
+			}
+			return 'Y\n'
+		})
+		assert.equal(result, 1)
+		assert.ok(fs.existsSync(wt), 'changed worktree must survive')
+		if (target === 'local') assert.equal(run(['rev-parse', 'login-page']).trim(), changed)
+		if (target === 'remote') assert.ok(run(['ls-remote', 'origin', 'refs/heads/login-page']).startsWith(changed))
+	} finally { drop(dir, bare) }
+})
+
+test('ditch refuses a folder registered to a different branch', () => {
+	const { dir, run } = make_repo()
+	const wt = open_stream(dir, 'login page')
+	try {
+		run(['switch', '-c', 'other-work'], wt)
+		assert.equal(agf.main(['ditch', 'login-page'], dir, () => {}, () => 'Y\n'), 1)
+		assert.ok(fs.existsSync(wt))
+	} finally { drop(dir) }
+})
+
+for (const command of ['ditch', 'cleanup']) for (const target of ['local', 'remote']) test(`${command} atomically preserves ${target} changes at deletion`, () => {
+	const { dir, run, bare } = make_repo({ remote: true })
+	const wt = open_stream(dir, 'login page')
+	const changed = run(['commit-tree', 'login-page^{tree}', '-p', 'login-page', '-m', 'concurrent work']).trim()
+	const wrapper = make_git_wrapper(`${target}-delete-race`)
+	const previous_path = process.env.PATH, previous_tip = process.env.AGF_TEST_UNVALIDATED_TIP
+	const logs = []
+	try {
+		process.env.PATH = `${wrapper.bin}${path.delimiter}${previous_path}`
+		process.env.AGF_TEST_UNVALIDATED_TIP = changed
+		assert.equal(agf.main([command, 'login-page'], dir, message => logs.push(message), () => 'Y\n'), 1)
+		assert.ok(!fs.existsSync(wt), 'earlier worktree removal succeeded')
+		assert.match(logs.join('\n'), /removed folder/)
+		if (target === 'local') assert.equal(run(['rev-parse', 'login-page']).trim(), changed)
+		else {
+			assert.ok(run(['ls-remote', 'origin', 'refs/heads/login-page']).startsWith(changed))
+			assert.ok(run(['rev-parse', 'login-page']).trim(), 'local branch survives failed remote deletion')
+		}
+	} finally {
+		process.env.PATH = previous_path
+		if (previous_tip === undefined) delete process.env.AGF_TEST_UNVALIDATED_TIP
+		else process.env.AGF_TEST_UNVALIDATED_TIP = previous_tip
+		drop(dir, bare, wrapper.bin)
+	}
+})
+
+for (const command of ['ditch', 'cleanup']) test(`${command} refuses an uninspectable local branch`, () => {
+	const { dir } = make_repo()
+	const wt = open_stream(dir, 'login page')
+	const wrapper = make_git_wrapper('inspection-failure'), previous_path = process.env.PATH
+	try {
+		process.env.PATH = `${wrapper.bin}${path.delimiter}${previous_path}`
+		assert.equal(agf.main([command, 'login-page'], dir, () => {}, () => 'Y\n'), 1)
+		assert.ok(fs.existsSync(wt))
+	} finally { process.env.PATH = previous_path; drop(dir, wrapper.bin) }
+})
+
+for (const command of ['ditch', 'cleanup']) test(`${command} refuses a different origin push destination`, () => {
+	const { dir, run, bare } = make_repo({ remote: true })
+	const wt = open_stream(dir, 'login page')
+	try {
+		run(['config', 'remote.origin.pushurl', path.join(dir, 'different-origin')])
+		assert.equal(agf.main([command, 'login-page'], dir, () => {}, () => 'Y\n'), 1)
+		assert.ok(fs.existsSync(wt))
+		assert.ok(run(['rev-parse', 'login-page']).trim())
+	} finally { drop(dir, bare) }
+})
+
+for (const mode of ['remote-inspection-failure', 'worktree-removal-failure']) test(`ditch stops after ${mode} and preserves both branches`, () => {
+	const { dir, run, bare } = make_repo({ remote: true })
+	const wt = open_stream(dir, 'login page')
+	const wrapper = make_git_wrapper(mode), previous_path = process.env.PATH
+	try {
+		process.env.PATH = `${wrapper.bin}${path.delimiter}${previous_path}`
+		assert.equal(agf.main(['ditch', 'login-page'], dir, () => {}, () => 'Y\n'), 1)
+		assert.ok(fs.existsSync(wt))
+		assert.ok(run(['rev-parse', 'login-page']).trim())
+		assert.ok(execFileSync(wrapper.real_git, ['show-ref', '--verify', 'refs/heads/login-page'], { cwd: bare, encoding: 'utf8' }).trim())
+	} finally { process.env.PATH = previous_path; drop(dir, bare, wrapper.bin) }
+})
+
+test('cleanup refuses a local tip changed after its merge', () => {
+	const { dir, run } = make_repo()
+	const wt = open_stream(dir, 'login page')
+	try {
+		let changed
+		const result = agf.main(['cleanup', 'login-page'], dir, message => {
+			if (message.includes('merged "login-page"')) {
+				changed = run(['commit-tree', 'login-page^{tree}', '-p', 'login-page', '-m', 'concurrent work']).trim()
+				run(['update-ref', 'refs/heads/login-page', changed])
+			}
+		})
+		assert.equal(result, 1)
+		assert.ok(fs.existsSync(wt))
+		assert.equal(run(['rev-parse', 'login-page']).trim(), changed)
+	} finally { drop(dir) }
+})
 
 test('is_yes takes Enter, y and yes; EOF (null) and anything else are no', () => {
 	assert.ok(agf.is_yes(''))
@@ -2586,9 +3005,10 @@ test('slow close push releases the notebook writer while retaining delivery owne
   for (const host of ['codex', 'claude']) {
     const capture = spawnSync(process.execPath, [path.join(__dirname, 'stop-hook.js'), '--host', host], {
       cwd: fixture.dir, encoding: 'utf8', timeout: 2000,
-      input: JSON.stringify({ cwd: fixture.dir, hook_event_name: 'UserPromptSubmit', session_id: 'slow-push', turn_id: host, prompt: `incoming ${host} while push waits` }),
+      input: JSON.stringify({ cwd: fixture.dir, hook_event_name: 'UserPromptSubmit', session_id: ownership_fixture.session, turn_id: host, prompt: `incoming ${host} while push waits` }),
     })
     assert.equal(capture.status, 0, `${capture.stdout}\n${capture.stderr}`)
+    if (host === 'claude') assert.match(JSON.parse(capture.stdout).hookSpecificOutput.additionalContext, /not saved.*ownership/u)
   }
   fs.writeFileSync(release, 'release')
   assert.equal(await ended, 0, `${stdout}\n${stderr}`)
@@ -2599,7 +3019,7 @@ test('slow close push releases the notebook writer while retaining delivery owne
   assert.match(committed, /# → Ask \/ A-002(?: \([^\r\n)]+\))?\n\n\+\n$/)
   const saved = fs.readFileSync(path.join(fixture.dir, 'devlog.md'), 'utf8')
   assert.ok(saved.includes('+ incoming codex while push waits'))
-  assert.ok(saved.includes('+ incoming claude while push waits'))
+  assert.ok(!saved.includes('+ incoming claude while push waits'))
   assert.match(fixture.run(['status', '--porcelain']), / M devlog.md/)
   assert.equal(fs.existsSync(path.join(fixture.dir, '.git', 'agf-delivery.lock')), false)
 })
@@ -2647,4 +3067,43 @@ test('close publishes ignored completion records and retries the same manifest w
   const retry = close()
   assert.equal(retry.status, 0, `${retry.stdout}\n${retry.stderr}`)
   assert.equal(fixture.run(['rev-parse', 'HEAD']), head)
+})
+
+test('configured custom default supports finish and cleanup and remains protected from ditch', () => {
+  const { dir, run } = make_repo()
+  try {
+    run(['switch', '-c', 'trunk'])
+    run(['config', 'agentflow.default-branch', 'trunk'])
+    const original_main = run(['rev-parse', 'main'])
+    const wt = open_stream(dir, 'custom branch')
+    commit_stream_file(run, wt, 'custom.txt', 'custom default\n')
+    assert.equal(agf.main(['finish', '--prep'], wt, () => {}), 0)
+    close_local_stream(run, wt, 'custom-branch')
+    assert.equal(agf.main(['finish', '--deliver'], wt, () => {}).dir, dir)
+    assert.equal(run(['rev-parse', 'trunk']), run(['rev-parse', 'custom-branch']))
+    assert.equal(run(['rev-parse', 'main']), original_main)
+    assert.equal(agf.main(['cleanup', 'custom-branch'], dir, () => {}).dir, dir)
+    assert.equal(fs.existsSync(wt), false)
+    run(['switch', 'main'])
+    const logs = []
+    assert.equal(agf.main(['ditch', 'trunk'], dir, x => logs.push(x), () => { throw Error('must not prompt') }), 1)
+    assert.match(logs.join('\n'), /main line of work/)
+    assert.doesNotThrow(() => run(['rev-parse', '--verify', 'trunk']))
+  } finally { drop(dir) }
+})
+
+test('invalid configured default stops stream operations before changing branch tips or worktrees', () => {
+  const { dir, run } = make_repo()
+  try {
+    const wt = open_stream(dir, 'invalid default')
+    const before = run(['show-ref'])
+    run(['config', 'agentflow.default-branch', 'missing'])
+    for (const [args, cwd] of [[['finish', '--prep'], wt], [['cleanup', 'invalid-default'], dir], [['ditch', 'invalid-default'], dir]]) {
+      const logs = []
+      assert.equal(agf.main(args, cwd, x => logs.push(x), () => { throw Error('must not prompt') }), 1)
+      assert.match(logs.join('\n'), /agentflow.default-branch must name an existing local branch/)
+      assert.equal(run(['show-ref']), before)
+      assert.equal(fs.existsSync(wt), true)
+    }
+  } finally { drop(dir) }
 })

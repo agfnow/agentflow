@@ -51,7 +51,17 @@ test('project install does not claim an old host-neutral hook command', () => {
   const config = read_json(config_path);
   assert.equal(config.hooks.Stop[0].hooks[0].command, old_command);
   assert.equal(config.hooks.Stop.length, 2);
-  assert.match(config.hooks.Stop[1].hooks[0].command, /stop-hook\.js" --host codex$/);
+  assert.match(config.hooks.Stop[1].hooks[0].command, /stop-hook\.js['"] --host codex$/);
+});
+
+test('owned hook parsing recognizes shell-literal paths with metacharacters and apostrophes', () => {
+  const hooks = require('./install-hook.js');
+  const script_path = "/tmp/agentflow-$draft`id`'quote/stop-hook.js";
+  const escaped = `'${script_path.replaceAll("'", "'\\''")}'`;
+  const parsed = hooks.parse_owned_command(`node ${escaped} --host claude`);
+  assert.equal(parsed.host, 'claude');
+  assert.equal(parsed.script, node_path.resolve(script_path));
+  assert.match(hooks.hook_command_for('claude'), /^node '/);
 });
 
 test('running twice never duplicates the entry', () => {
@@ -72,7 +82,7 @@ test('project install replaces stale worktree hooks and collapses owned duplicat
   const dir = node_fs.realpathSync(fresh_dir());
   const config_path = node_path.join(dir, '.codex', 'hooks.json');
   const stale = `node "${node_path.join(dir, '.worktrees', 'fix-2', 'skills', 'agentflow', 'scripts', 'stop-hook.js')}" --host codex`;
-  const current = `node "${node_path.join(__dirname, 'stop-hook.js')}" --host codex`;
+  const current = `node '${node_path.join(__dirname, 'stop-hook.js')}' --host codex`;
   const foreign = { type: 'command', command: 'foreign-command --keep' };
   node_fs.mkdirSync(node_path.dirname(config_path), { recursive: true });
   node_fs.writeFileSync(config_path, `${JSON.stringify({ hooks: { Stop: [

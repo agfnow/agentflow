@@ -9,6 +9,8 @@ const test = require('node:test');
 const ag_settings = require('./ag-settings.js');
 const { collect, validate_candidate, validate_candidate_facts } = require('./completion-context.js');
 const notebook_writer = require('./notebook-write.js');
+const ownership_fixture = require('./fixtures/notebook-owner');
+ownership_fixture.configure();
 
 test('explicit review waivers accept Markdown and enumerated skip lists without treating examples as authority', () => {
 	const root = cleanup_fixture();
@@ -127,8 +129,8 @@ test('compacted notebook keeps conservative bootstrap review without a valid cap
     commit(fixture.root, 'committed old source');
     if (receipt === 'stale') {
       notebook_writer.append_input({ root: fixture.root, notebook: fixture.notebook_path, text: 'write a document' });
-      const receipt_name = fs.readdirSync(path.join(fixture.root, '.codex')).find(name => name.startsWith('agentflow-input-'));
-      const receipt_path = path.join(fixture.root, '.codex', receipt_name);
+      const receipt_name = fs.readdirSync(path.join(fixture.root, '.agentflow', '.tmp')).find(name => name.startsWith('agentflow-input-'));
+      const receipt_path = path.join(fixture.root, '.agentflow', '.tmp', receipt_name);
       const saved = JSON.parse(fs.readFileSync(receipt_path, 'utf8'));
       saved.scope.head = 'f'.repeat(40);
       fs.writeFileSync(receipt_path, `${JSON.stringify(saved)}\n`);
@@ -204,7 +206,7 @@ test('captured scope re-enters a later edit and keeps newly committed and untrac
 test('repeated owner input retains the first captured scope baseline', () => {
   const fixture = scope_fixture();
   notebook_writer.append_input({ root: fixture.root, notebook: fixture.notebook_path, text: 'first input' });
-  const receipt_path = path.join(fixture.root, '.codex', fs.readdirSync(path.join(fixture.root, '.codex')).find(name => name.startsWith('agentflow-input-')));
+  const receipt_path = path.join(fixture.root, '.agentflow', '.tmp', fs.readdirSync(path.join(fixture.root, '.agentflow', '.tmp')).find(name => name.startsWith('agentflow-input-')));
   const first_scope = JSON.parse(fs.readFileSync(receipt_path, 'utf8')).scope;
 
   notebook_writer.append_input({ root: fixture.root, notebook: fixture.notebook_path, text: 'second input' });
@@ -216,8 +218,8 @@ test('wrong-repository and stale scope receipts fall back to conservative collec
   const fixture = scope_fixture();
   write(fixture.root, 'source.js', 'module.exports = true;\n');
   notebook_writer.append_input({ root: fixture.root, notebook: fixture.notebook_path, text: 'write a document' });
-  const receipt_name = fs.readdirSync(path.join(fixture.root, '.codex')).find(name => name.startsWith('agentflow-input-'));
-  const receipt_path = path.join(fixture.root, '.codex', receipt_name);
+  const receipt_name = fs.readdirSync(path.join(fixture.root, '.agentflow', '.tmp')).find(name => name.startsWith('agentflow-input-'));
+  const receipt_path = path.join(fixture.root, '.agentflow', '.tmp', receipt_name);
   const original_receipt = JSON.parse(fs.readFileSync(receipt_path, 'utf8'));
   const devlog_text = `${fs.readFileSync(path.join(fixture.root, fixture.notebook_path), 'utf8')}\n# ← Reply / A-002\n\nInformational document: notes.md — standalone prose\n`;
 
@@ -415,7 +417,7 @@ test('language-only configuration changes remain non-behavioral before and after
       config.switches.lang = from;
       write(fixture.root, 'ag.json', JSON.stringify(config));
       commit(fixture.root, 'existing language setting');
-      notebook_writer.append_input({ root: fixture.root, notebook: fixture.notebook_path, text: `lang: ${to}`, host });
+      notebook_writer.append_input({ root: fixture.root, notebook: fixture.notebook_path, text: `lang: ${to}`, host, session: ownership_fixture.session });
       config.switches.lang = to;
       write(fixture.root, 'ag.json', JSON.stringify(config));
       const devlog_text = fs.readFileSync(path.join(fixture.root, fixture.notebook_path), 'utf8') + '\n# ← Reply / A-002\n\nLanguage saved.\n';

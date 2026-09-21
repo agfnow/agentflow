@@ -1,14 +1,12 @@
-# Agentflow v8.2 — a guide for everyday use
+# Agentflow v8.3 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
-<a href="https://youtu.be/0dp_HnqX0ms"><img src="https://img.youtube.com/vi/0dp_HnqX0ms/maxresdefault.jpg" alt="Watch the Agentflow introduction on YouTube" width="640"></a>
-
-Watch the introduction by clicking the image above.
+[Watch the Agentflow introduction on YouTube](https://youtu.be/0dp_HnqX0ms).
 
 Agentflow gives your AI assistant a project notebook. It keeps what you asked for, the decisions you made, progress, and the result together. When you return tomorrow or start a fresh conversation, the assistant has a place to pick up the work.
 
-- **Start with a normal request.** Open your project in Codex or Claude Code, type `godev`, then explain what you want. You can use it for documents and everyday tasks as well as code.
+- **Start with a normal request.** Open your project in a host that provides file and command tools, type `godev`, then explain what you want. Codex and Claude keep their native integrations; another host can use the portable core with an explicit safe host ID and manual capture instructions.
 
 - **Read the result in the notebook.** The assistant’s closing message points to the file. It is usually `.agentflow/devlog.md`.
 
@@ -16,7 +14,11 @@ Agentflow gives your AI assistant a project notebook. It keeps what you asked fo
 
 ## 1. Get ready
 
-You need Codex or Claude Code and Node.js 18 or newer. Git is needed for version history, separate feature workspaces, and some installation methods. Your working folder can still use the notebook without being a Git repository; Agentflow will not create a repository for you.
+You need a host with file and command tools, Node.js 18 or newer, and enough session state to retain the notebook round. Codex and Claude have verified integrations; other hosts use the portable core and are not automatically named as live integrations. Git is needed for version history, separate feature workspaces, and some installation methods. Your working folder can still use the notebook without being a Git repository; Agentflow will not create a repository for you.
+
+Each active notebook round belongs to one session. Another session stops before changing its prompts or progress, even when streams are off. Generic hosts must retain a unique `--session <id>` and pass it with their `--host <id>` to startup, capture, progress and closeout; a new independent session uses a new ID. Native hosts use their current session identity, or explicitly pass it when the shell does not provide it.
+
+If you fill in the next Ask after its predecessor completes, asking Agentflow to activate or resume claims it during startup when that immediate predecessor has released ownership. No extra confirmation is needed. An old unresolved notebook without that release record, or a handoff from an actively owned Ask, uses `agf owner inspect --notebook <path>`, then `agf owner adopt --notebook <path> --ask <A-NNN> --expect <token|unowned> --sha256 <hash> --host <host> --session <id>` with the inspected values and your takeover authorization. Agentflow does not automatically take ownership from an idle or stopped session.
 
 Install the skill from a terminal:
 
@@ -29,6 +31,23 @@ Choose the assistant you use and whether to install for this project or all your
 For Codex, the Agentflow maintainer recommends **`gpt-5.6-sol/low` as the most stable coordinator choice in their use**. This means model `gpt-5.6-sol` with reasoning effort `low`, running the main conversation and coordinating work. It is a project recommendation; your task and available models still matter. [OpenAI’s model documentation](https://developers.openai.com/api/docs/models/gpt-5.6-sol) confirms that this model supports `low` effort.
 
 If you want an installation check, ask your assistant to run `agf setup`. It reports what is available. `agf setup --fix` can add missing shell shortcuts after backing up the shell settings. An unavailable optional worker does not mean installation failed. If the assistant asks you to restart after installing hooks, restart once; hooks are the small integrations that record messages and check completion.
+
+### Pi and Oh My Pi: basic manual support
+
+- Install the applications with `brew install pi-coding-agent can1357/tap/omp`, then run `pi` or `omp` from your project. These are the [Pi Homebrew formula](https://formulae.brew.sh/formula/pi-coding-agent) and [OMP's documented tap](https://github.com/can1357/oh-my-pi#install). Complete provider login before asking either application to do work.
+
+- Give the assistant the absolute directory containing the complete Agentflow skill. For example, replace the path below with your installation and use `omp` instead of `pi` in the OMP conversation:
+
+```text
+Read /absolute/path/to/agentflow/SKILL.md and use that complete skill directory.
+Use host ID pi and retain one unique session ID for this conversation.
+Pass both IDs to every Agentflow command as the skill requires.
+godev
+```
+
+- Both use the ordinary generic-host contract: the assistant manually records later messages and closes through `agf close`. There are no Agentflow Pi/OMP capture hooks, automatic completion enforcement, or verified external-worker recipes. Keep the session ID when resuming the same conversation; independent conversations need distinct IDs.
+
+- On macOS, Pi 0.85.1 and OMP 18.2.6 were installed and launched in real terminals, and the shared generic-host checks passed in Git and plain folders. Pi loaded the skill from an explicit path. Model-driven work in both applications remains unverified because provider authentication was unavailable; terminal startup alone does not prove that journey.
 
 ### Keep the skill up to date
 
@@ -75,7 +94,7 @@ Think of each **Ask** as one conversation about a task. Its matching **Reply** c
 
 - **STATUS**, at the top, shows the last recorded result, open work, and next step. Project settings live in `ag.json`; STATUS is a progress summary.
 
-- **RUN** entries are short numbered progress notes. A **WIP** checkpoint, added during longer work after ten active minutes, tells you what is finished, happening now, and still to do.
+- **RUN** entries are short numbered progress notes. A **WIP** checkpoint, added during longer work after ten active minutes, tells you what is finished, happening now, and still to do. `log-verbosity: off` omits future RUN and WIP records, `wip` keeps WIP but omits RUN, and `all` preserves the default behavior. Every level still captures the Ask and complete Reply and keeps tracker, review, test, and other evidence checks; the checkpoint cadence and footer describe only records that were allowed and written.
 
 - **[SUMMARY]** gives the result quickly. **[FINAL REPORT]** answers multiple requests in your original order and says which succeeded, failed, or remain limited, with the relevant checks.
 
@@ -83,13 +102,15 @@ Think of each **Ask** as one conversation about a task. Its matching **Reply** c
 
 Already answered questions are checked when work resumes. A suggested answer is only a suggestion; leaving `ans:` empty does not approve it.
 
-When the live notebook exceeds 1,000 lines, completed older rounds move unchanged to an adjacent archive. The current task stays in the live notebook. You can read both files later.
+Startup and prompt capture automatically move eligible completed rounds to the adjacent archive after 1,000 lines or at 768 KiB. Each copied round is verified before its original bytes are removed. The current task and rounds with inline answers stay live; when an answered round blocks compaction, every later round stays live with it. For explicit recovery, run `agf compact --notebook <active-notebook>` with your current session identity. A notebook or single open round over 1 MiB remains usable; submitted messages and drafts still have their own size limits.
+
+Input receipts now live under the configured workspace’s `.tmp/` for every host. Manual capture does not write `.codex/` or `.claude/`; existing receipts there remain readable for continuity.
 
 ## 4. Choose how much help a task needs
 
 You can normally describe the task and let the assistant choose. These controls are useful when you want a particular approach:
 
-- **Keep a small task light:** `fast-lane Fix the spelling in README.md.` The main assistant handles this task itself. It skips the larger pipeline, delegation, new feature workspaces, and external review. Necessary checks, progress notes, and the assistant’s own review still happen. The mode ends with this task.
+- **Keep a small task light:** `fast-lane Fix the spelling in README.md.` The main assistant handles this task itself. It skips the larger pipeline, delegation, new feature workspaces, and separate review. Necessary checks, progress notes, and the assistant’s own review still happen. The mode ends with this task.
 
 - **See a plan first:** “Make a plan and let me review it before implementation.” The assistant saves a plan and waits at that checkpoint.
 
@@ -104,6 +125,8 @@ You can normally describe the task and let the assistant choose. These controls 
 - **See exactly what changed:** Add `show-diff`. The answer gives a reason for each change and a readable diff: `-` lines were removed; `+` lines were added. This display request alone does not authorize edits.
 
 Agentflow should build only what you asked for and use existing solutions where they fit. Relevant checks come with the work; repeating a passing test needs a reason. Nearby improvement ideas stay proposals unless you choose them.
+
+Worker assignments may be sent directly; ordinary work does not need a separate brief file. Queued or resumable work, launchers that require a file, and requested review records still retain one. Important review assignments remain saved once in a durable conversation, dispatch record, or file.
 
 ## 5. Know when your approval matters
 
@@ -147,7 +170,7 @@ Each result is `PASS` or `BLOCKING`. `Minimality: BLOCKING` means a sufficient s
 
 Review depth is `narrow`, `targeted`, or `full`, depending on the change. Add `stronger` to raise it one level. Current passing checks can be reused; a deeper review does not automatically rerun every test. A changed implementation needs updated review evidence. Matching pipeline acceptance can satisfy the final review without a duplicate pass.
 
-Routine informational writing may need only the main assistant’s inspection. Changes to operating instructions, behavior, or substantive evidence can need external review. You may say “Skip external review for this round” or use `skip-review: <reason>`; necessary tests, the assistant’s own review, and applicable approval checkpoints still remain.
+Routine informational writing may need only the main assistant’s inspection. Changes to operating instructions, behavior, or substantive evidence can need separate review. You may say “Skip separate review for this round” or use `skip-review: <reason>`; necessary tests, the assistant’s own review, and applicable approval checkpoints still remain.
 
 ## 7. Work on two features separately
 
@@ -177,6 +200,10 @@ Ordinary notebook work also works without Git. A separate notebook for non-code 
 
 </details>
 
+- **Slow Git operations:** Set `git-timeout-ms: 120000` to save a two-minute limit per Git command in the applicable `ag.json`. The optional setting accepts a positive whole number of milliseconds and defaults to 30000 (30 seconds). A valid `AGF_GIT_TIMEOUT_MS` environment value overrides it for one invocation; an invalid environment value falls back to the project setting, then the default. For example, `AGF_GIT_TIMEOUT_MS=120000 agf finish --prep` supplies a temporary limit. A timeout can leave a remote result unknown, so inspect the reported state before retrying.
+
+- **Default Git branch:** Agentflow uses `agentflow.default-branch` from Git configuration first, then Git’s cached `origin/HEAD`, then an existing local `main` or `master`. For a custom default, run `git config --local agentflow.default-branch trunk`, replacing `trunk` with an existing local branch. Remove the override with `git config --local --unset agentflow.default-branch`. To read the remote’s current default into the local cache, run `git remote set-head origin -a`; fetch first if Git says its target is missing. Startup and the commit guard stay offline. This Git setting is separate from `ag.json`.
+
 ## 8. Change settings in plain language
 
 Type `settings` to see the active values and available choices. To change one, send a line such as `lang: zh-tw`. The assistant validates and saves it in the applicable `ag.json`. You usually do not need to edit JSON yourself.
@@ -185,11 +212,19 @@ Type `settings` to see the active values and available choices. To change one, s
 
 - **Routine answers:** `auto-reply: on|off` controls safe default answers.
 
+- **Progress records:** `log-verbosity: off|wip|all` defaults to `all`. For example, `log-verbosity: wip` keeps checkpoints while omitting future RUN entries.
+
+- **Reply display:** `inline-reply: on|off` defaults to `off`. For example, `inline-reply: on` displays the saved normal Reply after successful closeout or delivery; `off` keeps the path-updated acknowledgement. This switch is independent of `log-verbosity`.
+
 - **Development process:** `allow-ag: on|ask|off` permits the pipeline, asks first, or blocks it. Direct work remains available under all three settings. Typing `ag` does not override `off`.
 
 - **Feature workspaces:** `streams: ask|always|off` controls how ordinary requests for separate feature work are handled. Explicit `new-feature:` still requests creation directly.
 
-- **Worker families:** `cli-provider: on|off` permits available configured families or restricts workers to the family of your current assistant. Worker access depends on your installed tools and account.
+- **Worker policy:** `allowed-worker: ["external", "internal", "host"]` is an unordered JSON permission list. The host chooses an eligible permitted kind for each task based on context, handoff cost, useful parallel work, capabilities, and owner constraints, and records a brief reason. With multiple eligible kinds and no host choice supplied, the selector returns `selection-required` and the eligible alternatives for the host to choose; a sole eligible kind can be selected automatically. `external` uses a checked command recipe, `internal` hands a frozen brief to an exposed native tool, and `host` uses the current session directly. New projects default to all three; v7 migration keeps `["external", "host"]` until explicitly opted in.
+
+- **Review policy:** `review-policy: prefer-independent|require-independent` controls whether a recorded host review may follow a settled separate-review availability failure. It does not change execution permission, and it never bypasses an explicit independent-review, fresh-context, or enforced-read-only requirement.
+
+- **Worker families:** `cli-provider: on|off` filters only external profiles. `on` admits configured eligible families; `off` needs a known current `host-family`, and an unknown family matches none. Internal and host routes are governed by their own capabilities.
 
 - **Notebook location:** `target-doc: .agentflow/shop.devlog.md` requests a managed rename. It requires Git and moves the notebook and archive, then updates settings and forwarding links. Follow the forwarding note at the old location.
 
@@ -201,19 +236,17 @@ Type `settings` to see the active values and available choices. To change one, s
 
 - `ask-names: on|off` adds the asker’s name to new Ask headings or leaves it off.
 
-- `metrics: on|off` enables optional local timing and model records. These are not a quality score.
-
 - `large-work-minutes` defaults to 120; valid values are 1–10080. It sets the workflow’s large-work time threshold.
 
 - `completion-cleanup` defaults to `off`. When enabled, cleanup at session end can move completed, inactive supporting records older than 30 days to Trash. Active and still-needed evidence stays.
 
 - `completion-cleanup-interval-days` defaults to 7; valid values are 1–365. It sets the interval between successful cleanup runs, independently of the 30-day age rule.
 
-- The configuration uses `"schema-version": 7`. This is the settings format, separate from Agentflow’s v8.2 release number.
+- The configuration uses `"schema-version": 8`. New projects use the worker and review defaults above; the worker array order has no execution meaning. Existing v7 files migrate atomically and conservatively, preserving their prior effective posture until the owner opts in.
 
 - `pipeline-roles` maps requirements, codewalk, explore, spike, spec, implementation, security-scan, acceptance, cross-check, and learn to a model tier or `off`. Disabling a required role makes the full pipeline unavailable.
 
-- `external-workers` holds profiles with commands and model/effort choices for `best`, `better`, `basic`, and `cheap`. These are local labels, not universal model rankings. The main conversation’s model is selected in Codex or Claude; worker settings do not change it.
+- `external-workers` holds optional external profiles with commands and model/effort choices for `best`, `better`, `basic`, and `cheap`. These are local labels, not universal model rankings. A native tool or host may inherit a model/effort that it cannot select; record the actual identity and limitation rather than claiming the configured tier.
 
 - Ask the assistant to help choose a setting such as `codex-default.basic: <model>/<effort>`. If you explicitly name a model that is unavailable, it must ask before replacing that model.
 
@@ -239,13 +272,13 @@ If you need a task queue, `make-plans` saves the plans and **stops before implem
 
 - Advisor names use exact lowercase spelling. Empty entries, a trailing comma, non-string values, and unknown names are rejected before any advisor starts. Duplicates are removed in typed order; execution still follows dependency-safe order. Selecting only requirements does not cancel later authorized implementation or verification.
 
-- Workers use independent temporary Git clones with no remotes through `external-runner-v1`. The main assistant checks their changes before accepting them. A clone is not a security sandbox, and a successful worker exit is not proof that the task worked. Codex and Claude are the current supported families; arbitrary hosts and native subagent fallback are not promised.
+- The host chooses a transport from the eligible kinds permitted by `allowed-worker`. External work uses independent temporary Git clones with no remotes through `external-runner-v1`; internal work uses an actual native tool handle; host work stays in the current session. The main assistant checks changes before accepting them. A clone or native-tool visibility is not a security sandbox, and a successful exit or message is not proof that the task worked. The portable core is available to hosts that meet its file/command/state contract; Codex and Claude startup/hook integrations retain regression coverage. The native completion/interruption journey was run on Codex; other named native integrations remain unverified.
 
 - A review stage allows at most three worker starts; one failed preflight before a process starts does not count. Quiet output alone is not a hang. Your stop instruction takes priority, and canceled work must not restart without your permission.
 
 - `agf-looper --tasks-dir <path>` selects a queue. Generated queues contain `plan-NNN.md` files and a `.queue-generation.json` record that detects changed plans. Handwritten queues use plan files and notebook completion evidence. Completed plans move to `planned/done/` only after verification.
 
-- `--show-output` displays worker output; `--dump` saves it. Before `--reset`, check that related processes have stopped. Reset clears the stop state; a separate run resumes work. Plan workers cannot launch more workers or another Agentflow workflow. See the [looper reference](../references/looper.md).
+- `--show-output` displays worker output; `--dump` saves it. Before `--reset`, check that related processes have stopped. Reset clears the stop state; a separate run resumes work. Standalone looper has only checked external capability; when external is unavailable or forbidden, it leaves the queue pending and hands it back to an interactive host. Plan workers cannot launch more workers or another Agentflow workflow. See the [looper reference](../references/looper.md).
 
 </details>
 
@@ -255,7 +288,7 @@ Open the same project and type `godev`. The assistant reads the current Ask, ans
 
 - **A worker stopped:** The assistant inspects the saved output and changes before accepting any result. Silence or exit code zero alone is not enough.
 
-- **Settings are missing or invalid:** Ask it to explain the repair. Established settings must not be guessed from STATUS.
+- **Settings are missing or invalid:** Ask it to explain the repair. Established settings must not be guessed from STATUS. A v7 file is migrated only when opened, with its existing choices retained unless you explicitly opt into the new worker and review defaults.
 
 - **Skills seem to disagree:** Ask for `agf skills audit`. It lists discoverable skills and prepares a read-only assessment. The audit itself makes no edits or model calls; your assistant explains confirmed conflicts and possible remedies.
 

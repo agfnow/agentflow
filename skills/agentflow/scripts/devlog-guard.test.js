@@ -107,3 +107,18 @@ test('one install in the main checkout also guards every worktree', () => {
 	assert.throws(() => run(['commit', '-m', 'bad'], wt), /blocked: root \.agentflow\/devlog\.md/)
 	drop(dir)
 })
+
+test('configured custom default allows root commits there and blocks a feature', () => {
+  const { dir, run } = make_repo()
+  try {
+    run(['switch', '-c', 'trunk'])
+    run(['config', 'agentflow.default-branch', 'trunk'])
+    fs.appendFileSync(path.join(dir, '.agentflow/devlog.md'), 'on trunk\n')
+    run(['add', '.agentflow/devlog.md'])
+    assert.doesNotThrow(() => run(['commit', '-m', 'root on trunk']))
+    run(['switch', '-c', 'feature'])
+    fs.appendFileSync(path.join(dir, '.agentflow/devlog.md'), 'wrong branch\n')
+    run(['add', '.agentflow/devlog.md'])
+    assert.throws(() => run(['commit', '-m', 'must refuse']), /blocked/)
+  } finally { drop(dir) }
+})

@@ -5,11 +5,14 @@ const os = require('node:os');
 const path = require('node:path');
 
 // Only the active session's current turn is evidence. Configuration is never read.
-const detect_reply_identity = ({ root = process.cwd(), env = process.env } = {}) => {
+const detect_reply_identity = ({ root = process.cwd(), env = process.env, host, active_host } = {}) => {
+  const explicit_host = host ?? active_host;
   const ids = [env.CODEX_THREAD_ID, env.CODEX_SESSION_ID].filter(Boolean);
-  const host = ids.length ? 'codex' : env.CLAUDE_SESSION_ID || env.CLAUDE_CODE ? 'claude' : 'host';
-  const unknown = `${host}/unknown`;
-  if (host !== 'codex' || new Set(ids).size !== 1 || !/^[a-f0-9-]{36}$/iu.test(ids[0])) return unknown;
+  const detected_host = explicit_host !== undefined
+    ? String(explicit_host)
+    : ids.length ? 'codex' : env.CLAUDE_SESSION_ID || env.CLAUDE_CODE ? 'claude' : 'host';
+  const unknown = `${/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(detected_host) ? detected_host : 'host'}/unknown`;
+  if (detected_host !== 'codex' || new Set(ids).size !== 1 || !/^[a-f0-9-]{36}$/iu.test(ids[0])) return unknown;
   try {
     const sessions = path.join(env.CODEX_HOME || path.join(env.HOME || os.homedir(), '.codex'), 'sessions');
     const matches = [];

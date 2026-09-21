@@ -10,6 +10,7 @@ const ag_settings = require('./ag-settings.js');
 const { format_local_timestamp } = require('./local-time.js');
 
 const hook_path = node_path.join(__dirname, 'stop-hook.js');
+require('./fixtures/notebook-owner').configure();
 
 node_test.test('bare first activation is not an incomplete work round', () => {
   const root = make_project('# → Ask / A-001\n\n+\n');
@@ -45,6 +46,16 @@ node_test.test('prompt hook adopts a manually saved multi-question Ask without d
   node_assert.equal(node_fs.readFileSync(file, 'utf8').split('+ first question').length - 1, 2);
 });
 
+node_test.test('Claude prompt capture hands the hook session to later commands, including duplicate capture', () => {
+  const root = make_project(round_ending_in_scaffold(valid_reply_body, local_stamp(), 'claude'), 'claude');
+  const payload = { cwd: root, hook_event_name: 'UserPromptSubmit', session_id: 'claude-hook-session', turn_id: 'first', prompt: 'continue from Claude' };
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: '', CLAUDE_SESSION_ID: '' };
+  const first = execFileSync(process.execPath, [hook_path, '--host', 'claude'], { input: JSON.stringify(payload), encoding: 'utf8', env });
+  node_assert.match(first, /claude-hook-session/);
+  const duplicate = execFileSync(process.execPath, [hook_path, '--host', 'claude'], { input: JSON.stringify(payload), encoding: 'utf8', env });
+  node_assert.match(duplicate, /claude-hook-session/);
+});
+
 // A machine-local wall-clock stamp near "now", so honest fixtures sit inside
 // the linter's freshness window whenever the suite runs.
 const local_stamp = (offset_ms = -120000) => format_local_timestamp(new Date(Date.now() + offset_ms));
@@ -60,7 +71,7 @@ Current commit: fixture.
 
 Tests/scenarios: none.
 
-Configuration: ag.json — schema v7; validated for ${host} this round.
+Configuration: ag.json — schema v${ag_settings.schema_version}; validated for ${host} this round.
 
 Proven: the fixture is ready.
 
@@ -270,7 +281,7 @@ Current commit: fixture.
 
 Tests/scenarios: none.
 
-Configuration: ag.json — schema v7; validated for codex this round.
+Configuration: ag.json — schema v${ag_settings.schema_version}; validated for codex this round.
 
 Proven: checkpoint fixture.
 

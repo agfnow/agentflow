@@ -19,7 +19,6 @@ test('streams off remains a visible no-automatic-stream mode', () => {
 		assert.match(document, /`off`.*(?:reports? the signal|report).*neither asks to open a stream nor opens one/i)
 		assert.match(document, /Explicit `new-feature:`.*(?:still|always).*requested stream|Explicit `new-feature:` is always immediate authorization/i)
 	}
-	assert.match(english_guide, /Legal values are `ask`, `always`, and `off`/)
-	assert.match(english_guide, /`off` reports the signal without asking or opening a stream/)
-	assert.match(chinese_guide, /`off` 只會告訴你這個訊號，不會問你要不要開 stream/)
+	assert.match(english_guide, /Feature workspaces:\*\* `streams: ask\|always\|off` controls how ordinary requests for separate feature work are handled\. Explicit `new-feature:` still requests creation directly\./)
+	assert.match(chinese_guide, /功能工作區：\*\* `streams: ask\|always\|off` 控制一般要求開新功能工作區時，是否先詢問、自動建立，或只提示而不建立。明確的 `new-feature:` 仍會直接提出建立要求。/)
 })

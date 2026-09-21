@@ -232,6 +232,35 @@ node_test.test('tracker accepts an honest terminal state and rejects completion 
   }
 });
 
+node_test.test('plain-folder completion exempts only commit evidence, never completion proof', () => {
+  for (const marker of ['not applicable', 'not applicable; plain folder']) {
+    const text = valid_tracker('complete').replace('a'.repeat(40), marker);
+    const facts = tracker_facts(text, { repository: { state: 'plain' }, evidence_commit_verified: false });
+    node_assert.equal(lint_tracker(facts).status, 'pass');
+    for (const repository of [undefined, { state: 'git' }, { state: 'unborn' }, { state: 'error' }]) {
+      node_assert.equal(lint_tracker({ ...facts, repository }).status, 'fail');
+    }
+    for (const overrides of [
+      { evidence: [] },
+      { evidence: [{ ...facts.evidence[0], current: false }] },
+      { path: '../tracker.md' },
+      { file: { ...facts.file, read_identity: 'changed' } },
+      { text: text.replace('**Total:** 1.', '**Total:** 99.') },
+      { text: text.replace('**Operation running:** no.', '**Operation running:** yes.') },
+      { text: text.replace('- [x]', '- [ ]') },
+    ]) node_assert.equal(lint_tracker({ ...facts, ...overrides }).status, 'fail');
+    const format = lint_tracker({ ...facts, format_only: true, evidence: undefined });
+    node_assert.equal(format.status, 'pass');
+    node_assert.match(format.detail, /evidence truth is checked separately/);
+  }
+  const git_facts = tracker_facts(valid_tracker('complete'), { repository: { state: 'git' }, evidence_commit_verified: false });
+  node_assert.equal(lint_tracker(git_facts).status, 'fail');
+  node_assert.equal(lint_tracker({ ...git_facts, format_only: true }).status, 'pass');
+  node_assert.equal(lint_tracker({ ...git_facts, repository: { state: 'plain' }, format_only: true }).status, 'pass');
+  node_assert.equal(lint_tracker({ ...git_facts, repository: { state: 'plain' } }).status, 'fail');
+  node_assert.equal(lint_tracker({ ...git_facts, repository: { state: 'plain' }, evidence_commit_verified: true }).status, 'pass');
+});
+
 node_test.test('tracker is required only after decomposition', () => {
   node_assert.strictEqual(lint_tracker(undefined).status, 'skip');
   node_assert.strictEqual(lint_tracker({ required: false }).status, 'pass');
@@ -1693,7 +1722,7 @@ node_test.test('refresh configuration_valid rejects a schema-v3 ag.json without 
   });
 
   node_assert.strictEqual(status_for(result, 'configuration_valid').status, 'fail');
-  node_assert.match(status_for(result, 'configuration_valid').detail, /schema-version.*7|unsupported/i);
+  node_assert.match(status_for(result, 'configuration_valid').detail, /schema-version.*8|unsupported/i);
   node_assert.strictEqual(node_fs.readFileSync(node_path.join(project_root, 'ag.json'), 'utf8'), before);
 });
 

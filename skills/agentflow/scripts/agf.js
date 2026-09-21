@@ -21,6 +21,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { TextDecoder } = require('node:util')
 const ag_settings = require('./ag-settings.js')
+const { resolve_default_branch } = require('./default-branch.js')
 const install_hook = require('./install-hook.js')
 const setup = require('./setup.js')
 const resume_intake = require('./resume-intake.js')
@@ -33,8 +34,10 @@ const DELIVERY_LOCK_NAME = 'agf-delivery.lock'
 
 const USAGE_COMMANDS = [
 	{ label: 'skills', syntax: 'agf skills audit [--json]', description: 'inventory local skills and provide a read-only conflict audit prompt' },
-	{ label: 'start', syntax: 'agf start --repo <path> --host <codex|claude> --message-stdin [--json]', description: 'initialize, record the owner message, and return one bounded intake result' },
+	{ label: 'start', syntax: 'agf start --repo <path> --host <id> [--session <id>] [--host-family <family>] --message-stdin [--json]', description: 'initialize, record the owner message, and return one bounded intake result' },
+	{ label: 'owner', syntax: 'agf owner <inspect|adopt> --notebook <path>', description: 'inspect ownership or explicitly adopt with expected owner, Ask and hash' },
 	{ label: 'close', syntax: 'agf close --manifest-stdin [--push-authorized]', description: 'validate, replace, commit, and optionally push one prepared closeout manifest' },
+	{ label: 'compact', syntax: 'agf compact --notebook <path> [--host <id>] [--session <id>]', description: 'archive completed notebook rounds with byte and hash verification' },
 	{ label: 'init', syntax: 'agf init', description: 'create Agentflow records, ignore entries, and project hooks in one repeatable action' },
 	{ label: 'new', syntax: 'agf new <name> [taskkey] [-m "first ask"]', description: 'open a stream and write its initial notebook; root records stay with the agent' },
 	{ label: 'finish', syntax: 'agf finish --prep [taskkey]', description: 'prepare a worktree by pushing its branch and integrating the default branch' },
@@ -146,9 +149,10 @@ const parse_start_args = (argv) => {
 	const result = { repo: '', host: '', message_stdin: false, json: false }
 	for (let index = 0; index < argv.length; index += 1) {
 		const flag = argv[index]
-		if (flag === '--repo' || flag === '--host') {
-			if (result[flag.slice(2)] || index + 1 >= argv.length || argv[index + 1].startsWith('--')) return { error: `${flag} requires a value` }
-			result[flag.slice(2)] = argv[++index]
+		if (flag === '--repo' || flag === '--host' || flag === '--host-family' || flag === '--session') {
+			const key = flag === '--host-family' ? 'host_family' : flag.slice(2)
+			if (result[key] || index + 1 >= argv.length || argv[index + 1].startsWith('--')) return { error: `${flag} requires a value` }
+			result[key] = argv[++index]
 			continue
 		}
 		if (flag === '--message-stdin') {
@@ -165,14 +169,21 @@ const parse_start_args = (argv) => {
 		return { error: `unknown start option "${flag}"` }
 	}
 	if (!result.repo) return { error: 'start requires --repo <path>' }
-	if (!['codex', 'claude'].includes(result.host)) return { error: 'start requires --host <codex|claude>' }
+	if (!/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(result.host)) return { error: 'start requires --host <safe lowercase id>' }
+	if (result.host_family !== undefined && !/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(result.host_family)) return { error: 'start requires --host-family <safe lowercase id>' }
 	if (!result.message_stdin) return { error: 'start requires --message-stdin' }
 	return result
 }
 
 const parse_close_args = (argv) => {
 	const result = { help: false, manifest_stdin: false, push_authorized: false }
-	for (const flag of argv) {
+	for (let index = 0; index < argv.length; index += 1) {
+		const flag = argv[index]
+		if (flag === '--session' || flag === '--host') {
+			if (result[flag.slice(2)] || !argv[index + 1] || argv[index + 1].startsWith('--')) return { error: `${flag} requires one value` }
+			result[flag.slice(2)] = argv[++index]
+			continue
+		}
 		if (flag === '-h' || flag === '--help') return { help: true }
 		if (flag === '--manifest-stdin') {
 			if (result.manifest_stdin) return { error: 'duplicate option --manifest-stdin' }
@@ -292,11 +303,13 @@ const near_keys = (key, known) => {
 
 // ---------- io ----------
 
-const git_timeout_ms = () => {
-	const requested = Number(process.env.AGF_TEST_GIT_TIMEOUT_MS)
-	return Number.isFinite(requested) && requested > 0
-		? Math.min(MAX_GIT_TIMEOUT_MS, Math.floor(requested))
-		: MAX_GIT_TIMEOUT_MS
+const git_timeout_ms = repo_root => {
+	const public_requested = Number(process.env.AGF_GIT_TIMEOUT_MS)
+	if (Number.isInteger(public_requested) && public_requested > 0) return public_requested
+	const test_requested = process.env.AGF_TEST_CONTEXT === '1' ? Number(process.env.AGF_TEST_GIT_TIMEOUT_MS) : 0
+	if (Number.isFinite(test_requested) && test_requested > 0) return Math.min(MAX_GIT_TIMEOUT_MS, Math.floor(test_requested))
+	const configured = ag_settings.configured_git_timeout_ms(repo_root || process.cwd())
+	return Number.isInteger(configured) && configured > 0 ? configured : MAX_GIT_TIMEOUT_MS
 }
 
 const sanitize_diagnostic = (value) => String(value || '')
@@ -307,34 +320,39 @@ const sanitize_diagnostic = (value) => String(value || '')
 	.replace(/\b([a-z][a-z0-9+.-]*:\/\/)([^/\s@]+)@/gi, '$1[redacted]@')
 	.trim()
 
+const git_timeout_limit = result => result.timeout_ms ?? git_timeout_ms()
+
 const git_failure_detail = (operation, result, { network = false } = {}) => {
-	if (result.timed_out) return `${operation} timed out after ${git_timeout_ms()}ms; the result is unknown`
+	if (result.timed_out) return `${operation} timed out after ${git_timeout_limit(result)}ms; the result is unknown`
 	if (network) return `${operation} failed`
 	return `${operation} failed${result.out ? `: ${sanitize_diagnostic(result.out)}` : ''}`
 }
 
 const git = (cwd, args, { preserve_nul = false } = {}) => {
+	const timeout_ms = git_timeout_ms(cwd)
 	try {
 		return {
 			ok: true,
+			timeout_ms,
 			out: preserve_nul
 				? String(execFileSync('git', args, {
 					cwd,
 					encoding: 'utf8',
 					stdio: ['ignore', 'pipe', 'pipe'],
-					timeout: git_timeout_ms(),
+					timeout: timeout_ms,
 				})).replace(/\0$/, '')
 				: sanitize_diagnostic(execFileSync('git', args, {
 				cwd,
 				encoding: 'utf8',
 				stdio: ['ignore', 'pipe', 'pipe'],
-				timeout: git_timeout_ms(),
+				timeout: timeout_ms,
 			})),
 		}
 	} catch (err) {
 		const timed_out = err.code === 'ETIMEDOUT' || /timed out/i.test(String(err.message || ''))
 		return {
 			ok: false,
+			timeout_ms,
 			out: sanitize_diagnostic(`${String(err.stdout || '')}${String(err.stderr || err.message || '')}`),
 			status: Number.isInteger(err.status) ? err.status : null,
 			timed_out,
@@ -346,19 +364,22 @@ const git = (cwd, args, { preserve_nul = false } = {}) => {
 // A committed notebook is data, not a diagnostic. Keep its successful stdout as
 // the original bytes until the closing-record validator has checked it.
 const git_blob = (cwd, args) => {
+	const timeout_ms = git_timeout_ms(cwd)
 	try {
 		return {
 			ok: true,
+			timeout_ms,
 			out: execFileSync('git', args, {
 				cwd,
 				stdio: ['ignore', 'pipe', 'pipe'],
-				timeout: git_timeout_ms(),
+				timeout: timeout_ms,
 			}),
 		}
 	} catch (err) {
 		const timed_out = err.code === 'ETIMEDOUT' || /timed out/i.test(String(err.message || ''))
 		return {
 			ok: false,
+			timeout_ms,
 			out: sanitize_diagnostic(`${String(err.stdout || '')}${String(err.stderr || err.message || '')}`),
 			timed_out,
 			mutation_unknown: timed_out,
@@ -366,7 +387,7 @@ const git_blob = (cwd, args) => {
 	}
 }
 
-const close_usage = 'usage: agf close --manifest-stdin [--push-authorized]'
+const close_usage = 'usage: agf close --manifest-stdin [--host <id>] [--session <id>] [--push-authorized]'
 
 const read_close_stdin = () => {
 	const chunks = []
@@ -438,7 +459,7 @@ const close_result = ({ manifest, close_id = null } = {}) => ({
 	recovery: null,
 })
 
-const close_success_result = result => ({
+const close_success_result = (result, display) => ({
 	version: result.version,
 	ok: true,
 	phase: result.phase,
@@ -448,6 +469,7 @@ const close_success_result = result => ({
 	next_ask: result.next_ask,
 	commit: result.commit,
 	delivery: result.delivery,
+	display,
 	...(result.validation?.checks.some(check => check.status === 'warn')
 		? { warnings: result.validation.checks.filter(check => check.status === 'warn').map(({ id, detail }) => ({ id, detail })) }
 		: {}),
@@ -557,7 +579,7 @@ const close_find_commit = (repo, close_id, notebook, expected_bytes) => {
 		const trailer = message.match(new RegExp(`^Agentflow-Close-Id: ${close_id}$`, 'gmu'))
 		if (trailer === null || trailer.length !== 1) continue
 		const blob = git_blob(repo, ['show', `${sha}:${notebook}`])
-		if (blob.ok && Buffer.isBuffer(blob.out) && blob.out.equals(expected_bytes)) matches.push(sha)
+		if (blob.ok && Buffer.isBuffer(blob.out) && (expected_bytes === undefined || blob.out.equals(expected_bytes))) matches.push(sha)
 	}
 	if (matches.length > 1) return { error: 'more than one matching Agentflow-Close-Id commit was found' }
 	return { sha: matches[0] || null }
@@ -618,7 +640,7 @@ const start_relative = (repo, file) => path.relative(repo, file).split(path.sep)
 
 const start_snapshot_paths = (repo, host, target = '.agentflow/devlog.md') => [...new Set([
 	'ag.json', '.gitignore', target, '.agentflow/devlog.md',
-	`.${host}/settings.json`, `.${host}/hooks.json`,
+	...(['codex', 'claude'].includes(host) ? [`.${host}/settings.json`, `.${host}/hooks.json`] : []),
 	'.claude/settings.json', '.codex/hooks.json',
 ])]
 
@@ -722,16 +744,28 @@ const next_run_id = (notebook_text, current_ask) => {
 	return `RUN-${String((ids.length === 0 ? 0 : Math.max(...ids)) + 1).padStart(3, '0')}`
 }
 
-const start_result = ({ repo, host, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity }) => ({
+const manual_hook_instructions = host => {
+	const capture = `Automatic prompt/stop hooks are unavailable for ${host}; retain the startup session ID and capture each owner message with node skills/agentflow/scripts/notebook-write.js append-input --notebook <path> --host ${host} --session <id> --input-stdin.`
+	const closeout = `Prepare and validate the bounded closeout manifest, then run node skills/agentflow/scripts/agf.js close --host ${host} --session <id> --manifest-stdin using that same session ID; automatic stop-hook enforcement is unavailable for ${host}.`
+	return { capture, closeout, manual_capture: capture, manual_closeout: closeout }
+}
+
+const hook_result_for = (host, result) => result || (['codex', 'claude'].includes(host)
+	? { status: 'available', host }
+	: { status: 'not_available', host, reason: 'no_host_hook_integration', instructions: manual_hook_instructions(host) })
+
+const start_result = ({ repo, host, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result }) => ({
 	repository: repo,
 	notebook,
 	active_host: host,
+	...(host_family ? { host_family } : {}),
 	git: git_identity,
 	next_run_id: next_run_id(notebook_text, intake.current_ask),
 	configuration: intake.configuration,
 	setup_created: setup_result.created,
 	setup_created_files: setup_result.created_files,
 	hooks_restart_required: setup_result.changed_files.includes(host === 'codex' ? '.codex/hooks.json' : '.claude/settings.json'),
+	hooks: hook_result_for(host, hook_result),
 	setup: {
 		created: setup_result.created,
 		already_complete: setup_result.changed_files.length === 0,
@@ -753,6 +787,7 @@ const start_public_result = result => ({
 	repository: result.repository,
 	notebook: result.notebook,
 	active_host: result.active_host,
+	...(result.host_family ? { host_family: result.host_family } : {}),
 	local_timestamp: format_local_timestamp(),
 	configuration: result.configuration,
 	git: result.git,
@@ -760,6 +795,7 @@ const start_public_result = result => ({
 	setup_created: result.setup_created,
 	setup_created_files: result.setup_created_files,
 	hooks_restart_required: result.hooks_restart_required,
+	...(result.hooks.status === 'not_available' ? { hooks: result.hooks } : {}),
 	message: result.message,
 	current_ask_identifier: result.current_ask_identifier,
 	changed_paths: result.changed_paths,
@@ -774,11 +810,14 @@ const emit_start_result = (result, args, repo, log) => {
 		json: {
 			repository: result.repository,
 			notebook: result.notebook,
+			active_host: result.active_host,
+			...(result.host_family ? { host_family: result.host_family } : {}),
 			configuration: result.configuration,
 			git: result.git,
 			setup_created: result.setup_created,
 			setup_created_files: result.setup_created_files,
 			hooks_restart_required: result.hooks_restart_required,
+			...(result.hooks.status === 'not_available' ? { hooks: result.hooks } : {}),
 			message: result.message,
 		},
 	}
@@ -787,6 +826,11 @@ const emit_start_result = (result, args, repo, log) => {
 	log(`notebook: ${result.notebook}`)
 	log(`setup: ${result.setup.created ? 'initialized' : 'already complete'}`)
 	log(`owner message: ${result.message.inserted ? 'recorded' : 'already present'}`)
+	if (result.hooks.status === 'not_available') {
+		log('hooks: not_available')
+		log(`manual capture: ${result.hooks.instructions.capture}`)
+		log(`manual closeout: ${result.hooks.instructions.closeout}`)
+	}
 	log(`current Ask: ${result.current_ask_identifier || 'none'}`)
 	log(`stream decision: ${result.stream_decision.reason}`)
 	if (result.required_next_rulebook) log(`next rulebook: ${result.required_next_rulebook}`)
@@ -797,6 +841,8 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 	const args = parse_start_args(argv)
 	if (args.help) { log(render_usage(80)); return 1 }
 	if (args.error) { log(`${args.error}\n\n${render_usage(80)}`); return 1 }
+	const notebook_owner = require('./notebook-owner')
+	notebook_owner.identity({ host: args.host, session: args.session })
 
 	const requested = path.resolve(cwd, args.repo)
 	const repo_path = real_path(requested)
@@ -809,33 +855,39 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 	let configured_target = '.agentflow/devlog.md'
 	let config_file = path.join(repo, 'ag.json')
 	if (fs.existsSync(config_file)) {
-		const existing_config = ag_settings.load_config(config_file, { repo_root: repo, active_host: args.host })
+		const existing_config = ag_settings.load_config(config_file, { repo_root: repo, active_host: args.host, persist_migration: false, ...(args.host_family ? { host_family: args.host_family } : {}) })
 		configured_target = existing_config.switches['target-doc'] || configured_target
 	}
-	if (top.ok && fs.statSync(path.join(repo, '.git')).isFile()) {
+	if (top.ok && notebook_owner.linked_worktree(repo)) {
 		configured_target = stream_doc(repo, git_identity.branch)
 		if (!configured_target) throw new Error('stream notebook is missing for this worktree; restore its canonical notebook before intake')
 		config_file = ag_settings.resolve_config_path(repo, configured_target)
 		if (!fs.existsSync(config_file)) throw new Error('stream configuration is missing; restore its notebook/configuration pair before intake')
 	}
+	if (fs.existsSync(config_file) && !fs.existsSync(path.join(repo, configured_target))) throw new Error(`configured notebook ${configured_target} is missing; restore it or repair the pair explicitly`)
 	let lock = acquire_start_lock(repo)
 	if (lock.existing) {
-		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: configured_target, active_host: args.host, interrupted_start: true })
+		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: configured_target, active_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}), interrupted_start: true })
 		const result = start_result({
 			repo,
 			host: args.host,
-			notebook: intake.notebook,
-			notebook_text: fs.readFileSync(path.join(repo, intake.notebook), 'utf8'),
-			intake,
-			setup_result: { created: false, created_files: [], changed_files: [] },
+				notebook: intake.notebook,
+				notebook_text: fs.readFileSync(path.join(repo, intake.notebook), 'utf8'),
+				intake,
+				setup_result: { created: false, created_files: [], changed_files: [] },
 			message_result: { inserted: false, reason: 'startup_lock_present', owner_message: message },
 			provenance: [],
 			git_identity,
+			host_family: args.host_family,
 		})
 		return emit_start_result(result, args, repo, log)
 	}
 
+	let input_lock = null
 	try {
+		const guarded_file = notebook_owner.safe_path(repo, configured_target, true)
+		input_lock = notebook_writer.acquire_close_round_lock(`${guarded_file}.close-round.lock`)
+		const ownership = notebook_owner.guard({ root: repo, notebook: configured_target, host: args.host, session: args.session, allow_missing: true, resume_unclaimed: true })
 		const before_paths = start_snapshot_paths(repo, args.host, configured_target)
 		const before = new Map(before_paths.map(relative => [relative, start_file_identity(path.join(repo, relative))]))
 		const initialized = fs.existsSync(config_file)
@@ -844,29 +896,31 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 				notebook_path: configured_target,
 				config_path: config_file,
 				explicit_host: args.host,
+				...(args.host_family ? { host_family: args.host_family } : {}),
 			})
-			: ag_settings.initialize_project({ repo_root: repo, explicit_host: args.host })
+			: ag_settings.initialize_project({ repo_root: repo, explicit_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}) })
 		const notebook = start_relative(repo, initialized.notebook_path || path.join(repo, initialized.config.switches['target-doc']))
 		const paths = start_snapshot_paths(repo, args.host, notebook)
 		const notebook_file = path.join(repo, notebook)
 		if (!fs.existsSync(notebook_file)) throw new Error(`configured notebook ${notebook} is missing; restore it or repair the pair explicitly`)
 		update_ignore_file(repo)
-		install_hook.install({ cwd: repo, hosts: [args.host], quiet: true, say: () => {} })
+		const hook_result = install_hook.install({ cwd: repo, hosts: [args.host], quiet: true, say: () => {} })
 		const setup_provenance = start_provenance({ repo, paths, before })
 		let message_result
-		const input_lock = notebook_writer.acquire_close_round_lock(`${notebook_file}.close-round.lock`)
 		try {
-			const original = notebook_writer.read_regular_file(notebook_file, 'notebook')
+			let original = notebook_writer.read_regular_file(notebook_file, 'notebook')
+			notebook_owner.verify(ownership)
+			original = require('./notebook-compact').compact_locked({ root: repo, notebook, original, force: false }).snapshot
 			const current = resume_intake.final_ask_span(original.text)
 			message_result = insert_start_message(original.text, current, message)
 			message_result.owner_message = message
 			const populated = resume_intake.final_ask_span(message_result.text || original.text)
-			if (populated && populated.text !== '+') notebook_writer.capture_input_scope(repo, notebook, args.host, populated.id)
+			if (populated && populated.text !== '+') notebook_writer.capture_input_scope(repo, notebook, args.host, populated.id, { ownership, session: args.session })
 			if (message_result.inserted) {
 				notebook_writer.verify_notebook_unchanged(notebook_file, original)
 				notebook_writer.atomic_replace(notebook_file, Buffer.from(message_result.text), original.mode)
 			}
-		} finally { notebook_writer.release_close_round_lock(input_lock) }
+		} finally { notebook_writer.release_close_round_lock(input_lock); input_lock = null }
 		const provenance = start_provenance({ repo, paths, before })
 		const changed_files = setup_provenance.map(record => record.path)
 		const created_files = setup_provenance.filter(record => record.before === null).map(record => record.path)
@@ -877,9 +931,10 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		}
 		release_start_lock(lock)
 		lock = null
-		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: notebook, active_host: args.host, bootstrap_provenance: provenance })
-		return emit_start_result(start_result({ repo, host: args.host, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity }), args, repo, log)
+		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: notebook, active_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}), bootstrap_provenance: provenance })
+		return emit_start_result(start_result({ repo, host: args.host, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
 	} finally {
+		if (input_lock !== null) notebook_writer.release_close_round_lock(input_lock)
 		if (lock !== null) release_start_lock(lock)
 	}
 }
@@ -893,7 +948,7 @@ const host_from_root_status = (repo) => {
 	if (!fs.existsSync(notebook)) return ''
 	const text = fs.readFileSync(notebook, 'utf8')
 	if (!ag_settings.validate_status_projection(text).valid) return ''
-	const match = /^Configuration:\s+[^\r\n]+\s+for\s+(codex|claude)\s+this round\.$/mu.exec(ag_settings.status_region(text).body)
+	const match = /^Configuration:\s+[^\r\n]+\s+for\s+([a-z0-9][a-z0-9_-]{0,127})\s+this round\.$/mu.exec(ag_settings.status_region(text).body)
 	return match ? match[1] : ''
 }
 
@@ -937,17 +992,10 @@ const local_branches = (repo) => {
 	return result.ok ? result.out.split('\n').filter(Boolean) : []
 }
 
-const finish_default_branch = (repo, has_remote) => {
-	const origin_head = has_remote
-		? git(repo, ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'])
-		: { ok: false, out: '' }
-	const from_origin = origin_head.ok
-		? default_from_origin_head(origin_head.out.replace(/^refs\/remotes\//, ''))
-		: ''
-	const branches = local_branches(repo)
-	const detected = from_origin || ['main', 'master'].find((branch) => branches.includes(branch)) || ''
-	return detected && branches.includes(detected) ? detected : ''
-}
+const selected_default_branch = repo => resolve_default_branch(args => {
+	const result = git(repo, args)
+	return result.ok ? result.out : null
+})
 
 const finish_context = (cwd, supplied_key) => {
 	const top = git(cwd, ['rev-parse', '--show-toplevel'])
@@ -980,8 +1028,10 @@ const finish_context = (cwd, supplied_key) => {
 	if (status.out !== '') return { error: `worktree .worktrees/${key} has unsaved changes — commit or stash them before running agf finish` }
 	const remotes = git(repo, ['remote'])
 	const has_remote = remotes.ok && remotes.out.split('\n').includes('origin')
-	const def = finish_default_branch(repo, has_remote)
-	if (!def) return { error: 'cannot tell which branch is the default line of work — keep a local main or master branch and try again' }
+	const selected = selected_default_branch(repo)
+	if (selected.error) return { error: selected.error }
+	const def = selected.branch
+	if (!def || !local_branches(repo).includes(def)) return { error: 'cannot find the local default branch — set an existing branch with git config --local agentflow.default-branch <branch>' }
 	return { repo, git_common_dir, worktree, key, def, has_remote }
 }
 
@@ -1132,12 +1182,18 @@ const release_delivery_lock = (lock) => {
 
 const close_relative_lock = (repo, file) => path.relative(repo, file).split(path.sep).join('/')
 
-const close_captured_validation = ({ repo, notebook, notebook_path, config_file, ignore_paths, candidate_paths }) => {
+const close_manifest_host = manifest => {
+	if (is_plain_object(manifest?.status) && typeof manifest.status.host === 'string') return manifest.status.host
+	if (typeof manifest?.status === 'string') return /^Configuration:\s+[^\r\n]+\s+for\s+([a-z0-9][a-z0-9_-]{0,127})\s+this round\.$/mu.exec(manifest.status)?.[1]
+	return undefined
+}
+
+const close_captured_validation = ({ repo, notebook, notebook_path, config_file, ignore_paths, candidate_paths, active_host }) => {
 	const facts = completion_context.collect({
 		project_root: repo,
 		notebook_path,
 		config_path: config_file,
-		active_host: active_host_for_cli(repo),
+		active_host: active_host || active_host_for_cli(repo),
 		devlog_text: notebook.text,
 		require_status_projection: true,
 		ignore_paths,
@@ -1200,7 +1256,7 @@ const close_push = ({ repo, manifest, commit_sha, result }) => {
 	}
 
 	result.delivery.state = 'unknown'
-	const pushed = git(repo, ['push', remote, `HEAD:${branch}`])
+	const pushed = git(repo, ['push', remote, `${commit_sha}:refs/heads/${branch}`])
 	if (!pushed.ok) {
 		result.delivery.state = pushed.timed_out ? 'unknown' : 'failed'
 		set_close_error(result, pushed.timed_out ? 'push_unknown' : 'push_failed', git_failure_detail(`pushing ${remote}/${branch}`, pushed, { network: true }), 'inspect the remote result before retrying the same manifest')
@@ -1221,9 +1277,11 @@ const close_push = ({ repo, manifest, commit_sha, result }) => {
 	result.recovery = null
 }
 
-const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files }) => {
+const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files, host, session }) => {
 	const result = close_result({ manifest, close_id })
 	const notebook_path = manifest.notebook
+	const manifest_host = host || close_manifest_host(manifest)
+	const notebook_owner = require('./notebook-owner')
 	const lock_context = { repo, worktree: repo, key: 'closeout', git_common_dir: real_path(git(repo, ['rev-parse', '--path-format=absolute', '--git-common-dir']).out) }
 	let source
 	try {
@@ -1243,6 +1301,19 @@ const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files 
 	const allowed_paths = allowed_files.map(file => file.relative)
 	const ignore_paths = [close_relative_lock(repo, lock_path), close_relative_lock(repo, delivery_lock.path)]
 	try {
+		// A prior close may have committed successfully while delivery failed.
+		// Deliver that saved, verified commit directly so a newer Ask cannot
+		// steal ownership or change the bytes sent to the named remote.
+		if (manifest.delivery.mode === 'push') {
+			const saved = notebook_writer.read_close_scope(repo, notebook_path, manifest_host || active_host_for_cli(repo), manifest.ask, close_id)
+			if (saved) {
+				const commit_sha = saved.commit
+				outcome.commit = { state: 'existing', sha: commit_sha }
+				outcome.phase = 'committed'
+				close_push({ repo, manifest, commit_sha, result: outcome })
+				return outcome
+			}
+		}
 		try {
 			close_lock = notebook_writer.acquire_close_round_lock(lock_path)
 		} catch (error) {
@@ -1251,6 +1322,7 @@ const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files 
 		}
 
 		const current = notebook_writer.read_regular_file(notebook_file, 'notebook')
+		const ownership = notebook_owner.guard({ root: repo, notebook: notebook_path, text: current.text, ask: manifest.ask, host: manifest_host, session, allow_closed: true })
 		if (!notebook_writer.match_closed_close({ notebook_text: current.text, input: manifest, project_root: repo, notebook_path })) {
 			if (!Object.keys(source.identity).every(key => source.identity[key] === current.identity[key]) || source.hash !== current.hash) {
 				set_close_error(outcome, 'notebook_stale', 'notebook identity changed before closeout locks were held', 'inspect the notebook and prepare a fresh manifest before retrying')
@@ -1293,7 +1365,7 @@ const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files 
 			result.phase = 'notebook_replaced'
 		} else {
 			try {
-				const prepared = notebook_writer.prepare_close_candidate({ notebook: current, input: manifest, root: repo, notebook_path })
+				const prepared = notebook_writer.prepare_close_candidate({ notebook: current, input: manifest, root: repo, notebook_path, host: manifest_host, session, ownership })
 				candidate = { ...current, content: prepared.candidate, text: prepared.candidate_text, hash: createHash('sha256').update(prepared.candidate).digest('hex') }
 				result.next_ask = prepared.next_ask
 				result.notebook.candidate_sha256 = candidate.hash
@@ -1306,7 +1378,7 @@ const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files 
 
 		// Only allowed paths can enter this commit. Preserve outside working files,
 		// while completion still checks every committed change after the review.
-		const captured = close_captured_validation({ repo, notebook: candidate, notebook_path, config_file: fs.existsSync(config_file) ? config_file : undefined, ignore_paths: [...ignore_paths, ...Object.keys(outside_snapshot)], candidate_paths: before_audit.paths.filter(file => allowed_paths.includes(file)) })
+		const captured = close_captured_validation({ repo, notebook: candidate, notebook_path, config_file: fs.existsSync(config_file) ? config_file : undefined, ignore_paths: [...ignore_paths, ...Object.keys(outside_snapshot)], candidate_paths: before_audit.paths.filter(file => allowed_paths.includes(file)), active_host: manifest_host })
 		outcome.validation = captured.validation
 		if (!captured.validation.ok) {
 			set_close_error(outcome, 'completion_failed', `candidate completion check failed: ${captured.validation.checks.filter(check => check.status === 'fail').map(check => `${check.id}: ${check.detail}`).join('; ')}`, 'correct the completion evidence or review state, then retry the same manifest')
@@ -1410,7 +1482,8 @@ const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files 
 			}
 		}
 
-		if (!closed) notebook_writer.save_close_scope(repo, notebook_path, active_host_for_cli(repo), manifest.ask, commit_sha, candidate.hash, outside_snapshot)
+		if (!closed) notebook_writer.save_close_scope(repo, notebook_path, manifest_host || active_host_for_cli(repo), manifest.ask, commit_sha, candidate.hash, outside_snapshot, { ownership, session, close_id })
+		notebook_owner.release(ownership, notebook_writer.read_regular_file(notebook_file, 'notebook').text)
 		if (manifest.delivery.mode === 'local') {
 			result.delivery.state = 'local'
 			result.ok = true
@@ -1587,7 +1660,7 @@ const finish_main = (argv, cwd, log, _ask, width = 80) => {
 			const pushed = git(context.worktree, ['push', 'origin', `HEAD:${context.key}`])
 			if (!pushed.ok) {
 				log(pushed.timed_out
-					? `stream push timed out after ${git_timeout_ms()}ms; the remote stream result is unknown and preparation stopped before default-branch integration`
+					? `stream push timed out after ${git_timeout_limit(pushed)}ms; the remote stream result is unknown and preparation stopped before default-branch integration`
 					: 'stream push failed; preparation stopped before default-branch integration')
 				return 1
 			}
@@ -1595,7 +1668,7 @@ const finish_main = (argv, cwd, log, _ask, width = 80) => {
 			const fetched = git(context.worktree, ['fetch', 'origin'])
 			if (!fetched.ok) {
 				log(fetched.timed_out
-					? `stream branch ${context.key} was pushed, but origin fetch timed out after ${git_timeout_ms()}ms and its local result is unknown`
+					? `stream branch ${context.key} was pushed, but origin fetch timed out after ${git_timeout_limit(fetched)}ms and its local result is unknown`
 					: `stream branch ${context.key} was pushed, but origin fetch failed; preparation stopped`)
 				return 1
 			}
@@ -1642,7 +1715,7 @@ const finish_main = (argv, cwd, log, _ask, width = 80) => {
 			if (!pushed.ok) {
 				delivery_state.remote_default = pushed.timed_out ? 'unknown' : 'failed'
 				log(pushed.timed_out
-					? `delivery push timed out after ${git_timeout_ms()}ms; the remote default-branch result is unknown and local delivery was not attempted`
+					? `delivery push timed out after ${git_timeout_limit(pushed)}ms; the remote default-branch result is unknown and local delivery was not attempted`
 					: 'delivery push failed; origin rejected the update. The stream branch is unchanged. If the default branch moved, run agf finish --prep again; if direct pushes are blocked, open a pull request from the stream branch.')
 				return 1
 			}
@@ -1651,7 +1724,7 @@ const finish_main = (argv, cwd, log, _ask, width = 80) => {
 			const fetched = git(context.repo, ['fetch', 'origin'])
 			if (!fetched.ok) {
 				log(fetched.timed_out
-					? `remote default branch was updated, but origin fetch timed out after ${git_timeout_ms()}ms and the main-checkout delivery result is unknown`
+					? `remote default branch was updated, but origin fetch timed out after ${git_timeout_limit(fetched)}ms and the main-checkout delivery result is unknown`
 					: 'remote default branch was updated but the main checkout was not — origin fetch failed')
 				log(`recover with: ${main_recovery(context)}`)
 				return 1
@@ -1689,7 +1762,7 @@ const finish_main = (argv, cwd, log, _ask, width = 80) => {
 			if (!merged.ok) {
 				delivery_state.local_checkout = merged.timed_out ? 'unknown' : 'failed'
 				log(merged.timed_out
-					? `remote default branch was updated, but local fast-forward delivery timed out after ${git_timeout_ms()}ms and its result is unknown`
+					? `remote default branch was updated, but local fast-forward delivery timed out after ${git_timeout_limit(merged)}ms and its result is unknown`
 					: `remote default branch was updated but the main checkout was not — fast-forward delivery failed: ${sanitize_diagnostic(merged.out)}`)
 				log(`recover with: ${main_recovery(context)}`)
 				return 1
@@ -1743,7 +1816,7 @@ const finish_main = (argv, cwd, log, _ask, width = 80) => {
 		const merged = git(context.repo, ['merge', '--ff-only', record.head])
 		if (!merged.ok) {
 			log(merged.timed_out
-				? `local fast-forward delivery timed out after ${git_timeout_ms()}ms; the result is unknown`
+				? `local fast-forward delivery timed out after ${git_timeout_limit(merged)}ms; the result is unknown`
 				: `local delivery failed — the main checkout was not changed: ${sanitize_diagnostic(merged.out)}`)
 			delivery_state.local_checkout = merged.timed_out ? 'unknown' : 'failed'
 			log(`recover with: ${local_main_recovery(context, record.head)}`)
@@ -1850,13 +1923,18 @@ const new_main = (argv, cwd, log, ask, width = 80) => {
 		if (!r.ok) { log(`git ${step[0]} failed:\n${r.out}`); return 1 }
 	}
 
-	const has_remote = git(repo, ['remote']).out !== ''
+	const remote_listing = git(repo, ['remote'])
+	if (!remote_listing.ok) {
+		log(`could not inspect configured remotes before cleanup — nothing was changed`)
+		return 1
+	}
+	const has_remote = remote_listing.out !== ''
 	if (has_remote) {
 		const pushed = git(wt, ['push', '-u', 'origin', taskkey])
 		log(pushed.ok
 			? `pushed branch ${taskkey} to origin`
 			: pushed.timed_out
-				? `stream branch push timed out after ${git_timeout_ms()}ms; remote branch state is unknown and the local branch remains available`
+				? `stream branch push timed out after ${git_timeout_limit(pushed)}ms; remote branch state is unknown and the local branch remains available`
 				: 'stream branch push failed; the local branch remains available')
 	} else {
 		log('no remote configured — nothing pushed')
@@ -1891,6 +1969,89 @@ const new_main = (argv, cwd, log, ask, width = 80) => {
 
 // ---------- agf clean ----------
 
+// Empty refs are distinct from failed inspection. Never infer absence from a failed command.
+const branch_tip = (repo, key) => {
+	const ref = `refs/heads/${key}`
+	const result = git(repo, ['for-each-ref', '--format=%(refname) %(objectname) %(symref)', ref])
+	if (!result.ok) return null
+	const line = result.out.split('\n').find(value => value.startsWith(`${ref} `))
+	if (!line) return ''
+	const fields = line.split(' ')
+	return fields[2] ? null : fields[1]
+}
+
+const deletion_remote = repo => {
+	const remotes = git(repo, ['remote'])
+	if (!remotes.ok) return { error: 'could not inspect configured remotes' }
+	if (!remotes.out) return { url: '' }
+	const fetch = git(repo, ['remote', 'get-url', '--all', 'origin'])
+	const push = git(repo, ['remote', 'get-url', '--push', '--all', 'origin'])
+	if (!fetch.ok || !push.ok || !fetch.out || fetch.out.includes('\n') || fetch.out !== push.out) {
+		return { error: 'origin must have one identical fetch and push destination before deleting branches' }
+	}
+	return { url: fetch.out }
+}
+
+const server_tip = (repo, url, key) => {
+	if (!url) return ''
+	const result = git(repo, ['ls-remote', '--refs', url, `refs/heads/${key}`])
+	if (!result.ok) return null
+	if (!result.out) return ''
+	const fields = result.out.split(/\s+/u)
+	return fields.length === 2 && fields[1] === `refs/heads/${key}` && /^[0-9a-f]{40,64}$/.test(fields[0]) ? fields[0] : null
+}
+
+const deletion_worktree = (repo, key, wt, allow_present) => {
+	const listing = git(repo, ['worktree', 'list', '--porcelain', '-z'], { preserve_nul: true })
+	if (!listing.ok) return { error: 'could not inspect registered worktrees' }
+	const records = listing.out.split('\0\0').map(block => Object.fromEntries(block.split('\0').filter(Boolean).map(line => {
+		const space = line.indexOf(' ')
+		return space < 0 ? [line, true] : [line.slice(0, space), line.slice(space + 1)]
+	})))
+	const target = records.find(record => record.worktree && real_path(record.worktree) === real_path(wt))
+	if (records.some(record => record.branch === `refs/heads/${key}` && record !== target)) return { error: `branch ${key} is in use by another worktree` }
+	if (target && (!allow_present || target.branch !== `refs/heads/${key}` || target.locked || target.prunable)) return { error: `folder .worktrees/${key} no longer identifies the expected stream worktree` }
+	if (fs.existsSync(wt) !== Boolean(target)) return { error: `folder .worktrees/${key} does not match Git's worktree registration` }
+	return { present: Boolean(target), record: target || null }
+}
+
+const discard_snapshot = (repo, key, wt, url) => {
+	const local = branch_tip(repo, key), remote = server_tip(repo, url, key)
+	const worktree = deletion_worktree(repo, key, wt, true)
+	if (local === null || remote === null || worktree.error) return { error: worktree.error || 'could not inspect branch tips' }
+	let contents = ''
+	if (worktree.present) {
+		try {
+			const hash = createHash('sha256')
+			const visit = relative => {
+				const file = path.join(wt, relative), stat = fs.lstatSync(file)
+				hash.update(JSON.stringify([relative, stat.dev, stat.ino, stat.mode]))
+				if (stat.isSymbolicLink()) hash.update(fs.readlinkSync(file))
+				else if (stat.isDirectory()) for (const name of fs.readdirSync(file).sort()) visit(path.join(relative, name))
+				else if (stat.isFile()) {
+					const descriptor = fs.openSync(file, 'r'), buffer = Buffer.alloc(64 * 1024)
+					try { let count; while ((count = fs.readSync(descriptor, buffer, 0, buffer.length, null))) hash.update(buffer.subarray(0, count)) }
+					finally { fs.closeSync(descriptor) }
+				}
+				else throw Error('unsupported worktree entry')
+			}
+			visit('')
+			contents = hash.digest('hex')
+		} catch { return { error: 'could not snapshot all worktree contents' } }
+	}
+	return { local, remote, worktree, contents }
+}
+
+const delete_local_tip = (repo, key, expected, log) => {
+	const guard = deletion_worktree(repo, key, path.join(repo, '.worktrees', key), false)
+	if (guard.error) { log(`${guard.error}; local branch deletion stopped`); return false }
+	// Git compares and deletes under the ref lock; a preceding check plus branch -d/-D races.
+	const result = git(repo, ['update-ref', '--no-deref', '-d', `refs/heads/${key}`, expected])
+	if (!result.ok) { log(`local branch ${key} deletion failed or its tip changed; inspect its current state before retrying`); return false }
+	log(`deleted branch ${key}`)
+	return true
+}
+
 const clean_main = (argv, cwd, log, ask, width = 80) => {
 	const args = parse_clean_args(argv)
 	if (args.error) { log(`${args.error}\n\n${render_usage(width)}`); return 1 }
@@ -1908,11 +2069,12 @@ const clean_main = (argv, cwd, log, ask, width = 80) => {
 	if (!key) { log('no feature name given, and you are not standing in a .worktrees/<name> folder\n\n' + render_usage(width)); return 1 }
 
 	// Guard 1 — the main checkout must sit on the default branch.
-	const origin_head = git(repo, ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'])
+	const selected = selected_default_branch(repo)
+	if (selected.error) { log(selected.error); return 1 }
 	const known = known_keys(repo)
-	const fallback = ['main', 'master'].find((b) => known.includes(b)) || ''
-	const def = (origin_head.ok ? default_from_origin_head(origin_head.out.replace('refs/remotes/', '')) : '') || fallback
-	if (!def) { log('cannot tell which branch is the main line of work — switch to it and try again'); return 1 }
+	const def = selected.branch
+	if (!def) { log('cannot identify the default branch — set it with git config --local agentflow.default-branch <branch>'); return 1 }
+	if (key === def) { log('the default branch cannot be cleaned up as a stream'); return 1 }
 
 	const on = git(repo, ['rev-parse', '--abbrev-ref', 'HEAD'])
 	if (!on.ok || on.out !== def) {
@@ -1943,8 +2105,12 @@ const clean_main = (argv, cwd, log, ask, width = 80) => {
 
 	// Guard 4 — an unsaved worktree is never swept.
 	if (fs.existsSync(wt)) {
-		const dirty = git(wt, ['status', '--porcelain'])
-		if (dirty.ok && dirty.out !== '') {
+		const dirty = git(wt, ['status', '--porcelain', '--ignored', '--untracked-files=all'])
+		if (!dirty.ok) {
+			log(`could not inspect ${wt_rel} before cleanup — nothing was changed`)
+			return 1
+		}
+		if (dirty.out !== '') {
 			log(`${wt_rel} still has unsaved changes — nothing was changed`)
 			log(dirty.out.split('\n').map((l) => `  ${l}`).join('\n'))
 			log('save them (or throw them away) in that folder first, then run agf cleanup again')
@@ -1952,53 +2118,134 @@ const clean_main = (argv, cwd, log, ask, width = 80) => {
 		}
 	}
 
-	const has_remote = git(repo, ['remote']).out !== ''
+	const destination = deletion_remote(repo)
+	if (destination.error) { log(`${destination.error} — nothing was changed`); return 1 }
+	const has_remote = Boolean(destination.url)
+	const worktree_before = deletion_worktree(repo, key, wt, true)
+	if (worktree_before.error) { log(worktree_before.error); return 1 }
+	const feature_tip = branch_tip(repo, key)
+	if (feature_tip === null) { log('could not inspect the local feature branch'); return 1 }
+	const local_tip_before = git(repo, ['rev-parse', '--verify', `refs/heads/${def}`])
+	const remote_tip_before = has_remote
+		? git(repo, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${def}`])
+		: { ok: false, out: '' }
+	const remote_feature_before = has_remote
+		? git(repo, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${key}`])
+		: { ok: false, out: '' }
+	let remote_feature_tip_after = ''
+	if (!local_tip_before.ok) {
+		log(`could not snapshot local ${def} before cleanup — nothing was changed`)
+		return 1
+	}
 
 	// Step 1 — level the default branch with the server.
 	if (has_remote) {
-		const fetched = git(repo, ['fetch', 'origin'])
+		const fetched = git(repo, ['fetch', destination.url, `+refs/heads/*:refs/remotes/origin/*`])
 		if (!fetched.ok) {
 			log(fetched.timed_out
-				? `main checkout fetch timed out after ${git_timeout_ms()}ms; cleanup stopped before merging or sweeping and the result is unknown`
+				? `main checkout fetch timed out after ${git_timeout_limit(fetched)}ms; cleanup stopped before merging or sweeping and the result is unknown`
 				: 'main checkout fetch failed; cleanup stopped before merging or sweeping')
 			return 1
 		}
-		const ff = git(repo, ['merge', '--ff-only', `origin/${def}`])
+		const remote_tip = git(repo, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${def}`])
+		if (!remote_tip.ok) {
+			log(`could not snapshot origin/${def} after fetch — cleanup stopped before merging or sweeping`)
+			return 1
+		}
+		const remote_integrated = git(repo, ['merge-base', '--is-ancestor', remote_tip.out, local_tip_before.out])
+		if (!remote_integrated.ok) {
+			log(`origin/${def} moved ahead of or diverged from the local ${def} tip — nothing was swept`)
+			return 1
+		}
+		if (remote_tip_before.ok && remote_tip_before.out !== remote_tip.out) {
+			const prior_integrated = git(repo, ['merge-base', '--is-ancestor', remote_tip_before.out, remote_tip.out])
+			if (!prior_integrated.ok) {
+				log(`origin/${def} changed in a way the saved remote snapshot cannot explain — nothing was swept`)
+				return 1
+			}
+		}
+		remote_feature_tip_after = server_tip(repo, destination.url, key)
+		if (remote_feature_tip_after === null) { log('could not inspect the remote feature branch — nothing was swept'); return 1 }
+		const remote_feature_after = { ok: Boolean(remote_feature_tip_after), out: remote_feature_tip_after }
+		if (feature_tip && remote_feature_after.ok) {
+			const feature_integrated = git(repo, ['merge-base', '--is-ancestor', remote_feature_after.out, feature_tip])
+			if (!feature_integrated.ok) {
+				log(`origin/${key} is ahead of or diverged from the local stream snapshot — nothing was swept`)
+				return 1
+			}
+		}
+		if (remote_feature_before.ok && remote_feature_after.ok && remote_feature_before.out !== remote_feature_after.out) {
+			const feature_change_explained = git(repo, ['merge-base', '--is-ancestor', remote_feature_before.out, remote_feature_after.out])
+			if (!feature_change_explained.ok) {
+				log(`origin/${key} changed in a way the saved stream snapshot cannot explain — nothing was swept`)
+				return 1
+			}
+		}
+		const ff = git(repo, ['merge', '--ff-only', remote_tip.out])
 		if (!ff.ok && !/Already up to date|up to date/i.test(ff.out)) {
 			log(ff.timed_out
-				? `bringing the main folder level with origin timed out after ${git_timeout_ms()}ms; the local result is unknown and cleanup stopped before sweeping`
+				? `bringing the main folder level with origin timed out after ${git_timeout_limit(ff)}ms; the local result is unknown and cleanup stopped before sweeping`
 				: `your main folder could not be brought level with the server — nothing was swept: ${sanitize_diagnostic(ff.out)}`)
 			return 1
 		}
 	}
+	const main_status = git(repo, ['status', '--porcelain', '--untracked-files=all'])
+	if (!main_status.ok) {
+		log(`could not inspect the main checkout before cleanup — nothing was changed`)
+		return 1
+	}
+	if (main_status.out !== '') {
+		log(`the main checkout has unsaved changes — nothing was changed`)
+		return 1
+	}
 
 	// Step 2 — merge the stream in.
-	const has_local = git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${key}`]).ok
-	const source = has_local ? key : `origin/${key}`
+	const has_local = Boolean(feature_tip)
+	const source = feature_tip || remote_feature_tip_after
+	if (!source || branch_tip(repo, key) !== feature_tip) { log('feature branch changed or could not be inspected — nothing was swept'); return 1 }
+	const collision = local_delivery_collision({ repo }, source, local_tip_before.out)
+	if (collision && collision.error) {
+		log(`cleanup stopped before merging — ${collision.error}`)
+		return 1
+	}
+	if (collision) {
+		log(`cleanup stopped before merging — local delivery would replace an untracked or ignored entry at "${sanitize_diagnostic(collision.path)}"`)
+		return 1
+	}
 	const merged = git(repo, ['merge', '--no-ff', source, '-m', `merge: ${key} — feature closed (agf cleanup)`])
 	if (!merged.ok) {
 		const aborted = git(repo, ['merge', '--abort'])
 		const abort_note = aborted.ok
 			? 'the merge was undone and nothing was deleted'
 			: aborted.timed_out
-				? `merge abort timed out after ${git_timeout_ms()}ms; merge state is unknown and nothing was swept`
+				? `merge abort timed out after ${git_timeout_limit(aborted)}ms; merge state is unknown and nothing was swept`
 				: `merge abort failed: ${sanitize_diagnostic(aborted.out)}; nothing was swept`
 		const merge_note = merged.timed_out
-			? `merging "${key}" timed out after ${git_timeout_ms()}ms; the merge result is unknown`
+			? `merging "${key}" timed out after ${git_timeout_limit(merged)}ms; the merge result is unknown`
 			: `merging "${key}" hit a conflict`
 		log(`${merge_note} — ${abort_note}: ${sanitize_diagnostic(merged.out)}`)
 		log(`open ${repo} and merge it by hand, or type godev there and ask for cleanup: ${key}`)
 		return 1
 	}
 	log(/Already up to date/i.test(merged.out) ? `"${key}" was already merged — only the sweeping-up runs` : `merged "${key}" into ${def}`)
+	const merged_tip = git(repo, ['rev-parse', '--verify', `refs/heads/${def}`])
+	if (!merged_tip.ok || !git(repo, ['merge-base', '--is-ancestor', source, merged_tip.out]).ok) { log('could not verify the merged feature tip — nothing was swept'); return 1 }
+	if (remote_feature_tip_after && !git(repo, ['merge-base', '--is-ancestor', remote_feature_tip_after, merged_tip.out]).ok) { log('remote feature work is not contained in the merged default branch — nothing was swept'); return 1 }
 
 	// Step 3 — push the merge.
 	if (has_remote) {
-		const pushed = git(repo, ['push'])
+		const pushed = git(repo, ['push', destination.url, `${merged_tip.out}:refs/heads/${def}`])
 		if (!pushed.ok) {
 			log(pushed.timed_out
-				? `default-branch push timed out after ${git_timeout_ms()}ms; the remote result is unknown and cleanup stopped before sweeping`
+				? `default-branch push timed out after ${git_timeout_limit(pushed)}ms; the remote result is unknown and cleanup stopped before sweeping`
 				: 'default-branch push failed; the local merge remains, and cleanup stopped before sweeping')
+			return 1
+		}
+		const verified_push = git(repo, ['ls-remote', destination.url, `refs/heads/${def}`])
+		const pushed_sha = verified_push.ok ? (verified_push.out.split(/\s+/u)[0] || '') : ''
+		const local_after_push = git(repo, ['rev-parse', 'HEAD'])
+		if (!verified_push.ok || !local_after_push.ok || pushed_sha !== local_after_push.out) {
+			log('default-branch push completed but origin could not be verified at the local merge commit; cleanup stopped before sweeping')
 			return 1
 		}
 		log(`pushed ${def} to origin`)
@@ -2007,33 +2254,47 @@ const clean_main = (argv, cwd, log, ask, width = 80) => {
 	}
 
 	// Step 4 — sweep, each step refusing rather than destroying.
-	if (fs.existsSync(wt)) {
-		const removed = git(repo, ['worktree', 'remove', wt_rel])
-		log(removed.ok
-			? `removed folder ${wt_rel}`
-			: removed.timed_out
-				? `removing folder ${wt_rel} timed out after ${git_timeout_ms()}ms; folder state is unknown`
-				: `folder ${wt_rel} kept — git refused to remove it: ${sanitize_diagnostic(removed.out)}`)
+	const sweep_guard = deletion_worktree(repo, key, wt, true)
+	if (sweep_guard.error || JSON.stringify(sweep_guard) !== JSON.stringify(worktree_before) || branch_tip(repo, key) !== feature_tip || server_tip(repo, destination.url, key) !== remote_feature_tip_after) {
+		log('feature branch or worktree moved or could not be verified after cleanup validation — nothing was swept')
+		return 1
 	}
-	// Remote first: while origin/<key> still exists, `git branch -d` compares the branch against
-	// THAT ref and refuses a branch already merged into HEAD but never pushed to its own upstream —
-	// exactly what merge_back leaves behind. With the upstream gone, -d falls back to the HEAD check,
-	// which is the safety we actually want and which still refuses genuinely unmerged work.
-	if (has_remote && git(repo, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${key}`]).ok) {
-		const del = git(repo, ['push', 'origin', '--delete', key])
-		log(del.ok
-			? `deleted branch ${key} on origin`
-			: del.timed_out
-				? `deleting branch ${key} on origin timed out after ${git_timeout_ms()}ms; remote state is unknown`
-				: `branch ${key} on origin kept — remote deletion failed`)
+	if (fs.existsSync(wt)) {
+		// Git removes ignored files even without --force; check again after merge/push.
+		const unsaved = git(wt, ['status', '--porcelain', '--ignored', '--untracked-files=all'])
+		if (!unsaved.ok || unsaved.out !== '') {
+			log(`${wt_rel} has unsaved or ignored files, or could not be inspected — nothing was swept`)
+			return 1
+		}
+		const removed = git(repo, ['worktree', 'remove', wt_rel])
+		if (!removed.ok) {
+			log(removed.timed_out
+				? `removing folder ${wt_rel} timed out after ${git_timeout_limit(removed)}ms; folder state is unknown and no refs were deleted`
+				: `folder ${wt_rel} kept — git refused to remove it: ${sanitize_diagnostic(removed.out)}; no refs were deleted`)
+			return 1
+		}
+		log(`removed folder ${wt_rel}`)
+	}
+	// Delete only the tips contained in the verified, published merge, regardless of upstream settings.
+	if (has_remote && remote_feature_tip_after) {
+		const live_feature = git(repo, ['ls-remote', destination.url, `refs/heads/${key}`])
+		const live_feature_sha = live_feature.ok ? (live_feature.out.split(/\s+/u)[0] || '') : ''
+		if (live_feature_sha !== remote_feature_tip_after) {
+			log(`branch ${key} on origin moved or could not be verified after cleanup validation — no refs were deleted`)
+			return 1
+		} else {
+			const del = git(repo, ['push', destination.url, `:refs/heads/${key}`, `--force-with-lease=refs/heads/${key}:${remote_feature_tip_after}`])
+			if (!del.ok) {
+				log(del.timed_out
+					? `deleting branch ${key} on origin timed out after ${git_timeout_limit(del)}ms; remote state is unknown and no local refs were deleted`
+					: `remote branch ${key} deletion failed; its current state is unknown and no local refs were deleted`)
+				return 1
+			}
+			log(`deleted branch ${key} on origin`)
+		}
 	}
 	if (has_local) {
-		const del = git(repo, ['branch', '-d', key])
-		log(del.ok
-			? `deleted branch ${key}`
-			: del.timed_out
-				? `deleting branch ${key} timed out after ${git_timeout_ms()}ms; local branch state is unknown`
-				: `branch ${key} kept — git refused to delete it: ${sanitize_diagnostic(del.out)}`)
+		if (!delete_local_tip(repo, key, feature_tip, log)) return 1
 	}
 
 	// Step 5 — the one thing a shell cannot do.
@@ -2080,53 +2341,64 @@ const ditch_main = (argv, cwd, log, ask = ask_tty, width = 80) => {
 	}
 
 	// The default branch and the branch under the main checkout's feet are never ditched.
-	const origin_head = git(repo, ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'])
-	const def = (origin_head.ok ? default_from_origin_head(origin_head.out.replace('refs/remotes/', '')) : '')
-		|| ['main', 'master'].find((b) => known.includes(b)) || ''
+	const selected = selected_default_branch(repo)
+	if (selected.error) { log(selected.error); return 1 }
+	const def = selected.branch
+	if (!def) { log('cannot identify the default branch — nothing was changed'); return 1 }
 	if (key === def) { log(`"${key}" is the main line of work, not a feature — nothing was changed`); return 1 }
 	const on = git(repo, ['rev-parse', '--abbrev-ref', 'HEAD'])
-	if (on.ok && on.out === key) { log(`the main project folder is standing on branch "${key}" — switch it away first; nothing was changed`); return 1 }
+	if (!on.ok || on.out === key) { log(`the main project folder is standing on branch "${key}" or could not be inspected — switch it away first; nothing was changed`); return 1 }
 
 	const wt_rel = path.join('.worktrees', key)
 	const wt = path.join(repo, wt_rel)
-	const has_wt = fs.existsSync(wt)
-	const has_local = git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${key}`]).ok
-	const has_remote_branch = git(repo, ['remote']).out !== ''
-		&& git(repo, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${key}`]).ok
+	if (real_path(top.out) === real_path(wt)) { log('exit this stream session and run ditch from the main project folder'); return 1 }
+	const destination = deletion_remote(repo)
+	if (destination.error) { log(`${destination.error} — nothing was changed`); return 1 }
+	const snapshot = discard_snapshot(repo, key, wt, destination.url)
+	if (snapshot.error) { log(`${snapshot.error} — nothing was changed`); return 1 }
+	const has_wt = snapshot.worktree.present
+	const has_local = Boolean(snapshot.local)
+	const has_remote_branch = Boolean(snapshot.remote)
 	if (!has_wt && !has_local && !has_remote_branch) { log(`"${key}" has no branch or folder left to delete — nothing to ditch`); return 1 }
 
 	const doomed = [
 		has_wt ? `folder ${wt_rel}, including any unsaved work inside it` : '',
-		has_remote_branch ? `branch ${key} on origin` : '',
-		has_local ? `local branch ${key}` : '',
+		has_remote_branch ? `branch ${key} on origin at ${snapshot.remote}` : '',
+		has_local ? `local branch ${key} at ${snapshot.local}` : '',
 	].filter(Boolean)
 	log(`feature branch "${key}" will be deleted — nothing is merged first, unmerged work is lost:`)
 	log(doomed.map((d) => `  - ${d}`).join('\n'))
 	if (!is_yes(ask('are you sure? (Y/n) '))) { log('nothing was changed'); return 1 }
+	const current = discard_snapshot(repo, key, wt, destination.url)
+	if (current.error || JSON.stringify(current) !== JSON.stringify(snapshot)) {
+		log('branch tips or worktree contents changed or could not be inspected after confirmation — nothing was deleted')
+		return 1
+	}
 
 	if (has_wt) {
 		const removed = git(repo, ['worktree', 'remove', '--force', wt_rel])
 		log(removed.ok
 			? `removed folder ${wt_rel}`
 			: removed.timed_out
-				? `removing folder ${wt_rel} timed out after ${git_timeout_ms()}ms; folder state is unknown`
+				? `removing folder ${wt_rel} timed out after ${git_timeout_limit(removed)}ms; folder state is unknown`
 				: `folder ${wt_rel} kept — git refused to remove it: ${sanitize_diagnostic(removed.out)}`)
+		if (!removed.ok) return 1
+	}
+	if (branch_tip(repo, key) !== snapshot.local || server_tip(repo, destination.url, key) !== snapshot.remote) {
+		log('branch tips changed or could not be inspected; no branch deletion was attempted')
+		return 1
 	}
 	if (has_remote_branch) {
-		const del = git(repo, ['push', 'origin', '--delete', key])
+		const del = git(repo, ['push', destination.url, `:refs/heads/${key}`, `--force-with-lease=refs/heads/${key}:${snapshot.remote}`])
 		log(del.ok
 			? `deleted branch ${key} on origin`
 			: del.timed_out
-				? `deleting branch ${key} on origin timed out after ${git_timeout_ms()}ms; remote state is unknown`
-				: `branch ${key} on origin kept — remote deletion failed`)
+				? `deleting branch ${key} on origin timed out after ${git_timeout_limit(del)}ms; remote state is unknown`
+				: `remote branch ${key} deletion failed; inspect its current state before retrying`)
+		if (!del.ok) return 1
 	}
 	if (has_local) {
-		const del = git(repo, ['branch', '-D', key])
-		log(del.ok
-			? `deleted branch ${key}`
-			: del.timed_out
-				? `deleting branch ${key} timed out after ${git_timeout_ms()}ms; local branch state is unknown`
-				: `branch ${key} kept — git refused to delete it: ${sanitize_diagnostic(del.out)}`)
+		if (!delete_local_tip(repo, key, snapshot.local, log)) return 1
 	}
 
 	const doc = stream_doc(repo, key)
@@ -2189,7 +2461,7 @@ const setup_main = (argv, cwd, log, ask, width = 80) => {
 	return setup.main({ argv, ask, say: log })
 }
 
-const hooks_help = width => `${usage_words('usage: agf hooks [--project|--global] [--host <claude|codex|all>] [--off]', width).join('\n')}\n\n${usage_words('Project scope is the default. --off removes only hooks whose Agentflow ownership can be verified.', width).join('\n')}\n`
+const hooks_help = width => `${usage_words('usage: agf hooks [--project|--global] [--host <id|all>] [--off]', width).join('\n')}\n\n${usage_words('Project scope is the default. Generic hosts report not_available with manual capture and closeout instructions.', width).join('\n')}\n`
 
 const hooks_main = (argv, cwd, log, ask, width = 80) => {
 	if (argv.some(argument => argument === '-h' || argument === '--help')) {
@@ -2213,7 +2485,7 @@ const hooks_main = (argv, cwd, log, ask, width = 80) => {
 			return 1
 		}
 	}
-	if (!['all', 'claude', 'codex'].includes(host)) {
+	if (host !== 'all' && (typeof host !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(host))) {
 		log(`unknown --host value "${host}"\n\n${hooks_help(width)}`)
 		return 1
 	}
@@ -2262,8 +2534,9 @@ const close_main = (argv, cwd, log, _ask, _width = 80) => {
 	let result = close_result({ manifest })
 	let validated
 	try {
-		const root = git(cwd, ['rev-parse', '--show-toplevel'])
-		const repo = real_path(root.ok ? root.out : cwd)
+		const repository = require('./repository-state').detect(cwd)
+		if (repository.state === 'error') throw new Error(repository.detail)
+		const repo = repository.root
 		validated = close_validate_manifest(manifest, repo)
 		result = close_result({ manifest, close_id: validated.close_id })
 		if (manifest.delivery.mode === 'push' && !args.push_authorized) {
@@ -2274,18 +2547,36 @@ const close_main = (argv, cwd, log, _ask, _width = 80) => {
 			set_close_error(result, 'push_authority_mismatch', '--push-authorized is valid only when delivery.mode is push', 'remove --push-authorized or prepare a push manifest explicitly')
 			return { json: result, exitCode: 1 }
 		}
-		if (!root.ok) {
+		if (repository.state === 'plain') {
 			if (manifest.delivery.mode !== 'local') throw new Error('push delivery requires a Git repository; use local delivery for a plain folder')
 			const current = notebook_writer.read_regular_file(validated.notebook_file, 'notebook')
 			const closed = notebook_writer.match_closed_close({ notebook_text: current.text, input: manifest, project_root: repo, notebook_path: manifest.notebook })
-			const saved = closed || notebook_writer.close_round({ root: repo, notebook: manifest.notebook, input: manifest })
+			if (closed) {
+				const lock = notebook_writer.acquire_close_round_lock(`${validated.notebook_file}.close-round.lock`)
+				try {
+					notebook_writer.verify_notebook_unchanged(validated.notebook_file, current)
+					const owner = require('./notebook-owner')
+					const ownership = owner.guard({ root: repo, notebook: manifest.notebook, text: current.text, ask: manifest.ask, host: args.host || close_manifest_host(manifest), session: args.session, allow_closed: true })
+					owner.release(ownership, current.text)
+				} finally { notebook_writer.release_close_round_lock(lock) }
+			}
+			const saved = closed || notebook_writer.close_round({ root: repo, notebook: manifest.notebook, input: manifest, host: args.host || close_manifest_host(manifest), session: args.session })
 			result.ok = true
 			result.phase = 'notebook_replaced'
 			result.next_ask = saved.next_ask
 			result.commit = { state: 'not_applicable' }
 			result.delivery.state = 'local'
-		} else result = close_execute({ repo, ...validated })
-		return { json: result.ok ? close_success_result(result) : result, exitCode: result.ok ? 0 : 1 }
+		} else result = close_execute({ repo, ...validated, host: args.host, session: args.session })
+		let display
+		if (result.ok) {
+			const controls = ag_settings.read_notebook_controls(repo, manifest.notebook)
+			const inline_reply = controls['inline-reply'] === 'on'
+			const saved = notebook_writer.read_regular_file(validated.notebook_file, 'notebook').text
+			const round = require('./round-linter').parse_devlog(saved).rounds.find(round => round.id === manifest.ask)
+			if (!round?.reply_text.trim()) throw new Error('completed Reply is missing from the saved notebook')
+			display = { inline_reply, text: inline_reply ? round.reply_text.replace(/\r?\n---\s*$/u, '').trim() : `${manifest.notebook} updated` }
+		}
+		return { json: result.ok ? close_success_result(result, display) : result, exitCode: result.ok ? 0 : 1 }
 	} catch (error) {
 		close_validation_failure(result, error.message)
 		set_close_error(result, error.code || 'invalid_manifest', error.message, 'correct the manifest or repository state, then retry the same command')
@@ -2295,7 +2586,7 @@ const close_main = (argv, cwd, log, _ask, _width = 80) => {
 
 // ---------- dispatch ----------
 
-const COMMANDS = { skills: (...args) => require('./skills-audit.js').main(...args), start: start_main, close: close_main, init: init_main, new: new_main, finish: finish_main, cleanup: clean_main, clean: clean_main, merge: clean_main, ditch: ditch_main, uninstall: uninstall_main, setup: setup_main, hooks: hooks_main, settings: settings_main }
+const COMMANDS = { owner: (...args) => require('./notebook-owner.js').cli(...args), compact: (...args) => require('./notebook-compact.js').main(...args), skills: (...args) => require('./skills-audit.js').main(...args), start: start_main, close: close_main, init: init_main, new: new_main, finish: finish_main, cleanup: clean_main, clean: clean_main, merge: clean_main, ditch: ditch_main, uninstall: uninstall_main, setup: setup_main, hooks: hooks_main, settings: settings_main }
 
 const main = (argv, cwd, log, ask, width = 80) => {
 	const cmd = COMMANDS[argv[0]]

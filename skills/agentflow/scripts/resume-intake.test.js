@@ -42,7 +42,7 @@ const identity = file => {
 }
 
 const config = () => JSON.stringify({
-  'schema-version': 7,
+  'schema-version': 8,
   switches: {
     'target-doc': 'devlog.md',
     'workspace-dir': '.agentflow',
@@ -52,8 +52,9 @@ const config = () => JSON.stringify({
     streams: 'always',
     'ask-names': 'off',
     'allow-ag': 'ask',
-    metrics: 'off',
     'large-work-minutes': 120,
+    'allowed-worker': ['external', 'internal', 'host'],
+    'review-policy': 'prefer-independent',
   },
   'pipeline-roles': {
     requirements: 'basic', codewalk: 'basic', explore: 'basic', spike: 'basic', spec: 'basic', implementation: 'basic', 'security-scan': 'off', acceptance: 'basic', 'cross-check': 'basic', learn: 'basic',
@@ -63,7 +64,7 @@ const config = () => JSON.stringify({
   }],
 }, null, 2) + '\n'
 
-const notebook = ask => `# STATUS\n\nProject: test.\n\nNotebook: devlog.md — root.\n\nCurrent commit: initial.\n\nTests/scenarios: none.\n\nConfiguration: ag.json — schema v7; validated for codex this round.\n\nProven: none.\n\nOpen: none.\n\nNext: wait.\n\nArtifacts: none.\n\nArchived eras: none.\n\nStreams: none.\n\n---\n\n# → Ask / A-001\n\n+${ask ? ` ${ask}` : ''}\n`
+const notebook = ask => `# STATUS\n\nProject: test.\n\nNotebook: devlog.md — root.\n\nCurrent commit: initial.\n\nTests/scenarios: none.\n\nConfiguration: ag.json — schema v8; validated for codex this round.\n\nProven: none.\n\nOpen: none.\n\nNext: wait.\n\nArtifacts: none.\n\nArchived eras: none.\n\nStreams: none.\n\n---\n\n# → Ask / A-001\n\n+${ask ? ` ${ask}` : ''}\n`
 
 const make_repo = () => {
   const directory = tmp()
@@ -89,6 +90,18 @@ test('one intake result validates configuration and treats a newly written final
     assert.equal(result.stream_decision.reason, 'owner_input_only')
     assert.deepEqual(result.current_ask, { id: 'A-001', text: '+ explain the current setup result' })
     assert.match(result.status, /^# STATUS/m)
+  } finally {
+    drop(directory)
+  }
+})
+
+test('startup accepts the same valid notebook with CRLF line endings', () => {
+  const directory = make_repo()
+  try {
+    fs.writeFileSync(path.join(directory, 'devlog.md'), notebook('continue on Windows').replace(/\n/g, '\r\n'))
+    const result = intake.collect_intake({ repo_root: directory, notebook_path: 'devlog.md', active_host: 'codex' })
+    assert.equal(result.configuration.valid, true)
+    assert.deepEqual(result.current_ask, { id: 'A-001', text: '+ continue on Windows' })
   } finally {
     drop(directory)
   }
@@ -254,4 +267,18 @@ test('a non-default branch and an active stream remain foreign-work reasons', ()
   } finally {
     drop(directory)
   }
+})
+
+test('configured default trunk overrides cached main during local-only intake', () => {
+  const directory = make_repo()
+  try {
+    git(directory, ['branch', 'trunk'])
+    git(directory, ['update-ref', 'refs/remotes/origin/main', 'HEAD'])
+    git(directory, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'])
+    git(directory, ['config', 'agentflow.default-branch', 'trunk'])
+    git(directory, ['switch', 'trunk'])
+    assert.notEqual(intake.collect_intake({ repo_root: directory, notebook_path: 'devlog.md', active_host: 'codex' }).stream_decision.reason, 'foreign_or_parallel_work')
+    git(directory, ['switch', 'main'])
+    assert.equal(intake.collect_intake({ repo_root: directory, notebook_path: 'devlog.md', active_host: 'codex' }).stream_decision.reason, 'foreign_or_parallel_work')
+  } finally { drop(directory) }
 })

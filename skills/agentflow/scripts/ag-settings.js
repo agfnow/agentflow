@@ -11,7 +11,8 @@ const node_path = require('node:path')
 const node_child_process = require('node:child_process')
 const { format_local_timestamp } = require('./local-time.js')
 
-const schema_version = 7
+const schema_version = 8
+const git_timeout_default_ms = 30_000
 const tier_names = Object.freeze(['best', 'better', 'basic', 'cheap'])
 const pipeline_role_names = Object.freeze(['requirements', 'codewalk', 'explore', 'spike', 'spec', 'implementation', 'security-scan', 'acceptance', 'cross-check', 'learn'])
 const mandatory_pipeline_roles = Object.freeze(['requirements', 'spec', 'implementation', 'acceptance'])
@@ -27,9 +28,27 @@ const pipeline_role_defaults = Object.freeze({
 	'cross-check': 'better',
 	learn: 'basic',
 })
-const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'lang', 'streams', 'ask-names', 'allow-ag', 'metrics', 'large-work-minutes', 'completion-cleanup', 'completion-cleanup-interval-days'])
-const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days'])
+const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days'])
+const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days', 'log-verbosity', 'inline-reply', 'git-timeout-ms'])
+const legacy_switch_names = Object.freeze(['metrics'])
 const completion_cleanup_defaults = Object.freeze({ 'completion-cleanup': 'off', 'completion-cleanup-interval-days': 7 })
+const notebook_control_defaults = Object.freeze({ 'log-verbosity': 'all', 'inline-reply': 'off' })
+const notebook_controls = (config = {}) => {
+	const controls = Object.fromEntries(Object.entries(notebook_control_defaults).map(([key, fallback]) => [key, has_own(config.switches || {}, key) ? config.switches[key] : fallback]))
+	if (!['off', 'wip', 'all'].includes(controls['log-verbosity'])) throw new SettingsError('log-verbosity must be off, wip, or all')
+	if (!['off', 'on'].includes(controls['inline-reply'])) throw new SettingsError('inline-reply must be off or on')
+	return controls
+}
+const read_notebook_controls = (repo_root, notebook_path) => {
+	const file = active_config_path(repo_root, notebook_path)
+	let text
+	try { text = node_fs.readFileSync(file, 'utf8') } catch (error) {
+		if (error.code === 'ENOENT') return notebook_controls()
+		throw error
+	}
+	if (duplicate_json_key(text) !== null) throw new SettingsError('notebook configuration contains a duplicate JSON key')
+	return notebook_controls(JSON.parse(text))
+}
 const changeable_switch_names = Object.freeze(switch_names.filter(key => key !== 'target-doc'))
 
 const host_markers = Object.freeze({
@@ -85,8 +104,10 @@ class SettingsError extends Error {
 const error_from = (message, errors, warnings, code) => new SettingsError(message, { errors, warnings, code })
 
 const normalise_host = host => {
-	if (host === 'codex' || host === 'claude') return host
-	throw new SettingsError('active host must be codex or claude', { code: 'AG_HOST_INVALID' })
+	if (typeof host !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(host)) {
+		throw new SettingsError('active host must be a safe lowercase identifier', { code: 'AG_HOST_INVALID' })
+	}
+	return host
 }
 
 const marker_is_set = value => value !== undefined && value !== null && value !== '' && value !== '0' && value !== 'false'
@@ -100,12 +121,13 @@ const detect_host_info = (options = {}) => {
 				? options.coordinator_host
 				: options.host
 
-	if (explicit_host !== undefined) {
-		return { host: normalise_host(explicit_host), source: 'explicit coordinator identity' }
-	}
-
 	const env = options.env === undefined ? process.env : options.env
 	const found = Object.keys(host_markers).filter(host => host_markers[host].some(name => marker_is_set(env && env[name])))
+
+	if (explicit_host !== undefined) {
+		const host = normalise_host(explicit_host)
+		return { host, source: 'explicit coordinator identity' }
+	}
 
 	if (found.length === 1) return { host: found[0], source: 'host-owned runtime marker' }
 	if (found.length > 1) {
@@ -117,8 +139,23 @@ const detect_host_info = (options = {}) => {
 
 const detect_host = options => detect_host_info(options).host
 
-const family_for_host = host => host === 'codex' ? 'codex' : host === 'claude' ? 'claude' : ''
+const family_for_host = host => typeof host === 'string' && host.toLowerCase() === 'codex' ? 'codex' : typeof host === 'string' && host.toLowerCase() === 'claude' ? 'claude' : ''
 const opposite_host = host => host === 'codex' ? 'claude' : host === 'claude' ? 'codex' : ''
+
+const normalise_policy = policy => {
+	const source = policy && policy.switches ? policy.switches : policy || {}
+	const allowed_worker = source['allowed-worker'] || source.allowed_worker
+	const review_policy = source['review-policy'] || source.review_policy
+	if (!Array.isArray(allowed_worker) || allowed_worker.length === 0 || allowed_worker.some(value => !['external', 'internal', 'host'].includes(value)) || new Set(allowed_worker).size !== allowed_worker.length) throw new SettingsError('allowed-worker must be a non-empty permission list of unique executor kinds', { code: 'AG_POLICY_INVALID' })
+	if (!['prefer-independent', 'require-independent'].includes(review_policy)) throw new SettingsError('review-policy must be prefer-independent or require-independent', { code: 'AG_POLICY_INVALID' })
+	return { allowed_worker: [...allowed_worker], review_policy }
+}
+const worker_policy = normalise_policy
+const host_identity = host => {
+	const id = normalise_host(host)
+	return { id, family: family_for_host(id) || null }
+}
+const normalise_host_identity = host_identity
 
 const host_template_values = {
   codex: {
@@ -128,12 +165,15 @@ const host_template_values = {
       'workspace-dir': '.agentflow',
       'cli-provider': 'on',
       'auto-reply': 'off',
+      ...notebook_control_defaults,
       lang: 'en',
-      streams: 'off',
+      streams: 'ask',
       'ask-names': 'on',
       'allow-ag': 'on',
-      metrics: 'off',
       'large-work-minutes': 120,
+      'git-timeout-ms': git_timeout_default_ms,
+      'allowed-worker': ['external', 'internal', 'host'],
+      'review-policy': 'prefer-independent',
       'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
       'completion-cleanup-interval-days':
         completion_cleanup_defaults['completion-cleanup-interval-days'],
@@ -173,12 +213,15 @@ const host_template_values = {
       'workspace-dir': '.agentflow',
       'cli-provider': 'on',
       'auto-reply': 'off',
+      ...notebook_control_defaults,
       lang: 'en',
-      streams: 'off',
+      streams: 'ask',
       'ask-names': 'on',
       'allow-ag': 'on',
-      metrics: 'off',
       'large-work-minutes': 120,
+      'git-timeout-ms': git_timeout_default_ms,
+      'allowed-worker': ['external', 'internal', 'host'],
+      'review-policy': 'prefer-independent',
       'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
       'completion-cleanup-interval-days':
         completion_cleanup_defaults['completion-cleanup-interval-days'],
@@ -213,7 +256,14 @@ const host_template_values = {
   },
 }
 
-const make_template = host => clone_value(host_template_values[normalise_host(host)])
+const make_template = host => {
+	const active_host = normalise_host(host)
+	if (host_template_values[active_host]) return clone_value(host_template_values[active_host])
+	const template = clone_value(host_template_values.codex)
+	template.switches['target-doc'] = '.agentflow/devlog.md'
+	template['external-workers'] = []
+	return template
+}
 const template_for_host = make_template
 
 const normalise_initial_language = value => {
@@ -416,7 +466,14 @@ const select_profile = (config, options = {}) => {
 	const cli_provider = options.cli_provider === undefined
 		? config && config.switches ? config.switches['cli-provider'] : 'off'
 		: options.cli_provider
-	const host_family = options.host_family || family_for_host(options.active_host || options.explicit_host || options.coordinator_host || '')
+	const host_value = options.host_family !== undefined
+		? options.host_family
+		: options.active_host !== undefined
+			? options.active_host
+			: options.explicit_host !== undefined
+				? options.explicit_host
+				: options.coordinator_host
+	const host_family = options.host_family !== undefined ? options.host_family : family_for_host(host_value || '')
 	const available = typeof options.executable_available === 'function'
 		? options.executable_available
 		: typeof options.is_executable_available === 'function'
@@ -432,7 +489,7 @@ const select_profile = (config, options = {}) => {
 		if (!profile || !Array.isArray(profile.command) || typeof profile.command[0] !== 'string') continue
 		if (required_tier !== undefined && !profile_has_tier(profile, required_tier)) continue
 		if (available(profile.command[0]) !== true) continue
-		const family_ok = any_family || (cli_provider === 'off' && (!host_family || profile_family(profile) === host_family))
+		const family_ok = any_family || (cli_provider === 'off' && host_family !== '' && profile_family(profile) === host_family)
 		if (!family_ok) continue
 		if (selected === null || profile.priority > selected.priority) selected = profile
 	}
@@ -497,11 +554,8 @@ const validate_pipeline_roles = (config, warnings, errors, options = {}) => {
 			errors.push(`configuration.pipeline-roles.${role}: ${tier_reason}`)
 			continue
 		}
-		const active_host = options.active_host || options.explicit_host || options.coordinator_host || ''
-		const eligible = config['external-workers'].filter(profile => pipeline_profile_eligible(config, profile, active_host))
-		if (!eligible.some(profile => profile_has_tier(profile, tier))) {
-			errors.push(`configuration.pipeline-roles.${role}=${tier} is not available in any eligible external-worker profile`)
-		}
+		// Profile availability is a dispatch-time fact. Native and host routes
+		// can satisfy this structurally valid tier preference.
 	}
 }
 
@@ -527,10 +581,7 @@ const validate_external_workers = (external_workers, errors, warnings = []) => {
 		errors.push('Invalid external-workers: must be an array.')
 		return
 	}
-	if (external_workers.length === 0) {
-		errors.push('Invalid external-workers: at least one profile is required.')
-		return
-	}
+	// Native/host installations may intentionally have no external profiles.
 
 	const ids = new Set()
 	for (const [index, profile] of external_workers.entries()) {
@@ -600,7 +651,7 @@ const active_host_error = (config, options, errors) => {
 
 const validate_switches = (config, options, expected_switches, provider_values, errors, warnings) => {
 	const required_switches = expected_switches.filter(key => !optional_switch_names.includes(key))
-	const optional_switches = expected_switches.filter(key => optional_switch_names.includes(key))
+	const optional_switches = [...expected_switches.filter(key => optional_switch_names.includes(key)), ...legacy_switch_names]
 	const switches_ok = check_exact_object(config.switches, required_switches, 'configuration.switches', errors, warnings, optional_switches)
 	if (!switches_ok) return
 	if (has_own(config.switches, 'workspace-dir')) errors.push(...workspace_dir_errors(config.switches['workspace-dir'], options.repo_root))
@@ -609,10 +660,12 @@ const validate_switches = (config, options, expected_switches, provider_values, 
 	const legal_switches = {
 		'cli-provider': provider_values,
 		'auto-reply': ['on', 'off'],
+		'log-verbosity': ['off', 'wip', 'all'],
+		'inline-reply': ['on', 'off'],
 		streams: ['ask', 'always', 'off'],
 		'ask-names': ['on', 'off'],
 		'allow-ag': ['on', 'off', 'ask'],
-		metrics: ['off', 'on'],
+		'review-policy': ['prefer-independent', 'require-independent'],
 		'completion-cleanup': ['off', 'on'],
 	}
 	for (const [key, values] of Object.entries(legal_switches)) {
@@ -621,7 +674,16 @@ const validate_switches = (config, options, expected_switches, provider_values, 
 	if (typeof config.switches.lang !== 'string' || config.switches.lang.trim().length === 0) errors.push('configuration.switches.lang must be a non-empty string')
 	else if (is_control_text(config.switches.lang)) errors.push('configuration.switches.lang must not contain control characters')
 	if (!Number.isInteger(config.switches['large-work-minutes']) || config.switches['large-work-minutes'] < 1 || config.switches['large-work-minutes'] > 10080) errors.push('configuration.switches.large-work-minutes must be an integer from 1 through 10080')
+	if (has_own(config.switches, 'git-timeout-ms') && (!Number.isInteger(config.switches['git-timeout-ms']) || config.switches['git-timeout-ms'] < 1)) errors.push('configuration.switches.git-timeout-ms must be a positive integer')
+	if (has_own(config.switches, 'metrics') && !['off', 'on'].includes(config.switches.metrics)) errors.push('configuration.switches.metrics must be one of off, on')
 	if (has_own(config.switches, 'completion-cleanup-interval-days') && (!Number.isInteger(config.switches['completion-cleanup-interval-days']) || config.switches['completion-cleanup-interval-days'] < 1 || config.switches['completion-cleanup-interval-days'] > 365)) errors.push('configuration.switches.completion-cleanup-interval-days must be an integer from 1 through 365')
+	if (expected_switches.includes('allowed-worker')) {
+		const allowed = config.switches['allowed-worker']
+		const legal = ['external', 'internal', 'host']
+		if (!Array.isArray(allowed) || allowed.length === 0 || allowed.some(value => typeof value !== 'string' || !legal.includes(value)) || new Set(allowed).size !== allowed.length) {
+			errors.push('configuration.switches.allowed-worker must be a non-empty permission array of unique values from external, internal, host')
+		}
+	}
 }
 
 const validate_current_config = (config, options = {}) => {
@@ -687,6 +749,56 @@ const active_config_path = (repo_root, notebook_path = 'devlog.md') => {
 
 const applicable_config_path = resolve_config_path
 
+const is_positive_integer = value => Number.isInteger(value) && value > 0
+
+const raw_config_timeout = config_path => {
+	try {
+		const config = JSON.parse(node_fs.readFileSync(config_path, 'utf8'))
+		const value = config?.switches?.['git-timeout-ms']
+		return is_positive_integer(value) ? value : null
+	} catch {
+		return null
+	}
+}
+
+const repository_root_for_path = start => {
+	let current = node_path.resolve(start)
+	while (true) {
+		try {
+			if (node_fs.lstatSync(node_path.join(current, '.git'))) return current
+		} catch {}
+		const parent = node_path.dirname(current)
+		if (parent === current) return null
+		current = parent
+	}
+}
+
+const stream_config_path_for_repo = worktree_root => {
+	try { if (!node_fs.lstatSync(node_path.join(worktree_root, '.git')).isFile()) return null } catch { return null }
+	const parts = worktree_root.split(node_path.sep)
+	const marker = parts.lastIndexOf('.worktrees')
+	const key = marker >= 0 ? parts[marker + 1] : ''
+	if (!key) return null
+	const root_config = node_path.join(worktree_root, 'ag.json')
+	let workspace = '.agentflow'
+	try {
+		const config = JSON.parse(node_fs.readFileSync(root_config, 'utf8'))
+		if (typeof config?.switches?.['workspace-dir'] === 'string' && config.switches['workspace-dir']) workspace = config.switches['workspace-dir']
+	} catch {}
+	if (workspace_dir_errors(workspace, worktree_root).length) return null
+	return node_path.join(worktree_root, workspace, 'features', key, 'ag.json')
+}
+
+// Read without Git calls so the setting also applies to initial repository discovery.
+const configured_git_timeout_ms = repo_root => {
+	if (!repo_root) return null
+	const root = repository_root_for_path(repo_root) || node_path.resolve(repo_root)
+	const stream_config = stream_config_path_for_repo(root)
+	return raw_config_timeout(stream_config && node_fs.existsSync(stream_config)
+		? stream_config
+		: node_path.join(root, 'ag.json'))
+}
+
 const display_path = (file_path, repo_root) => {
 	if (!repo_root) return node_path.basename(file_path)
 	const relative = node_path.relative(node_path.resolve(repo_root), node_path.resolve(file_path)).replace(/\\/g, '/')
@@ -694,6 +806,16 @@ const display_path = (file_path, repo_root) => {
 }
 
 const established_config_repair = (config_path, repo_root) => `${display_path(config_path, repo_root)} must not be replaced automatically; if it is tracked, restore its recorded Git version, otherwise choose an explicit repair; no files changed`
+
+const migrate_config = config => {
+	if (!is_plain_object(config) || config['schema-version'] !== 7) return clone_value(config)
+	const next = clone_value(config)
+	next['schema-version'] = schema_version
+	next.switches = is_plain_object(next.switches) ? next.switches : {}
+	if (!has_own(next.switches, 'allowed-worker')) next.switches['allowed-worker'] = ['external', 'host']
+	if (!has_own(next.switches, 'review-policy')) next.switches['review-policy'] = 'require-independent'
+	return next
+}
 
 const duplicate_json_key = text => {
 	let index = 0
@@ -779,6 +901,16 @@ const read_json_config = (config_path, options = {}) => {
 		throw new SettingsError(`${display_path(config_path, options.repo_root)} contains malformed JSON; ${established_config_repair(config_path, options.repo_root)}`, { code: 'AG_CONFIG_MALFORMED' })
 	}
 
+	let migrated = false
+	if (config && config['schema-version'] === 7) {
+		config = migrate_config(config)
+		migrated = true
+	}
+	if (is_plain_object(config?.switches) && ['off', 'on'].includes(config.switches.metrics)) {
+		delete config.switches.metrics
+		migrated = true
+	}
+
 	try {
 		const schema_validation = validate_config(config, { ...options, repo_root: options.repo_root, check_executables: false })
 		if (!schema_validation.valid) throw error_from(schema_validation.errors.join('; '), schema_validation.errors, schema_validation.warnings, 'AG_CONFIG_INVALID')
@@ -788,6 +920,10 @@ const read_json_config = (config_path, options = {}) => {
 	}
 	const active_host = options.active_host || detect_host(options)
 	assert_valid_config(config, { ...options, active_host })
+	if (migrated && options.persist_migration !== false) {
+		const serialized = JSON.stringify(config, null, 2) + '\n'
+		write_text_atomic(config_path, serialized, options)
+	}
 	return config
 }
 
@@ -831,12 +967,15 @@ const canonical_config = config => ({
 		...(has_own(config.switches, 'workspace-dir') ? { 'workspace-dir': config.switches['workspace-dir'] } : {}),
 		'cli-provider': config.switches['cli-provider'],
 		'auto-reply': config.switches['auto-reply'],
+		...Object.fromEntries(Object.keys(notebook_control_defaults).filter(key => has_own(config.switches, key)).map(key => [key, config.switches[key]])),
 		lang: config.switches.lang,
 		streams: config.switches.streams,
 		'ask-names': config.switches['ask-names'],
 		'allow-ag': config.switches['allow-ag'],
-		metrics: config.switches.metrics,
 		'large-work-minutes': config.switches['large-work-minutes'],
+		...(has_own(config.switches, 'git-timeout-ms') ? { 'git-timeout-ms': config.switches['git-timeout-ms'] } : {}),
+		'allowed-worker': [...config.switches['allowed-worker']],
+		'review-policy': config.switches['review-policy'],
 		...(has_own(config.switches, 'completion-cleanup') ? { 'completion-cleanup': config.switches['completion-cleanup'] } : {}),
 		...(has_own(config.switches, 'completion-cleanup-interval-days') ? { 'completion-cleanup-interval-days': config.switches['completion-cleanup-interval-days'] } : {}),
 	},
@@ -908,7 +1047,7 @@ const ensure_configuration = (options = {}) => {
 			const forwarded_notebook = relative_notebook_path(repo_root, forwarding_target)
 			const forwarded_abs = node_path.resolve(repo_root, forwarded_notebook)
 			if (!node_fs.existsSync(forwarded_abs)) throw new SettingsError(`forwarding card points to missing notebook ${forwarded_notebook}; target-document rename is incomplete`, { code: 'AG_RENAME_INCOMPLETE' })
-			const carried = carry_forward_card({ repo_root, old_notebook: relative_notebook_path(repo_root, notebook_path), new_notebook: forwarded_notebook, fs_api: options.fs || node_fs })
+			const carried = carry_forward_card({ repo_root, old_notebook: relative_notebook_path(repo_root, notebook_path), new_notebook: forwarded_notebook, fs_api: options.fs || node_fs, host: options.active_host || options.explicit_host, session: options.session })
 			const forwarded = ensure_configuration({ ...options, repo_root, notebook_path: forwarded_notebook, config_path: undefined })
 			return { ...forwarded, forwarded_from: relative_notebook_path(repo_root, notebook_path), carried: carried.carried }
 		}
@@ -932,10 +1071,10 @@ const ensure_configuration = (options = {}) => {
 	return { config, config_path, created: true, active_host }
 }
 
-const format_ask_heading = (ask, { config, repo_root = process.cwd(), notebook_path } = {}) => {
+const format_ask_heading = (ask, { config, repo_root = process.cwd(), notebook_path, active_host } = {}) => {
 	if (!config && notebook_path) {
 		const config_path = active_config_path(repo_root, notebook_path)
-		if (node_fs.existsSync(config_path)) config = read_json_config(config_path)
+		if (node_fs.existsSync(config_path)) config = read_json_config(config_path, { active_host, persist_migration: false })
 	}
 	const heading = `# → Ask / ${ask}`
 	if (config?.switches?.['ask-names'] !== 'on') return heading
@@ -1063,22 +1202,36 @@ const forwarding_card_target = text => {
 	return match ? match[1] : ''
 }
 
-const carry_forward_card = ({ repo_root, old_notebook, new_notebook, fs_api = node_fs }) => {
+const carry_forward_card = ({ repo_root, old_notebook, new_notebook, fs_api = node_fs, host, session, locked = false }) => {
 	const old_abs = node_path.resolve(repo_root, old_notebook)
 	const new_abs = node_path.resolve(repo_root, new_notebook)
 	if (!fs_api.existsSync(old_abs) || !fs_api.existsSync(new_abs)) return { carried: false }
+	const writer = require('./notebook-write')
+	if (!locked) {
+		const locks = []
+		try {
+			for (const file of [...new Set([old_abs, new_abs])].sort()) locks.push(writer.acquire_close_round_lock(`${file}.close-round.lock`))
+			return carry_forward_card({ repo_root, old_notebook, new_notebook, fs_api, host, session, locked: true })
+		} finally { for (const lock of locks.reverse()) writer.release_close_round_lock(lock) }
+	}
 	const card = fs_api.readFileSync(old_abs, 'utf8')
 	if (forwarding_card_target(card) !== new_notebook) return { carried: false }
 	const body = card.replace(/^\s*Moved to:[^\r\n]+\r?\n?/m, '').trim()
 	if (!body) return { carried: false }
 	const current = fs_api.readFileSync(new_abs, 'utf8')
+	const owner = require('./notebook-owner')
+	const parser = require('./round-linter').parse_devlog
+	const incoming = parser(body).rounds.at(-1)
+	if (parser(current).rounds.length) owner.guard({ root: repo_root, notebook: new_notebook, text: current, host, session })
+	else if (incoming) owner.guard({ root: repo_root, notebook: new_notebook, text: `# → Ask / ${incoming.id}\n\n+\n`, host, session })
+	else owner.identity({ host, session })
 	const separator = current.endsWith('\n') ? '\n' : '\n\n'
 	fs_api.writeFileSync(new_abs, `${current}${separator}${body}\n`, 'utf8')
 	fs_api.writeFileSync(old_abs, `Moved to: ${new_notebook} — write your asks there.\n`, 'utf8')
 	return { carried: true, body }
 }
 
-const rename_target_document = (options = {}) => {
+const rename_target_document_locked = (options = {}) => {
 	const repo_root = node_path.resolve(options.repo_root || process.cwd())
 	const old_notebook = relative_notebook_path(repo_root, options.old_notebook || options.from)
 	const new_notebook = relative_notebook_path(repo_root, options.new_notebook || options.to)
@@ -1101,7 +1254,7 @@ const rename_target_document = (options = {}) => {
 	if (!resuming && !old_exists) throw new SettingsError(`cannot rename missing notebook ${old_notebook}`, { code: 'AG_RENAME_INVALID' })
 	if (!resuming && new_exists) throw new SettingsError(`target notebook ${new_notebook} already exists`, { code: 'AG_RENAME_INVALID' })
 	let status
-	try { status = String(git_run(['status', '--porcelain'])).trim() } catch (error) { throw new SettingsError('could not inspect Git state before target-document rename', { code: 'AG_RENAME_GIT' }) }
+	try { status = String(git_run(['status', '--porcelain', '--', '.', ...(options.lock_paths || []).map(file => `:(literal,exclude)${file}`)])).trim() } catch (error) { throw new SettingsError('could not inspect Git state before target-document rename', { code: 'AG_RENAME_GIT' }) }
 	if (!resuming && status) throw new SettingsError('target-document rename requires a clean working tree so each commit contains only its prescribed files', { code: 'AG_RENAME_DIRTY' })
 
 	const old_config_path = options.old_config_path || resolve_config_path(repo_root, old_notebook)
@@ -1110,7 +1263,7 @@ const rename_target_document = (options = {}) => {
 	const new_config_rel = display_path(new_config_path, repo_root)
 	const backlink_paths = (options.backlink_paths || []).map(backlink => relative_notebook_path(repo_root, backlink))
 	if (resuming) {
-		const allowed = new Set([old_notebook, new_notebook, old_archive, new_archive, old_config_rel, new_config_rel, ...backlink_paths])
+		const allowed = new Set([old_notebook, new_notebook, old_archive, new_archive, old_config_rel, new_config_rel, ...backlink_paths, ...(options.lock_paths || [])])
 		let dirty_paths
 		try {
 			dirty_paths = [
@@ -1137,6 +1290,31 @@ const rename_target_document = (options = {}) => {
 	if (!source_status_validation.valid) throw new SettingsError(`target-document rename requires a valid original STATUS: ${source_status_validation.errors.join('; ')}`, { code: 'AG_RENAME_STATUS' })
 	const notebook_kind_match = /^Notebook:\s+[^\r\n]+\s+—\s+(root|stream)\.$/mu.exec(status_source)
 	if (!notebook_kind_match) throw new SettingsError('target-document rename could not determine the notebook identity from STATUS', { code: 'AG_RENAME_STATUS' })
+	if (!resuming) {
+		const completion_records = require('./completion-record')
+		const completed_rounds = require('./round-linter').parse_devlog(status_source).rounds.filter(round => round.reply_text.trim())
+		const completed_asks = completed_rounds.map(round => round.id)
+		if (fs_api.existsSync(old_archive_abs)) {
+			let archived
+			try {
+				archived = require('./notebook-compact').archive_index(old_archive_abs)
+			} catch (error) {
+				throw new SettingsError(`target-document rename could not inspect archived Ask identities: ${error.message || error}`, { code: 'AG_RENAME_RECORDS' })
+			}
+			completed_asks.push(...archived.rounds.keys())
+		}
+		for (const ask of new Set(completed_asks)) {
+			let info
+			try {
+				info = completion_records.location({ project_root: repo_root, notebook_path: old_notebook, ask, workspace_dir: config.switches['workspace-dir'] })
+			} catch (error) {
+				throw new SettingsError(`target-document rename could not inspect completion records for ${ask}: ${error.message || error}`, { code: 'AG_RENAME_RECORDS' })
+			}
+			if (fs_api.lstatSync(info.file, { throwIfNoEntry: false }) || fs_api.lstatSync(info.reference_file, { throwIfNoEntry: false })) {
+				throw new SettingsError(`target-document rename refuses to strand completion records for ${ask}; migrate or remove the records before renaming`, { code: 'AG_RENAME_RECORDS' })
+			}
+		}
+	}
 	const notebook_kind = notebook_kind_match[1]
 	const moved_paths = [old_notebook, new_notebook]
 	if (fs_api.existsSync(old_archive_abs)) moved_paths.push(old_archive, new_archive)
@@ -1145,6 +1323,7 @@ const rename_target_document = (options = {}) => {
 		fs_api.mkdirSync(node_path.dirname(new_abs), { recursive: true })
 		if (fs_api.existsSync(old_archive_abs)) fs_api.mkdirSync(node_path.dirname(new_archive_abs), { recursive: true })
 		git_run(['mv', '--', old_notebook, new_notebook])
+		if (options.ownership) options.ownership = require('./notebook-owner').relocate(options.ownership, new_notebook)
 		if (fs_api.existsSync(old_archive_abs)) git_run(['mv', '--', old_archive, new_archive])
 		git_run(['commit', '--only', '-m', first_commit_message, '--', ...moved_paths])
 	} catch (error) {
@@ -1163,7 +1342,7 @@ const rename_target_document = (options = {}) => {
 		if (old_config_path !== new_config_path && fs_api.existsSync(old_config_path)) fs_api.unlinkSync(old_config_path)
 		if (!fs_api.existsSync(old_abs)) fs_api.writeFileSync(old_abs, `Moved to: ${new_notebook} — write your asks there.\n`, 'utf8')
 		else if (forwarding_card_target(fs_api.readFileSync(old_abs, 'utf8')) !== new_notebook) throw new SettingsError('the old notebook path is not the expected forwarding card', { code: 'AG_RENAME_INCOMPLETE' })
-		carry_forward_card({ repo_root, old_notebook, new_notebook, fs_api })
+		carry_forward_card({ repo_root, old_notebook, new_notebook, fs_api, host: active_host, session: options.session, locked: true })
 		const second_paths = [...new Set([new_notebook, old_notebook, new_config_rel, old_config_rel])]
 		if (fs_api.existsSync(new_archive_abs)) second_paths.push(new_archive)
 		for (const backlink_rel of backlink_paths) {
@@ -1205,6 +1384,38 @@ const rename_target_document = (options = {}) => {
 	}
 }
 
+const rename_target_document = (options = {}) => {
+	const repo_root = node_fs.realpathSync(options.repo_root || process.cwd())
+	const old_notebook = relative_notebook_path(repo_root, options.old_notebook || options.from)
+	const new_notebook = relative_notebook_path(repo_root, options.new_notebook || options.to)
+	const owner = require('./notebook-owner')
+	if (old_notebook === new_notebook || (process.platform === 'win32' && old_notebook.toLowerCase() === new_notebook.toLowerCase())) throw new SettingsError('target-document rename needs distinct notebook identities', { code: 'AG_RENAME_INVALID' })
+	const writer = require('./notebook-write')
+	const paths = [...new Set([old_notebook, new_notebook, ...(options.backlink_paths || [])])].sort()
+	const locks = []
+	try {
+		for (const notebook of paths) {
+			const file = owner.safe_path(repo_root, notebook, true)
+			locks.push(writer.acquire_close_round_lock(`${file}.close-round.lock`))
+		}
+		const source = node_fs.existsSync(node_path.join(repo_root, new_notebook)) && (!node_fs.existsSync(node_path.join(repo_root, old_notebook)) || forwarding_card_target(node_fs.readFileSync(node_path.join(repo_root, old_notebook), 'utf8')) === new_notebook) ? new_notebook : old_notebook
+		const host = options.active_host || options.explicit_host || detect_host(options)
+		owner.identity({ host, session: options.session })
+		const old_config = options.old_config_path || resolve_config_path(repo_root, old_notebook)
+		const workspace = node_fs.existsSync(old_config) ? JSON.parse(node_fs.readFileSync(old_config, 'utf8')).switches?.['workspace-dir'] : undefined
+		const source_text = node_fs.readFileSync(node_path.join(repo_root, source), 'utf8')
+		const source_rounds = require('./round-linter').parse_devlog(source_text).rounds
+		const source_owner = owner.read(owner.location({ root: repo_root, notebook: source, workspace }))
+		if (!source_rounds.length && source_owner) throw new SettingsError('notebook owner exists without its Ask; restore its notebook before rename', { code: 'AG_NOTEBOOK_OWNER' })
+		const ownership = source_rounds.length ? owner.guard({ root: repo_root, notebook: source, text: source_text, host, session: options.session, workspace }) : null
+		for (const notebook of options.backlink_paths || []) {
+			const text = node_fs.readFileSync(node_path.join(repo_root, notebook), 'utf8')
+			if (require('./round-linter').parse_devlog(text).rounds.length) owner.guard({ root: repo_root, notebook, text, host, session: options.session })
+		}
+		return rename_target_document_locked({ ...options, repo_root, ownership, lock_paths: paths.map(notebook => `${notebook}.close-round.lock`) })
+	} finally { for (const lock of locks.reverse()) writer.release_close_round_lock(lock) }
+}
+
 const rename_target_doc = rename_target_document
 
 const profile_change_key_pattern = /^([A-Za-z0-9_-]+)\.([a-z0-9_-]+)$/u
@@ -1238,6 +1449,14 @@ const parse_change_lines = (changes, options = {}) => {
 			errors.push(`unsupported setting value for ${key}: ${value}`)
 			continue
 		}
+		if (key === 'allowed-worker') {
+			try {
+				value = JSON.parse(value)
+			} catch (error) {
+				errors.push(`setting change ${key} must use a JSON array`)
+				continue
+			}
+		}
 		const pipeline_key = pipeline_role_change_key(key)
 		const profile_key = pipeline_key ? null : profile_change_key(key)
 		if (profile_key && tier_name_error(profile_key[2])) { errors.push(`unsupported setting change: ${key}`); continue }
@@ -1249,7 +1468,7 @@ const parse_change_lines = (changes, options = {}) => {
 			errors.push(`unsupported setting change: ${key}`)
 			continue
 		}
-		if (key === 'large-work-minutes' || key === 'completion-cleanup-interval-days') value = Number(value)
+		if (key === 'large-work-minutes' || key === 'git-timeout-ms' || key === 'completion-cleanup-interval-days') value = Number(value)
 		if (has_own(parsed, key)) errors.push(`setting change repeats ${key}`)
 		parsed[key] = value
 	}
@@ -1363,7 +1582,7 @@ const status_field_order = ['Project:', 'Notebook:', 'Current commit:', 'Tests/s
 
 const status_stream_pattern = /^stream:\s+([a-z0-9][a-z0-9-]*)\s+—\s+active\s+—\s+([^\s]+\.devlog\.md)$/u
 const status_rename_pattern = /^Renamed:\s+([^\s—]+\.md)\s+→\s+([^\s—]+\.md)\s+\((\d{4}-\d{2}-\d{2})\)\.?$/u
-const status_configuration_pattern = new RegExp(`^Configuration:\\s+((?:\\.?[A-Za-z0-9_-]+\\/)*ag\\.json)\\s+—\\s+schema v${schema_version};\\s+(validated|blocked|invalid|missing|unvalidated)\\s+for\\s+(codex|claude)\\s+this round\\.$`, 'u')
+const status_configuration_pattern = new RegExp(`^Configuration:\\s+((?:\\.?[A-Za-z0-9_-]+\\/)*ag\\.json)\\s+—\\s+schema v${schema_version};\\s+(validated|blocked|invalid|missing|unvalidated)\\s+for\\s+([A-Za-z0-9][A-Za-z0-9._-]*)\\s+this round\\.$`, 'u')
 const status_backlink_pattern = /^Backlink: main notebook `[^`\s]+\.md` \(main checkout\)$/u
 const status_feature_pattern = /^Feature: [a-z0-9][a-z0-9-]*(?: — active — .+| — closed)$/u
 
@@ -1575,17 +1794,18 @@ const resolve_threeways_worker = (config, options = {}) => {
 		.filter(profile => profile && !disabled.has(profile.id) && profile_has_tier(profile, 'better') && available(profile.command[0]) === true)
 		.sort((left, right) => right.priority - left.priority)
 	if (candidates.length === 0) throw no_eligible_profile_error(config.switches['cli-provider'])
-	const same_family = candidates.find(profile => profile_family(profile) === host_family)
-	const different_family = config.switches['cli-provider'] === 'on'
-		? candidates.find(profile => profile_family(profile) !== host_family)
+	const same_family = host_family ? candidates.find(profile => profile_family(profile) === host_family) : undefined
+	const different_family = host_family && config.switches['cli-provider'] === 'on'
+		? candidates.find(profile => profile_family(profile) && profile_family(profile) !== host_family)
 		: undefined
-	const profile = different_family || same_family
+	const profile = different_family || same_family || (config.switches['cli-provider'] === 'on' ? candidates[0] : undefined)
 	if (!profile) throw no_eligible_profile_error(config.switches['cli-provider'])
+	const family_known = Boolean(host_family && profile_family(profile))
 	return {
 		...resolve_profile_tier(profile, 'better'),
 		stage_id: 'threeways',
-		family_diversity: different_family ? 'different-family' : 'same-family-fallback',
-		limitation: different_family ? undefined : 'different-family better worker unavailable or disallowed; same-family fallback recorded'
+		family_diversity: !family_known ? 'unknown' : different_family ? 'different-family' : 'same-family-fallback',
+		limitation: !family_known ? 'host or worker family is unknown; family diversity cannot be established' : different_family ? undefined : 'different-family better worker unavailable or disallowed; same-family fallback recorded'
 	}
 }
 
@@ -1632,10 +1852,9 @@ const resolve_dispatch_failure = (config, selection, options = {}) => {
 				disabled_profile_ids,
 				cli_provider: options.cli_provider === undefined ? config.switches['cli-provider'] : options.cli_provider,
 			})
-			const original_basic_profile = basic_profile || selection.profile
-			if (!profile_has_tier(original_basic_profile, 'basic')) throw no_eligible_profile_error(options.cli_provider === undefined ? config.switches['cli-provider'] : options.cli_provider)
-			fallback = resolve_profile_tier(original_basic_profile, 'basic')
-			record = format_tier_substitution(selection_tier, 'basic', 'no other eligible profile provides the requested tier; retrying the original profile with basic')
+			if (!basic_profile || !profile_has_tier(basic_profile, 'basic')) throw no_eligible_profile_error(options.cli_provider === undefined ? config.switches['cli-provider'] : options.cli_provider)
+			fallback = resolve_profile_tier(basic_profile, 'basic')
+			record = format_tier_substitution(selection_tier, 'basic', 'no other eligible profile provides the requested tier; selecting an available profile with basic')
 		}
 		return {
 			kind: 'session_limit',
@@ -1692,6 +1911,12 @@ const format_dispatch_substitution = ({ original, fallback, reason }) => {
 
 const render_dispatch_substitution = format_dispatch_substitution
 
+const switch_display_value = (config, key) => {
+	if (Array.isArray(config.switches[key])) return JSON.stringify(config.switches[key])
+	if (has_own(config.switches, key)) return config.switches[key]
+	return completion_cleanup_defaults[key] ?? notebook_control_defaults[key] ?? (key === 'git-timeout-ms' ? git_timeout_default_ms : config.switches[key])
+}
+
 const format_settings_display = (config, options = {}) => {
 	const validation = validate_config(config, options)
 	const profiles = Array.isArray(config['external-workers']) ? config['external-workers'] : []
@@ -1703,7 +1928,7 @@ const format_settings_display = (config, options = {}) => {
 		`host: ${host}`,
 		'',
 		'Switches:',
-		...switch_names.map(key => `- ${key}: ${has_own(config.switches, key) ? config.switches[key] : completion_cleanup_defaults[key] ?? config.switches[key]}`),
+		...switch_names.map(key => `- ${key}: ${switch_display_value(config, key)}`),
 		'',
 		'Pipeline roles:',
 		...pipeline_role_names.map(role => `- pipeline-roles.${role}: ${config['pipeline-roles'][role]}`),
@@ -1721,12 +1946,16 @@ const format_settings_display = (config, options = {}) => {
 		'- target-doc: repository-relative path ending in .md; use target-doc: <path>',
 		'- cli-provider: off or on; use cli-provider: <value>',
 		'- auto-reply: on or off; use auto-reply: <value>',
+		'- log-verbosity: off, wip, or all (default all); controls RUN/WIP records, never Reply; use log-verbosity: <value>',
+		'- inline-reply: on or off (default off); also display the saved Reply; use inline-reply: <value>',
 		'- lang: non-empty language tag or existing language name; use lang: <value>',
 		'- streams: ask, always, or off; use streams: <value>',
 		'- ask-names: on or off; use ask-names: <value>',
 		'- allow-ag: on, off, or ask; use allow-ag: <value>',
-		'- metrics: off or on; use metrics: <value>',
 		'- large-work-minutes: integer from 1 through 10080; use large-work-minutes: <value>',
+		`- git-timeout-ms: positive integer milliseconds (default ${git_timeout_default_ms}); use git-timeout-ms: <value>`,
+		'- allowed-worker: JSON array of unique external, internal, or host values; use allowed-worker: ["external", "internal", "host"]',
+		'- review-policy: prefer-independent or require-independent; use review-policy: <value>',
 		'- completion-cleanup: off or on; use completion-cleanup: <value>',
 		'- completion-cleanup-interval-days: integer from 1 through 365; use completion-cleanup-interval-days: <value>',
 		'- pipeline roles: requirements, codewalk, explore, spike, spec, implementation, security-scan, acceptance, cross-check, or learn; use pipeline-roles.<stage>: off or <tier>',
@@ -1740,7 +1969,7 @@ const format_settings_display = (config, options = {}) => {
 
 const settings_display = format_settings_display
 
-const cli_usage = `usage: node ag-settings.js <init|validate|show|change|tier|rename> [options]\n\noptions:\n  --repo <path>       repository root (default: current directory)\n  --notebook <path>   applicable notebook (default: devlog.md)\n  --host <codex|claude>  explicit coordinator host for tests or integration\n  --set <key: value>  one setting change; may be repeated\n\nchange also accepts key: value arguments after the repository options.\nsupported cleanup switches: completion-cleanup (off|on; default off), completion-cleanup-interval-days (integer 1 through 365; default 7).\nrename accepts --from <old-notebook> and --to <new-notebook> and performs the required two commits.`
+const cli_usage = `usage: node ag-settings.js <init|validate|show|change|tier|rename> [options]\n\noptions:\n  --repo <path>       repository root (default: current directory)\n  --notebook <path>   applicable notebook (default: devlog.md)\n  --host <id>         explicit safe coordinator host identifier\n  --set <key: value>  one setting change; may be repeated\n\nchange also accepts key: value arguments after the repository options.\nallowed-worker accepts a JSON array; review-policy is prefer-independent or require-independent.\nsupported cleanup switches: completion-cleanup (off|on; default off), completion-cleanup-interval-days (integer 1 through 365; default 7).\nrename accepts --from <old-notebook> and --to <new-notebook> and performs the required two commits.`
 
 const option_value = (args, index, name) => {
 	if (index + 1 >= args.length) throw new SettingsError(`${name} requires a value`, { code: 'AG_CLI_INVALID' })
@@ -1756,6 +1985,7 @@ const parse_cli = argv => {
 		if (arg === '--repo') { options.repo_root = option_value(argv, index, '--repo'); index += 1; continue }
 		if (arg === '--notebook') { options.notebook_path = option_value(argv, index, '--notebook'); index += 1; continue }
 		if (arg === '--host') { options.explicit_host = option_value(argv, index, '--host'); index += 1; continue }
+		if (arg === '--session') { options.session = option_value(argv, index, '--session'); index += 1; continue }
 		if (arg === '--config') { options.config_path = option_value(argv, index, '--config'); index += 1; continue }
 		if (arg === '--from') { options.old_notebook = option_value(argv, index, '--from'); index += 1; continue }
 		if (arg === '--to') { options.new_notebook = option_value(argv, index, '--to'); index += 1; continue }
@@ -1822,16 +2052,26 @@ const cli_main = (argv, io = {}) => {
 module.exports = {
 	SettingsError,
 	schema_version,
+	git_timeout_default_ms,
 	tier_names,
 	pipeline_role_names,
 	mandatory_pipeline_roles,
 	switch_names,
 	optional_switch_names,
 	completion_cleanup_defaults,
+	notebook_control_defaults,
+	notebook_controls,
+	read_notebook_controls,
 	host_markers,
 	role_tiers,
 	role_aliases,
 	host_template_values,
+	normalise_host,
+	normalise_policy,
+	worker_policy,
+	host_identity,
+	normalise_host_identity,
+	migrate_config,
 	make_template,
 	detect_initial_language,
 	template_for_host,
@@ -1853,6 +2093,7 @@ module.exports = {
 	resolve_config_path,
 	active_config_path,
 	applicable_config_path,
+	configured_git_timeout_ms,
 	display_path,
 	duplicate_json_key,
 	read_json_config,

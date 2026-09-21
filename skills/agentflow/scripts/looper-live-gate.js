@@ -41,7 +41,6 @@ const config = () => ({
     streams: 'always',
     'ask-names': 'off',
     'allow-ag': 'off',
-    metrics: 'off',
     'large-work-minutes': 120,
   },
   'pipeline-roles': {
@@ -96,6 +95,8 @@ Streams: none.
 
 const plan = (number, file, value) => `# Live gate plan ${number}
 
+This disposable fixture is already running under the parent looper, which owns validation and review. Edit its product and notebook directly with ordinary file and Git commands. Do not load skills, run agf.js or looper.js, invoke any model CLI, or launch a reviewer; these are prohibited nested workers in this fixture.
+
 Create \`${file}\` in the repository root with exactly \`${value}\` and one trailing newline.
 
 Use the active Agentflow notebook \`.agentflow/devlog.md\`. Record and finish this work as its own round. The completed round must contain the exact \`# ← Reply / A-NNN\` heading for its Ask and must end with the next sequential scaffold in exactly this form, including the bare plus line: \`# → Ask / A-NNN\n\n+\`. Before returning, read the notebook and verify the Reply heading and the full next-Ask scaffold. Commit the product and notebook changes. Do not move or edit any file under \`.agentflow/planned/\`; the parent looper owns the queue.
@@ -144,8 +145,11 @@ const install_shortcut = ({ home, skill_dir }) => {
 const execute_gate = (options = {}) => {
   const skill_dir = path.resolve(options.skill_dir || path.join(__dirname, '..'))
   const codex_home = process.env.CODEX_HOME || path.join(os.homedir(), '.codex')
+  const scratch = path.join(os.homedir(), 'tmp')
+  fs.mkdirSync(scratch, { recursive: true })
+  if (fs.lstatSync(scratch).isSymbolicLink()) throw fail('home scratch directory must not be a symlink')
   const temporary_root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentflow-looper-live-gate-'))
-  const state_root = fs.mkdtempSync(path.join(os.homedir(), '.agentflow-looper-live-gate-state-'))
+  const state_root = fs.mkdtempSync(path.join(scratch, '.agentflow-looper-live-gate-state-'))
   const home = path.join(temporary_root, 'home')
   const repo = path.join(temporary_root, 'repo')
   fs.mkdirSync(home, { recursive: true })

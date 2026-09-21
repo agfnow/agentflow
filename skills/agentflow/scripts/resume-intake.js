@@ -10,6 +10,7 @@ const crypto = require('node:crypto')
 const { isDeepStrictEqual } = require('node:util')
 const { execFileSync } = require('node:child_process')
 const settings = require('./ag-settings.js')
+const { resolve_default_branch } = require('./default-branch.js')
 const { parse_fast_lane } = require('./fast-lane.js')
 
 const MAX_NOTEBOOK_BYTES = 64 * 1024
@@ -74,9 +75,9 @@ const read_bounded = file => {
 }
 
 const status_block = text => {
-  const end = text.indexOf('\n---\n')
-  if (end < 0) throw new Error('notebook has no STATUS separator')
-  return text.slice(0, end).trimEnd()
+  const separator = /(?:^|\r?\n)---\r?\n/u.exec(text)
+  if (!separator) throw new Error('notebook has no STATUS separator')
+  return text.slice(0, separator.index).trimEnd()
 }
 
 const final_ask_span = text => {
@@ -90,13 +91,16 @@ const final_ask_span = text => {
   if (/^# ← Reply \/ /mu.test(round)) return null
   const progress_record = round.search(/^(?:---\n\s*)?## \[(?:RUN-\d+\] Event|WIP-\d+\] Checkpoint)/mu)
   const body = (progress_record < 0 ? round : round.slice(0, progress_record)).trim()
-  if (Buffer.byteLength(body, 'utf8') > MAX_ASK_BYTES) throw new Error(`current Ask exceeds the ${MAX_ASK_BYTES}-byte fast-intake limit`)
   return { id: match[1], text: body, body_start }
 }
 
 const final_ask = text => {
   const span = final_ask_span(text)
-  return span === null ? null : { id: span.id, text: span.text }
+  if (span === null) return null
+  const bytes = Buffer.byteLength(span.text, 'utf8')
+  return bytes > MAX_ASK_BYTES
+    ? { id: span.id, text: '', bytes, requires_full_read: true }
+    : { id: span.id, text: span.text }
 }
 
 const changed_paths = repo_root => {
@@ -177,13 +181,7 @@ const expected_unborn_owner_input = ({ repo_root, notebook_path, notebook_text, 
     notebook_text.slice(working_span.body_start).trim() === current_ask.text
 }
 
-const default_branch = repo_root => {
-  const remote = bounded_git(repo_root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])?.trim()
-  if (remote && /^origin\/[^\s]+$/u.test(remote)) return remote.slice('origin/'.length)
-  const branches = bounded_git(repo_root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads'])
-  if (!branches) return null
-  return ['main', 'master'].find(branch => branches.split(/\r?\n/u).includes(branch)) || null
-}
+const default_branch = repo_root => resolve_default_branch(args => bounded_git(repo_root, args)).branch || null
 
 const has_active_stream = status => /^stream:\s+[^\r\n]+\s+—\s+active\s+—\s+[^\r\n]+$/mu.test(status)
 
@@ -226,17 +224,23 @@ const stream_decision = ({ repo_root, branch, status, changed, expected_owner, e
   return { reason: 'foreign_or_parallel_work', required_next_rulebook: 'references/streams.md', evidence: reasons }
 }
 
-const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host = 'codex', bootstrap_provenance, interrupted_start = false } = {}) => {
+const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host = 'codex', host_family, bootstrap_provenance, interrupted_start = false } = {}) => {
 	const root = fs.realpathSync(repo_root)
 	const root_config_path = path.join(root, 'ag.json')
-	const root_config = settings.read_json_config(root_config_path, { repo_root: root, active_host })
+	const settings_options = { repo_root: root, active_host, persist_migration: false, ...(host_family ? { host_family } : {}) }
+	const root_config = settings.read_json_config(root_config_path, settings_options)
 	notebook_path = notebook_path || root_config.switches['target-doc']
 	const notebook = path.resolve(root, notebook_path)
   const relative_notebook = path.relative(root, notebook).split(path.sep).join('/')
   if (relative_notebook === '' || relative_notebook.startsWith('../') || path.isAbsolute(relative_notebook)) throw new Error('notebook must stay inside the repository')
 	const config_path = relative_notebook === root_config.switches['target-doc'] ? root_config_path : settings.resolve_config_path(root, relative_notebook)
-  const config = settings.read_json_config(config_path, { repo_root: root, notebook_path: relative_notebook, active_host })
-  const bounded = read_bounded(notebook)
+	const config = settings.read_json_config(config_path, { ...settings_options, notebook_path: relative_notebook })
+  let bounded = read_bounded(notebook)
+  // A long open round can put its heading outside the fast tail window.
+  // Return bounded metadata, while the host reads the actual saved Ask in full.
+  if (!bounded.complete && final_ask(bounded.tail) === null) {
+    bounded = { text: require('./notebook-write').read_regular_file(notebook, 'notebook').text, complete: true }
+  }
   const text = bounded.complete ? bounded.text : bounded.tail
   const current_ask = final_ask(text)
   const fast_lane = parse_fast_lane(current_ask?.text)
@@ -244,7 +248,8 @@ const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host 
   if (bounded_git(root, ['rev-parse', '--show-toplevel']) === null) return {
     repository: root,
     notebook: relative_notebook,
-    configuration: { valid: true, path: settings.display_path(config_path, root), language: config.switches.lang },
+    ...(host_family ? { host_family } : {}),
+    configuration: { valid: true, path: settings.display_path(config_path, root), language: config.switches.lang, ...settings.notebook_controls(config) },
     branch: null,
     changed_paths: [],
     expected_owner_input: false,
@@ -270,7 +275,8 @@ const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host 
   return {
     repository: root,
     notebook: relative_notebook,
-    configuration: { valid: true, path: settings.display_path(config_path, root), language: config.switches.lang },
+    ...(host_family ? { host_family } : {}),
+    configuration: { valid: true, path: settings.display_path(config_path, root), language: config.switches.lang, ...settings.notebook_controls(config) },
     branch: git(root, ['branch', '--show-current']).trim() || 'detached',
     changed_paths: changed,
     expected_owner_input: expected || expected_unborn,
@@ -294,14 +300,16 @@ const parse_args = argv => {
 	const result = { repo_root: process.cwd(), notebook_path: undefined, active_host: 'codex' }
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index]
-    if (!['--repo', '--notebook', '--host'].includes(flag) || index + 1 >= argv.length) throw new Error('usage: node resume-intake.js [--repo <path>] [--notebook <path>] [--host <codex|claude>]')
-    const value = argv[++index]
-    if (flag === '--repo') result.repo_root = value
-    if (flag === '--notebook') result.notebook_path = value
-    if (flag === '--host') result.active_host = value
-  }
-  if (!['codex', 'claude'].includes(result.active_host)) throw new Error('host must be codex or claude')
-  return result
+		if (!['--repo', '--notebook', '--host', '--host-family'].includes(flag) || index + 1 >= argv.length) throw new Error('usage: node resume-intake.js [--repo <path>] [--notebook <path>] [--host <safe-id>] [--host-family <safe-id>]')
+		const value = argv[++index]
+		if (flag === '--repo') result.repo_root = value
+		if (flag === '--notebook') result.notebook_path = value
+		if (flag === '--host') result.active_host = value
+		if (flag === '--host-family') result.host_family = value
+	}
+	if (!/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(result.active_host)) throw new Error('host must be a safe lowercase id')
+	if (result.host_family !== undefined && !/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(result.host_family)) throw new Error('host-family must be a safe lowercase id')
+	return result
 }
 
 const main = argv => {

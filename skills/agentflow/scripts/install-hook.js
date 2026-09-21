@@ -29,23 +29,33 @@ const node_path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const ag_settings = require('./ag-settings.js');
 
-const hook_command_for = host => `node "${node_path.join(__dirname, 'stop-hook.js')}" --host ${host}`;
+const shell_literal = value => `'${String(value).replaceAll("'", "'\\''")}'`;
+const hook_command_for = host => `node ${shell_literal(node_path.join(__dirname, 'stop-hook.js'))} --host ${host}`;
 
 // The git pre-commit devlog guard (I-039). Project scope only — git hooks are
 // per-repo; worktrees share the main checkout's hooks, so one install covers all.
 const guard_marker = 'agentflow devlog-guard';
-const guard_command = `node "${node_path.join(__dirname, 'devlog-guard.js')}"`;
+const guard_command = `node ${shell_literal(node_path.join(__dirname, 'devlog-guard.js'))}`;
 const guard_script = `#!/bin/sh\n# ${guard_marker} — blocks committing root devlog.md on a non-default branch (I-039).\n# Installed by install-hook.js; remove with: node install-hook.js --project --off\n${guard_command}\n`;
 
 const HOSTS = ['claude', 'codex'];
+const SAFE_HOST = /^[a-z0-9][a-z0-9_-]{0,127}$/u;
+const safe_host = host => typeof host === 'string' && SAFE_HOST.test(host);
+
+const manual_instructions = host => {
+  const capture = `Automatic prompt/stop hooks are unavailable for ${host}; retain the startup session ID and run notebook-write.js append-input --notebook <path> --host ${host} --session <id> --input-stdin for each owner message.`;
+  const closeout = `Prepare the bounded closeout manifest and run agf close --host ${host} --session <id> --manifest-stdin using that same session ID; automatic stop-hook enforcement is unavailable for ${host}.`;
+  return { capture, closeout, manual_capture: capture, manual_closeout: closeout };
+};
 
 const parse_owned_command = command => {
   if (typeof command !== 'string') return null;
 
-  const match = command.trim().match(/^node\s+(?:(['"])(.*?)\1|([^\s]+))\s+--host\s+(claude|codex)$/);
+  const match = command.trim().match(/^node\s+('(?:[^']|'\\'')*'|"[^"]*"|[^\s]+)\s+--host\s+(claude|codex)$/);
   if (!match) return null;
-
-  return { script: node_path.resolve(match[2] || match[3]), host: match[4] };
+  const token = match[1];
+  const script = token.startsWith("'") ? token.slice(1, -1).replaceAll("'\\''", "'") : token.startsWith('"') ? token.slice(1, -1) : token;
+  return { script: node_path.resolve(script), host: match[2] };
 };
 
 const is_our_command = (command, host) => {
@@ -87,8 +97,8 @@ const parse_args = argv => {
   const host_value = host_index >= 0 ? args[host_index + 1] : 'all';
   const hosts = host_value === 'all' ? HOSTS : [host_value];
 
-  if (!hosts.every(host => HOSTS.includes(host))) {
-    console.error(`Unknown --host value: ${host_value} (use claude, codex, or all)`);
+  if (!hosts.every(host => host === 'all' || safe_host(host))) {
+    console.error(`Unknown --host value: ${host_value} (use a safe lowercase host id or all)`);
     process.exit(1);
   }
 
@@ -196,6 +206,11 @@ const remove_hook = (config, host, { scope = 'project', cwd = process.cwd(), eve
 };
 
 const apply_to_host = (host, scope, off, say, cwd = process.cwd()) => {
+  if (!HOSTS.includes(host)) {
+    const result = { status: 'not_available', host, reason: 'no_host_hook_integration', instructions: manual_instructions(host) };
+    say(`${host}: hooks not_available — use explicit manual capture and closeout instructions`);
+    return result;
+  }
   const config_path = config_path_for(host, scope, cwd);
   const config = read_config(config_path);
   let next_config = config;
@@ -208,7 +223,7 @@ const apply_to_host = (host, scope, off, say, cwd = process.cwd()) => {
 
   if (!changed) {
     say(`${host}: no change — the Agentflow hooks were already ${off ? 'absent from' : 'present in'} ${config_path}`);
-    return;
+    return { status: 'available', host, changed: false, config_path };
   }
 
   const backup_path = backup(config_path);
@@ -220,6 +235,7 @@ const apply_to_host = (host, scope, off, say, cwd = process.cwd()) => {
   if (backup_path) {
     say(`${host}: backup of the previous file: ${backup_path}`);
   }
+  return { status: 'available', host, changed: true, config_path };
 };
 
 const apply_guard = (off, say, cwd = process.cwd()) => {
@@ -275,15 +291,16 @@ const install = ({ scope = 'project', off = false, quiet = false, hosts = HOSTS,
   const say = quiet ? () => {} : message => console.log(message);
   const output = supplied_say || say;
 
-  hosts.forEach(host => apply_to_host(host, scope, off, output, cwd));
+  const results = hosts.map(host => apply_to_host(host, scope, off, output, cwd));
 
-  if (scope === 'project') {
+  if (scope === 'project' && hosts.some(host => HOSTS.includes(host))) {
     apply_guard(off, output, cwd);
   }
 
-  if (!off) nudge_setup();
+  if (!off && hosts.some(host => HOSTS.includes(host))) nudge_setup();
 
-  hosts.forEach(host => output(`Hook command (${host}): ${hook_command_for(host)}`));
+  hosts.filter(host => HOSTS.includes(host)).forEach(host => output(`Hook command (${host}): ${hook_command_for(host)}`));
+  return results.length === 1 ? results[0] : { status: 'available', hosts: results };
 };
 
 const inspect = ({ cwd = process.cwd(), scope = 'project', hosts = HOSTS } = {}) => {
@@ -312,6 +329,6 @@ const main = () => {
   install(options);
 };
 
-module.exports = { install, inspect, config_path_for, apply_guard };
+module.exports = { install, inspect, config_path_for, apply_guard, hook_command_for, parse_owned_command };
 
 if (require.main === module) main();

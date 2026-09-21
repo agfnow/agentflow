@@ -11,6 +11,8 @@ const { collect } = require('./completion-context.js');
 const { collect_intake } = require('./resume-intake.js');
 const { lint_round } = require('./round-linter.js');
 const { format_local_timestamp } = require('./local-time.js');
+const ownership_fixture = require('./fixtures/notebook-owner');
+ownership_fixture.configure();
 
 const reply = () => `# ← Reply / A-001\n\n* _${format_local_timestamp()} (test/none)_\n\n## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n- Host gate: PASS.\n\n- Host review: PASS — inspected fixture source and test evidence; no blocking findings.\n\n## Questions (batched — each with a suggested default)\n\n- None.\n\n---\n\n# → Ask / A-002\n\n+\n`;
 const fixture = t => {
@@ -35,20 +37,20 @@ const fixture = t => {
   git(['commit', '-qm', 'fixture']);
   fs.writeFileSync(path.join(root, 'app.js'), 'module.exports = true;\n');
   const facts = text => collect({ project_root: root, notebook_path: '.agentflow/devlog.md', active_host: 'codex', devlog_text: text, require_status_projection: true });
-  const hook = (host, input = {}) => spawnSync(process.execPath, [path.join(__dirname, 'stop-hook.js'), '--host', host], { cwd: root, input: JSON.stringify({ cwd: root, hook_event_name: 'Stop', ...input }), encoding: 'utf8', env: { ...process.env, AGENTFLOW_EXTERNAL_DELEGATE: '' } });
+  const hook = (host, input = {}) => spawnSync(process.execPath, [path.join(__dirname, 'stop-hook.js'), '--host', host], { cwd: root, input: JSON.stringify({ cwd: root, hook_event_name: 'Stop', ...input }), encoding: 'utf8', env: { ...process.env, AGENTFLOW_EXTERNAL_DELEGATE: '', CLAUDE_PROJECT_DIR: '', CLAUDE_SESSION_ID: '' } });
   return { root, write, facts, hook };
 };
 
 test('fast-lane survives prompt capture and resume without changing configuration or opening a stream', t => {
   const f = fixture(t);
   const before = fs.readFileSync(path.join(f.root, 'ag.json'), 'utf8');
-  const capture = f.hook('codex', { hook_event_name: 'UserPromptSubmit', prompt: 'fast-lane', session_id: 'test', turn_id: 'one' });
+  const capture = f.hook('codex', { hook_event_name: 'UserPromptSubmit', prompt: 'fast-lane', session_id: ownership_fixture.session, turn_id: 'one' });
   assert.equal(capture.status, 0, capture.stderr);
   assert.match(capture.stdout, /fast-lane.*pending/i);
   let intake = collect_intake({ repo_root: f.root });
   assert.equal(intake.fast_lane.state, 'pending');
   assert.equal(intake.stream_decision.open_new_stream, false);
-  const followup = f.hook('codex', { hook_event_name: 'UserPromptSubmit', prompt: 'fix the login bug', session_id: 'test', turn_id: 'two' });
+  const followup = f.hook('codex', { hook_event_name: 'UserPromptSubmit', prompt: 'fix the login bug', session_id: ownership_fixture.session, turn_id: 'two' });
   assert.equal(followup.status, 0, followup.stderr);
   assert.match(followup.stdout, /fast-lane.*active/i);
   intake = collect_intake({ repo_root: f.root });
@@ -56,6 +58,24 @@ test('fast-lane survives prompt capture and resume without changing configuratio
   assert.equal(fs.readFileSync(path.join(f.root, 'ag.json'), 'utf8'), before);
   assert.equal(fs.existsSync(path.join(f.root, '.worktrees')), false);
   assert.equal(fs.readFileSync(path.join(f.root, 'app.js'), 'utf8'), 'module.exports = true;\n');
+});
+
+test('Claude fast-lane fixtures never inherit the caller project directory', t => {
+  const f = fixture(t);
+  const outside = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentflow-fast-lane-outside-')));
+  try {
+    fs.writeFileSync(path.join(outside, 'sentinel.txt'), 'must remain\n');
+    const result = spawnSync(process.execPath, [path.join(__dirname, 'stop-hook.js'), '--host', 'claude'], {
+      cwd: f.root,
+      input: JSON.stringify({ cwd: f.root, hook_event_name: 'Stop' }),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: outside, CLAUDE_SESSION_ID: '' },
+    });
+    assert.notEqual(result.status, 2, result.stderr);
+    assert.equal(fs.readFileSync(path.join(outside, 'sentinel.txt'), 'utf8'), 'must remain\n');
+  } finally {
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
 });
 
 test('fast-lane waives pipeline ceremony in both hooks and the linter, including stale pipeline facts', t => {

@@ -6,13 +6,15 @@ const os = require('node:os')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { format_local_timestamp } = require('./local-time')
-const { publish_reply } = require('./completion-record')
+const { publish_reply, location } = require('./completion-record')
 const { completion_metadata } = require('./round-linter')
 const { sweep_completion_records } = require('./completion-cleanup')
 const settings = require('./ag-settings')
+const ownership_fixture = require('./fixtures/notebook-owner')
+ownership_fixture.configure()
 const DAY = 86400000
 const now = Math.floor(Date.now() / 1000) * 1000
-const fixture = () => {
+const fixture = ({ reference_other = false } = {}) => {
   const project_root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'completion-retention-')))
   const notebook_path = '.agentflow/devlog.md'
   fs.mkdirSync(path.join(project_root, '.agentflow'))
@@ -23,19 +25,31 @@ const fixture = () => {
   const options = { project_root, notebook_path, now_ms: now }
   const rounds = [60, 30, 0].map((age, i) => {
     const ask = `A-00${i + 1}`
+    fs.writeFileSync(path.join(project_root, notebook_path), `# → Ask / ${ask}\n\n+ work\n`)
+    ownership_fixture.adopt(project_root, notebook_path)
     const stamp = format_local_timestamp(new Date(now - age * DAY))
     const ctx = { ...options, ask }
-    const draft = `# ← Reply / ${ask}\n\n* _${stamp} (host)_\n\n## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n1. Completed.\n\n\x60\x60\x60completion-metadata\nHost review: PASS — checked historical fixture.\n\x60\x60\x60\n`
+    const related = reference_other && i === 2 ? `Still needed: [earlier evidence](${location({ ...options, ask: 'A-001' }).href})\n\n` : ''
+    const draft = `# ← Reply / ${ask}\n\n* _${stamp} (host)_\n\n## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n1. Completed.\n\n${related}\x60\x60\x60completion-metadata\nHost review: PASS — checked historical fixture.\n\x60\x60\x60\n`
     let reply = publish_reply(draft, ctx)
     const read = completion_metadata(reply, ctx)
     read.record.created_at = stamp
     const bytes = JSON.stringify(read.record, null, 2) + '\n'
     fs.writeFileSync(read.record_file, bytes)
-    reply = reply.replace(/sha256:[a-f0-9]{64}/u, 'sha256:' + crypto.createHash('sha256').update(bytes).digest('hex'))
-    return { ask, reply, file: read.record_file, text: `# → Ask / ${ask}\n\n+ completed work\n\n${reply}\n` }
+    const info = location(ctx)
+    const reference = JSON.parse(fs.readFileSync(info.reference_file, 'utf8'))
+    reference.sha256 = crypto.createHash('sha256').update(bytes).digest('hex')
+    fs.writeFileSync(info.reference_file, JSON.stringify(reference, null, 2) + '\n')
+    return { ask, reply, file: read.record_file, href: info.href, text: `# → Ask / ${ask}\n\n+ completed work\n\n${reply}\n` }
   })
   const write = (extra = '') => fs.writeFileSync(path.join(project_root, notebook_path), rounds.map(r => r.text).join('\n') + extra + '\n# → Ask / A-004\n\n+\n')
   write()
+  const writer = require('./notebook-write'), owner = require('./notebook-owner')
+  const lock = writer.acquire_close_round_lock(`${path.join(project_root, notebook_path)}.close-round.lock`)
+  try {
+    const context = owner.guard({ root: project_root, notebook: notebook_path, ask: 'A-003', host: 'codex', allow_closed: true })
+    owner.release(context, fs.readFileSync(path.join(project_root, notebook_path), 'utf8'))
+  } finally { writer.release_close_round_lock(lock) }
   return { options, rounds, write }
 }
 
@@ -52,10 +66,7 @@ test('real linked records survive future sweeps after earlier records move to Tr
 })
 
 test('a reference in another round preserves older completion evidence', () => {
-  const f = fixture()
-  const href = /\]\(([^)]+)\)/u.exec(f.rounds[0].reply)[1]
-  f.rounds[2].text += `\nStill needed: [earlier evidence](${href})\n`
-  f.write()
+  const f = fixture({ reference_other: true })
   const result = sweep_completion_records({ ...f.options, trash: file => fs.renameSync(file, file + '.trashed') })
   assert.equal(result.status, 'success', result.reason)
   assert.ok(fs.existsSync(f.rounds[0].file), 'still-needed record was removed')

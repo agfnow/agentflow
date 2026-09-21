@@ -4,15 +4,15 @@ const test = require('node:test')
 const assert = require('node:assert')
 const fs = require('node:fs')
 const path = require('node:path')
+const repo_root = path.resolve(__dirname, '../../..')
+const read = relative => fs.readFileSync(path.join(repo_root, relative), 'utf8')
+
 const { schema_version } = require('./ag-settings.js')
+const public_package = fs.existsSync(path.join(repo_root, '.claude-plugin', 'plugin.json'))
 
-const repo_root = path.resolve(__dirname, '..', '..', '..')
-const read = relative_path => fs.readFileSync(path.join(repo_root, relative_path), 'utf8')
-const render_public = source => source.replaceAll('{{org}}', 'agfnow').replaceAll('{{repo}}', 'agentflow').replaceAll('{{version}}', read('skills/agentflow/SKILL.md').match(/^  version: "([^"]+)"$/m)[1])
-
-test('public release templates use the validator schema and explain installation readiness', () => {
-	const english = render_public(read('release/README.public.md'))
-	const chinese = render_public(read('release/README.public.zh-tw.md'))
+if (public_package) test('public release templates use the validator schema and explain installation readiness', () => {
+	const english = read('README.md')
+	const chinese = read('README.zh-tw.md')
 
 	assert.match(english, new RegExp(`version-${schema_version}\\b`))
 	assert.match(chinese, new RegExp(`版本 ${schema_version}\\b`))
@@ -38,9 +38,10 @@ test('active owner-facing Markdown uses the accepted configuration contract', ()
 	const install_hook = read('skills/agentflow/scripts/install-hook.js')
 
 	for (const guide of [english, chinese]) {
-		assert.match(guide, /schema-version": 7/)
+		assert.match(guide, new RegExp(`schema-version": ${schema_version}\\b`))
 		assert.match(guide, /allow_ag|allow-ag/)
-		assert.match(guide, /metrics/)
+		assert.doesNotMatch(guide, /`metrics: on\|off`/)
+		assert.match(guide, /git-timeout-ms/)
 		assert.match(guide, /external-workers/)
 		assert.match(guide, /pipeline-roles/)
 		assert.match(guide, /\[FINAL REPORT\]/)
@@ -57,11 +58,11 @@ test('active owner-facing Markdown uses the accepted configuration contract', ()
 	assert.match(english, /shared-coverage marker|shared coverage marker/i)
 	assert.match(english, /\[RUN-NNN\]|numbered RUN/i)
 	assert.match(english, /references\/closeout\.md/)
-	assert.match(english, /move unchanged to an adjacent archive/i)
+	assert.match(english, /Each copied round is verified before its original bytes are removed/i)
 	assert.match(chinese, /shared-coverage marker/i)
 	assert.match(chinese, /RUN 事件/)
 	assert.match(chinese, /references\/closeout\.md/)
-	assert.match(chinese, /原封不動移到旁邊的封存檔/)
+	assert.match(chinese, /每個對話都先核對位元組與雜湊，再移除原本的副本/)
 	assert.doesNotMatch(chinese, /最後核實日期|十六題|十四題|gemma4:e4b-mlx/)
 	for (const guide of [english, chinese]) {
 		assert.match(guide, /gpt-5\.6-sol\/low/)
@@ -88,7 +89,7 @@ test('active owner-facing Markdown uses the accepted configuration contract', ()
 	assert.match(chinese, /依照你提出要求的原始順序/)
 	assert.match(english, /succeeded.*failed.*limited/i)
 	assert.match(chinese, /成功.*失敗.*限制/)
-	assert.match(readme, /Version 7/i)
+	assert.match(readme, new RegExp(`Version ${schema_version}\\b`, 'i'))
 	assert.match(readme, /pipeline-roles/)
 	assert.match(readme, /planning-only frozen/)
 	assert.match(readme, /external-runner\.js/)
@@ -104,18 +105,16 @@ test('active owner-facing Markdown uses the accepted configuration contract', ()
 })
 
 test('current guidance uses live devlog records and public command entry points only', () => {
-	const public_english_readme = read('release/README.public.md')
+	const public_readmes = public_package ? ['README.md', 'README.zh-tw.md'] : []
+	const public_english_readme = public_package ? read(public_readmes[0]) : ''
 	const current_guidance = [
-		'release/README.public.zh-tw.md',
+		...public_readmes,
 		'skills/agentflow/SKILL.md',
 		'skills/agentflow/references/ag.md',
 		'skills/agentflow/references/streams.md',
 		'skills/agentflow/references/looper.md',
 		'skills/agentflow/docs/AG_GUIDE.md',
 		'skills/agentflow/docs/AG_GUIDE.zh-tw.md',
-		'docs/LOOPER.md',
-		'docs/marcom/USAGE.md',
-		'docs/marcom/COURSE.md',
 		'skills/agentflow/scripts/README.md',
 	].map(read)
 
@@ -124,7 +123,7 @@ test('current guidance uses live devlog records and public command entry points 
 		assert.doesNotMatch(document, /node\s+(?:"?\$[A-Z_]+\/)?(?:skills\/agentflow\/)?scripts\/(?:agf|looper|setup|install-hook|ag-settings)\.js/i)
 	}
 	assert.doesNotMatch(public_english_readme, /runlog(?:\.md)?|run log/i)
-	assert.equal((public_english_readme.match(/node "\$HOME\/\.(?:codex|claude)\/skills\/agentflow\/scripts\/setup\.js"/g) || []).length, 2)
+	if (public_package) assert.equal((public_english_readme.match(/node "\$HOME\/\.(?:codex|claude)\/skills\/agentflow\/scripts\/setup\.js"/g) || []).length, 2)
 })
 
 test('looper operation guidance is loaded only by explicit run triggers', () => {
@@ -149,8 +148,10 @@ test('workspace layout instructions are explicit across the complete impact inve
 
 	assert.match(skill, /workspace_instruction_inventory/)
 	assert.match(skill, /workspace_layout_change/)
-	assert.match(streams, /\$workspace_dir\/features\/<taskkey>/)
-	assert.match(pipeline, /\$workspace_dir\/artifacts\/<work-key>/)
+	assert.match(skill, /<workspace-dir>\/features\/<taskkey>\/<taskkey>\.devlog\.md/)
+	assert.match(streams, /\$workspace_dir\/\.tmp\/features\/<taskkey>/)
+	assert.match(skill, /<workspace-dir>\/artifacts\/<work-key>/)
+	assert.match(pipeline, /<work-root>\/tracker\.md/)
 	assert.match(looper, /\$workspace_dir\/planned/)
 	for (const guide of [english, chinese]) {
 		assert.match(guide, /\.agentflow\/devlog\.md/)
@@ -183,7 +184,7 @@ test('startup and closeout guidance contains the complete fast-path contract', (
 	assert.match(skill, /and changed paths/)
 	assert.match(skill, /setup-created `.gitignore` and `ag.json`/)
 	assert.match(skill, /Never use a pseudo-terminal or `tty: true`/)
-	assert.match(skill, /writer supplies the RUN number, local time, and heading/)
+	assert.match(skill, /writer owns numbering and time/)
 	assert.match(skill, /Successful `agf close` is the final preflight/)
 	assert.match(skill, /Do not repeat it after successful `agf close`/)
 })
@@ -209,35 +210,6 @@ test('user-facing terminal changes require reusable real-person PTY journeys', (
 	assert.match(skill, /Unit tests and headless process tests do not replace this journey/)
 })
 
-test('active owner documentation explains the cross-check command consistently', () => {
-	const documents = [
-		'README.md',
-		'docs/ag-json-doc.md',
-		'docs/external-runner.md',
-		'docs/marcom/USAGE.md',
-		'docs/marcom/FAQ.md',
-		'docs/marcom/COURSE.md',
-		'docs/feature-highlights.md',
-		'skills/agentflow/docs/AG_GUIDE.md',
-		'skills/agentflow/docs/AG_GUIDE.zh-tw.md',
-		'skills/agentflow/scripts/README.md',
-	].map(read)
-
-	for (const document of documents) {
-		assert.match(document, /cross-check/)
-		assert.match(document, /PASS/)
-		assert.match(document, /implementation|實作/i)
-	}
-	const usage = read('docs/marcom/USAGE.md')
-	assert.match(usage, /Cross-check review:/)
-	assert.match(usage, /Cross-check implementation:/)
-	assert.match(usage, /configured external-worker selection rules choose the reviewer/i)
-	assert.doesNotMatch(usage, /different family is preferred/i)
-	assert.match(read('docs/marcom/FAQ.md'), /same final implementation commit/i)
-	assert.match(read('docs/marcom/COURSE.md'), /read-only reviewer/i)
-	assert.match(read('skills/agentflow/docs/AG_GUIDE.zh-tw.md'), /唯讀.*reviewer|reviewer.*唯讀/i)
-})
-
 test('consequential-work controls are visible in both owner guides', () => {
 	for (const guide of [read('skills/agentflow/docs/AG_GUIDE.md'), read('skills/agentflow/docs/AG_GUIDE.zh-tw.md')]) {
 		for (const control of ['Design Go:', 'Outcome', 'Minimality', 'Conformance', 'Result Go:', '3ways']) assert.ok(guide.includes(control), control)
@@ -255,7 +227,7 @@ test('minimality challenges and Taipei timestamps stay aligned across active gui
 	for (const document of [skill, english, chinese]) {
 		assert.match(document, /Minimality check/)
 	}
-	assert.match(skill, /writer supplies the RUN number, local time, and heading/)
+	assert.match(skill, /writer owns numbering and time/)
 	for (const guide of [english, chinese]) assert.match(guide, /YYYY-MM-DD HH:MM:SS ±HHMM/)
 	for (const document of [skill, acceptance, english, chinese]) {
 		assert.match(document, /delet|remove|刪除/i)

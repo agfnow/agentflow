@@ -11,6 +11,9 @@ const { contain_nested_processes, find_nested_processes, read_process_table } = 
 const { format_local_timestamp } = require('./local-time')
 const agentflow_settings = require('./ag-settings')
 const queue_contract = require('./queue-contract')
+const delegation_route = require('./delegation-route')
+const notebook_owner = require('./notebook-owner')
+const notebook_writer = require('./notebook-write')
 
 const PLAN_PATTERN = /^plan-([0-9]{3})\.md$/
 const MAX_PLAN_BYTES = 1024 * 1024
@@ -101,6 +104,7 @@ const looper_error = (message, options = {}) => {
   error.reported = options.reported === true
   error.ownership_lost = options.ownership_lost === true
   error.nested_worker = options.nested_worker || null
+  error.handoff = options.handoff === true
   return error
 }
 
@@ -370,10 +374,15 @@ const bounded_text = (value) => {
   return text
 }
 
-const notebook_round_state = text => ({
-  reply_ids: [...String(text).matchAll(/^# ← Reply \/ A-([0-9]+)$/gmu)].map(match => Number(match[1])),
-  next_ask_id: Number((String(text).match(/(?:^|\n)# → Ask \/ A-([0-9]+)\n\n\+\n?$/u) || [])[1] || 0),
-})
+const notebook_round_state = (text, { allow_names = false } = {}) => {
+  // Named Ask/Reply headings are part of the shared notebook grammar in every
+  // launch mode; standalone looper verification must not reject them.
+  const name = '(?: \\([^\\r\\n)]+\\))?'
+  return {
+    reply_ids: [...String(text).matchAll(new RegExp(`^# ← Reply / A-([0-9]+)${name}\\r?$`, 'gmu'))].map(match => Number(match[1])),
+    next_ask_id: Number((String(text).match(new RegExp(`(?:^|\\r?\\n)# → Ask / A-([0-9]+)${name}\\r?\\n\\r?\\n\\+\\r?\\n?$`, 'u')) || [])[1] || 0),
+  }
+}
 
 const read_notebook_round_state = context => {
   const notebook = path.resolve(context.root, context.completion_path)
@@ -393,6 +402,37 @@ const verify_notebook_round = (context, before) => {
     after.reply_ids.at(-1) !== before.next_ask_id ||
     after.next_ask_id !== before.next_ask_id + 1)
     throw looper_error(`completion notebook did not add exactly one \`# ← Reply / A-NNN\` round followed by the next empty \`# → Ask / A-NNN\` scaffold`)
+}
+
+const with_notebook_lock = (context, action) => {
+  const location = notebook_owner.location({ root: context.root, notebook: context.completion_path })
+  const file = notebook_owner.safe_path(location.root, location.notebook)
+  const lock = notebook_writer.acquire_close_round_lock(`${file}.close-round.lock`)
+  try { return action(location, file) } finally { notebook_writer.release_close_round_lock(lock) }
+}
+
+const reserve_notebook_round = (context, identity) => {
+  if (context.options.verify_notebook_round === false) return undefined
+  return with_notebook_lock(context, (location, file) => {
+    const text = notebook_writer.read_regular_file(file, 'notebook').text
+    const current = require('./round-linter').parse_devlog(text).rounds.at(-1)
+    if (!current || !['', '+'].includes(current.ask_text.trim()) || current.reply_text.trim() || current.wip_text.trim())
+      throw looper_error('notebook ownership: plan launch requires an empty current Ask; finish or explicitly recover the unresolved round first')
+    const held = notebook_owner.guard({ root: location.root, notebook: location.notebook, text,
+      ...(identity || { host: 'looper', session: context.owner_token }) })
+    context.notebook_ownership = held.record
+    return notebook_round_state(text)
+  })
+}
+
+const verify_notebook_owner = (context, location, allow_released = false) => {
+  const saved = context.notebook_ownership
+  if (!saved) throw looper_error('notebook ownership reservation is missing from the attempt')
+  const current = notebook_owner.read(location)
+  const held = { ...location, identity: { host: saved.host, session: saved.session },
+    record: { ...saved, state: allow_released && current?.state === 'released' ? 'released' : 'active' } }
+  notebook_owner.verify(held, { root: context.root, notebook: context.completion_path, active: !allow_released })
+  return held
 }
 
 const output_stream = (context, name) => context.options[name] || (name === 'stdout' ? process.stdout : process.stderr)
@@ -718,7 +758,47 @@ const verify_generated_queue = (context) => {
 
 const initialize_generated_queue = (context) => {
   const envelope_path = path.join(context.tasks_dir, queue_contract.ENVELOPE_NAME)
-  if (!path_is_present(context.file_system, envelope_path)) return false
+  if (!path_is_present(context.file_system, envelope_path)) {
+    const generated = get_tasks(context.tasks_dir, context.file_system).some(task => {
+      try {
+        const path_stat = ensure_regular_nonsymlink(context.file_system, task.path, 'selected plan')
+        // The normal selection path records the durable failure for oversized
+        // plans. Do not pre-empt it merely while looking for authority markers.
+        if (path_stat.size > MAX_PLAN_BYTES) return false
+        const identity = read_file_identity(context.file_system, task.path)
+        let descriptor = null
+        try {
+          descriptor = context.file_system.openSync(task.path, descriptor_flags())
+          const opened = context.file_system.fstatSync(descriptor)
+          if (!opened.isFile() || !same_stat_identity(identity, stat_identity(opened)))
+            throw new Error(`filesystem identity changed while opening ${task.path}`)
+          const content = Buffer.alloc(opened.size)
+          let offset = 0
+          while (offset < content.length) {
+            const count = context.file_system.readSync(descriptor, content, offset, content.length - offset, null)
+            if (!Number.isSafeInteger(count) || count <= 0) throw new Error(`short read for ${task.path}`)
+            offset += count
+          }
+          const closed = context.file_system.fstatSync(descriptor)
+          if (!same_stat_identity(stat_identity(opened), stat_identity(closed)))
+            throw new Error(`filesystem identity changed while reading ${task.path}`)
+          if (crypto.createHash('sha256').update(content).digest('hex') !== identity.sha256)
+            throw new Error(`content changed while reading ${task.path}`)
+          const final_path = ensure_regular_nonsymlink(context.file_system, task.path, 'selected plan')
+          if (!same_stat_identity(stat_identity(closed), stat_identity(final_path)))
+            throw new Error(`filesystem identity changed after reading ${task.path}`)
+          const text = content.toString('utf8')
+          return /^## Authority[ \t]*$/mu.test(text) && /^-[ \t]*generation_id:[ \t]*\S+/mu.test(text)
+        } finally {
+          if (descriptor !== null) context.file_system.closeSync(descriptor)
+        }
+      } catch (error) {
+        throw looper_error(`generated plan authority could not be inspected: ${error_message(error)}`)
+      }
+    })
+    if (generated) throw looper_error('generated plan authority is incomplete: queue envelope is missing; refusing to launch')
+    return false
+  }
   let authority
   try {
     authority = queue_contract.read_frozen_queue(context.tasks_dir)
@@ -752,34 +832,53 @@ const generated_tasks = (context) => {
 	return readiness.ready_plan_names.map(name => open.get(name)).filter(Boolean)
 }
 
-const configure_child = (context) => {
-  if (context.executable || typeof context.options.build_args === 'function') return
+const worker_config = context => {
   let config = context.options.worker_config
   if (!config) {
     const config_path = agentflow_settings.active_config_path(context.root, context.completion_path)
-    const text = context.file_system.readFileSync(config_path, 'utf8')
-    const duplicate = agentflow_settings.duplicate_json_key(text)
-    if (duplicate !== null) throw looper_error(`${config_path} contains duplicate JSON object key '${duplicate}'`)
-    try { config = JSON.parse(text) } catch { throw looper_error(`${config_path} contains malformed JSON`) }
-    agentflow_settings.assert_valid_config(config, { repo_root: context.root, check_executables: false })
+    config = agentflow_settings.read_json_config(config_path, { repo_root: context.root, active_host: context.options.active_host || 'standalone', check_executables: false, persist_migration: false })
   }
-  const profile = agentflow_settings.select_profile(config, {
-    executable_available: context.options.executable_available,
+  return config
+}
+
+const policy_for_queue = config => ({
+  allowed_worker: config.switches?.['allowed-worker'] || ['external', 'host'],
+  review_policy: config.switches?.['review-policy'] || 'require-independent',
+  cli_provider: config.switches?.['cli-provider'] || 'off',
+})
+
+const configure_child = (context) => {
+  // Programmatic test/embedding callers supply a checked argument builder.
+  if (typeof context.options.build_args === 'function' || context.child_configured) return
+  const config = worker_config(context)
+  if (config['pipeline-roles']?.implementation === 'off') throw looper_error('implementation role is off; no queue worker can start')
+  const available = context.options.executable_available || (command => {
+    if (!path.isAbsolute(command)) return agentflow_settings.executable_available(command)
+    try { return fs.statSync(command).isFile() && (fs.statSync(command).mode & 0o111) !== 0 } catch { return false }
   })
-  if (!profile) throw looper_error('no eligible external-workers command is available for the current cli-provider setting')
-  let selection = null
-  if (config['pipeline-roles'] && profile.tiers) {
-    selection = agentflow_settings.resolve_worker_tier(config, { role: 'implementation' }, {
-      executable_available: context.options.executable_available,
-    })
+  const profiles = (config['external-workers'] || []).map(profile => {
+    const command = context.options.executable ? [context.options.executable, ...profile.command.slice(1)] : profile.command
+    const executable = path.basename(command[0])
+    return { ...profile, command, candidate_id: profile.id, available: available(command[0]) === true,
+      recipe_checked: (executable === 'codex' && command.includes('exec')) || (executable === 'claude' && command.includes('-p')) }
+  })
+  let host = context.options.active_host
+  if (!host) { try { host = agentflow_settings.detect_host() } catch { host = 'standalone' } }
+  const selection = delegation_route.select_executor_action({
+    config, policy: policy_for_queue(config), host: { id: host, family: context.options.host_family || agentflow_settings.family_for_host(host) },
+    task: { task_id: 'standalone-queue', role: 'implementation', requested_tier: config['pipeline-roles']?.implementation, interactive_host: false, delegation_worthy: true },
+    capabilities: { external: profiles },
+  })
+  if (selection.status !== 'selected' || selection.kind !== 'external') {
+    throw looper_error(`No permitted external executor is available. Resume this pending queue in an interactive host: ${context.tasks_dir}. ${selection.requirement || ''}`, { handoff: true })
   }
-  const selected_profile = selection ? selection.profile : profile
-  const standard_selection = selection && ['codex', 'claude'].includes(selected_profile.family)
-  context.executable = selected_profile.command[0]
-  context.command_args = selected_profile.command.slice(1)
-  context.worker_family = selected_profile.family || null
-  context.worker_model = standard_selection ? selection.model : null
-  context.worker_effort = standard_selection ? selection.effort : null
+  const profile = profiles.find(candidate => candidate.candidate_id === selection.candidate_id)
+  context.executable = profile.command[0]
+  context.command_args = profile.command.slice(1)
+  context.worker_family = agentflow_settings.profile_family(profile) || null
+  context.worker_model = selection.usable_model === 'inherited' ? null : selection.usable_model
+  context.worker_effort = selection.usable_effort === 'inherited' ? null : selection.usable_effort
+  context.child_configured = true
 }
 
 const notify = (context, event, data = {}) => {
@@ -1049,7 +1148,14 @@ const completed_record_is_trustworthy = (context, record) => {
   const selected_identity = record_identity(record)
   if (!valid_record_identity(selected_identity)) return false
   if (!same_record_identity(record, 'rechecked', selected_identity)) return false
-  if (record.exit_code !== 0 || record.signal !== null || record.completion_matches !== 1) return false
+  if (record.execution) {
+    const execution = record.execution
+    if (delegation_route.validate_execution_record(execution, { controls: record.selection?.requested }) || execution.state !== 'completed') return false
+    if (execution.task_id !== record.task || execution.attempt_id !== record.owner_token
+        || execution.kind !== record.selection?.kind || execution.candidate_id !== record.selection?.candidate_id
+        || JSON.stringify(execution.source_identity) !== JSON.stringify(record.source_identity)
+        || execution.outputs.completion_line !== context.completion_line) return false
+  } else if (record.exit_code !== 0 || record.signal !== null || record.completion_matches !== 1) return false
   if (record.completion_line !== context.completion_line || record.archived !== true) return false
 
   let done_dir
@@ -1099,6 +1205,13 @@ const reset_control_state = (context) => {
   verify_queue_identity(context)
   verify_protected_state(context)
   const attempt = read_json_if_present(context.file_system, context.attempt_file)
+  if (attempt?.selection && attempt.phase !== 'completed') {
+    const execution = attempt.execution
+    const settled = execution && !delegation_route.validate_execution_record(execution)
+      && execution.state !== 'uncertain'
+      && (execution.state === 'completed' || execution.transport.stop_verified === true || execution.transport.worker_started === false)
+    if (!settled) throw looper_error('reset refused for an unresolved interactive attempt; verify native/host stop through its real interface and finish the saved claim before resetting')
+  }
   if (attempt && process_is_alive(context, attempt.child_pid))
     throw looper_error(`reset refused because attempt evidence names live child process ${attempt.child_pid}; human review required`)
 
@@ -1147,7 +1260,9 @@ const build_prompt = (context, task) => {
       tasks_dir: context.tasks_dir,
       root: context.root,
     }))
-  const request = `Execute the frozen plan directly: ${relative_task}\n\nYou are the plan worker already launched by agf-looper. Execute the named plan directly and complete the product work yourself. Do not invoke agf-looper or start another plan worker. Do not invoke Agentflow, codex, claude, another model CLI, a subagent, a delegate, or an independent review process. Complete the Agentflow notebook record for this plan. A completed round must contain its exact \`# ← Reply / A-NNN\` heading and must end with the next sequential scaffold in exactly this form, including the bare plus line: \`# → Ask / A-NNN\n\n+\`. Do not treat a summary, final report, commit, or bare completion signal as a completed notebook round without the Reply heading and that full next-Ask scaffold. When the plan and its record are safely complete, your entire final response must be exactly: ${context.completion_line}`
+  const reservation = context.notebook_ownership
+  const ownership_note = reservation ? `\n\nThe controller reserved ${context.completion_path} ${reservation.ask} for host ${reservation.host}, session ${reservation.session}, token ${reservation.token}. Before editing that notebook, read its ownership record at ${notebook_owner.location({ root: context.root, notebook: context.completion_path }).relative} and confirm this exact active owner. Use this retained host/session for any notebook writer call. Leave ownership release to the controller; stop if the owner has changed.` : ''
+  const request = `Execute the frozen plan directly: ${relative_task}\n\nYou are the plan worker already launched by agf-looper. Execute the named plan directly and complete the product work yourself. Do not invoke agf-looper or start another plan worker. Do not invoke Agentflow, codex, claude, another model CLI, a subagent, a delegate, or an independent review process. Complete the Agentflow notebook record for this plan. A completed round must contain its exact \`# ← Reply / A-NNN\` heading and must end with the next sequential scaffold in exactly this form, including the bare plus line: \`# → Ask / A-NNN\n\n+\`. Do not treat a summary, final report, commit, or bare completion signal as a completed notebook round without the Reply heading and that full next-Ask scaffold. When the plan and its record are safely complete, your entire final response must be exactly: ${context.completion_line}${ownership_note}`
   if (!context.generated_queue_authority) return request
   return `${request}\n\nThis frozen plan is owned by looper. Execute the plan's product and record work only. Do not move, rename, delete, or archive the plan or any other file under ${context.tasks_dir}; do not create queue control markers. Leave queue transitions to looper after your exact final completion response.`
 }
@@ -1494,11 +1609,14 @@ const start_child = async (context, task, identity, prompt, args) => {
     cwd: context.root,
     shell: false,
   }
+  spawn_options.env = { ...spawn_options.env, AGENTFLOW_EXTERNAL_DELEGATE: `looper-${context.owner_token}` }
   let child
   let dumps = null
   try {
     verify_queue_identity(context)
     verify_protected_state(context)
+    if (context.options.verify_notebook_round !== false)
+      with_notebook_lock(context, location => verify_notebook_owner(context, location))
     dumps = open_dump_files(context)
     child = context.spawn(context.executable, args, spawn_options)
   } catch (error) {
@@ -1610,6 +1728,171 @@ const archive_plan = (context, source, destination, expected_identity) => {
   return { destination, recovery_path }
 }
 
+const complete_plan_locked = (context, task, identity, notebook_before, diagnostic_tail, ownership) => {
+  verify_notebook_round(context, notebook_before)
+  if (has_stop_marker(context))
+    throw looper_error(`stop marker exists after child completion: ${context.stop_file}`)
+  verify_generated_queue(context)
+  verify_file_identity(context.file_system, identity.selected_path, identity)
+
+  write_attempt_record(context, {
+    ...(context.current_attempt || {}),
+    phase: 'completion-verified',
+    diagnostic_tail,
+  })
+  maybe_crash(context, 'completion-verified')
+
+  const rechecked_identity = verify_file_identity(context.file_system, identity.selected_path, identity)
+  write_attempt_record(context, {
+    ...(context.current_attempt || {}),
+    phase: 'identity-rechecked',
+    rechecked_sha256: rechecked_identity.sha256,
+    rechecked_dev: rechecked_identity.dev,
+    rechecked_ino: rechecked_identity.ino,
+    rechecked_size: rechecked_identity.size,
+    diagnostic_tail,
+  })
+  maybe_crash(context, 'identity-rechecked')
+
+  const destination = path.join(context.done_dir, task.name)
+  if (has_stop_marker(context))
+    throw looper_error(`stop marker exists before archival: ${context.stop_file}`)
+  if (path_is_present(context.file_system, destination))
+    throw looper_error(`archive destination collision: ${destination}`)
+  verify_queue_identity(context)
+  verify_file_identity(context.file_system, identity.selected_path, identity)
+  const archive_result = archive_plan(context, identity.selected_path, destination, identity)
+  if (context.generated_queue_authority) {
+    try {
+      context.generated_queue_authority = queue_contract.read_frozen_queue(context.tasks_dir)
+    } catch (error) {
+      throw looper_error(`generated frozen queue authority failed: ${error_message(error)}`)
+    }
+  }
+  verify_generated_queue(context)
+  write_attempt_record(context, {
+    ...(context.current_attempt || {}),
+    phase: 'archive-moved',
+    archived_path: destination,
+    recovery_path: archive_result.recovery_path,
+    diagnostic_tail,
+  })
+  maybe_crash(context, 'archive-moved')
+
+  const archived_identity = read_file_identity(context.file_system, archive_result.destination)
+  const completed_record = {
+    ...(context.current_attempt || {}),
+    phase: 'completed',
+    archived_path: destination,
+    recovery_path: archive_result.recovery_path,
+    archived: true,
+    archived_sha256: archived_identity.sha256,
+    archived_dev: archived_identity.dev,
+    archived_ino: archived_identity.ino,
+    archived_size: archived_identity.size,
+  }
+  delete completed_record.diagnostic_tail
+  write_attempt_record(context, completed_record)
+  maybe_crash(context, 'completed-state-written')
+  if (ownership) notebook_owner.release(ownership, notebook_writer.read_regular_file(path.join(context.root, context.completion_path), 'notebook').text)
+  notify(context, 'plan-completed', { task: task.name, destination })
+  const completed_view = queue_view(context)
+  say(context, `Completed ${completed_view.lines[0].replace('Progress: ', '')} — ${task.name}.`)
+  context.current_plan = null
+}
+
+const complete_plan = (context, task, identity, notebook_before, diagnostic_tail = '') => {
+  if (context.options.verify_notebook_round === false)
+    return complete_plan_locked(context, task, identity, notebook_before, diagnostic_tail)
+  return with_notebook_lock(context, location => complete_plan_locked(context, task, identity,
+    notebook_before, diagnostic_tail, verify_notebook_owner(context, location, true)))
+}
+
+// Interactive hosts keep this claim in their task record while using real host
+// tools. The existing durable lock survives helper exit; a lost claim is an
+// unresolved owner, never permission to launch a second writer.
+const claim_host_plan = (options = {}) => {
+  const context = make_context(options)
+  context.interactive_notebook = true
+  prepare_state(context)
+  ensure_task_directory(context)
+  initialize_generated_queue(context)
+  existing_attempt_blocks(context)
+  if (has_stop_marker(context)) throw looper_error(`stop marker exists: ${context.stop_file}`)
+  const task = generated_tasks(context)[0]
+  if (!task) return { status: 'complete', completed: true }
+  const config = worker_config(context)
+  if (config['pipeline-roles']?.implementation === 'off') throw looper_error('implementation role is off')
+  const supplied = options.selection_facts || {}
+  const policy = policy_for_queue(config)
+  if (supplied.policy?.allowed_worker) policy.allowed_worker = supplied.policy.allowed_worker.filter(kind => policy.allowed_worker.includes(kind))
+  const identity = read_file_identity(context.file_system, task.path)
+  const selection = delegation_route.select_executor_action({ ...supplied, config, policy,
+    task: { ...supplied.task, task_id: task.name, role: 'implementation', interactive_host: true } })
+  if (selection.status === 'selection-required') return selection
+  if (selection.status !== 'selected') throw looper_error(`interactive queue execution is unavailable: ${selection.requirement}`)
+  const envelope_path = path.join(context.tasks_dir, queue_contract.ENVELOPE_NAME)
+  const envelope_identity = context.generated_queue_authority ? read_file_identity(context.file_system, envelope_path) : null
+  const repository = require('./repository-state').detect(context.root)
+  if (repository.state === 'error') throw looper_error(repository.detail)
+  const git_source = node_spawn_sync('git', ['rev-parse', 'HEAD'], { cwd: context.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  if (repository.state === 'git' && git_source.status !== 0) throw looper_error('interactive Git queue needs a committed source identity before claiming a plan')
+  const host_identity = notebook_owner.identity({ host: options.host || options.active_host, session: options.session })
+  acquire_lock(context)
+  let notebook_before
+  try { notebook_before = reserve_notebook_round(context, host_identity) } catch (error) { release_lock(context); throw error }
+  const source_identity = repository.state === 'git' ? { source_kind: 'git', value: git_source.stdout.trim() }
+    : { source_kind: 'no-git', value: crypto.createHash('sha256').update(JSON.stringify({ plan: identity.sha256, envelope: envelope_identity?.sha256, notebook: notebook_before })).digest('hex') }
+  context.current_plan = task
+  context.file_system.mkdirSync(context.done_dir, { recursive: true })
+  write_attempt_record(context, {
+    phase: 'launch-intent', task: task.name, ...identity, owner_token: context.owner_token, selection, source_identity,
+    completion_line: context.completion_line, notebook_before, envelope_identity, notebook_ownership: context.notebook_ownership,
+  })
+  const claim = {
+    version: 1, options: { root: context.root, tasks_dir: context.tasks_dir,
+      state_root: path.resolve(context.state_dir, '../../..'), completion_path: context.completion_path, ...host_identity },
+    owner_token: context.owner_token, lock_identity: context.lock_identity, owner_identity: context.owner_identity,
+    attempt_identity: read_file_identity(context.file_system, context.attempt_file),
+    task, identity, source_identity, selection, notebook_ownership: context.notebook_ownership,
+  }
+  notify(context, 'interactive-plan-claimed', { task: task.name, kind: selection.kind })
+  return claim
+}
+
+const finish_host_plan = (claim, execution) => {
+  if (!claim || claim.version !== 1 || typeof claim.owner_token !== 'string') throw looper_error('valid interactive queue claim is required')
+  const context = make_context(claim.options)
+  context.interactive_notebook = true
+  prepare_state(context)
+  context.owner_acquired = true
+  context.owner_token = claim.owner_token
+  context.lock_identity = claim.lock_identity
+  context.owner_identity = claim.owner_identity
+  verify_ownership(context)
+  verify_file_identity(context.file_system, context.attempt_file, claim.attempt_identity)
+  const attempt = read_json_if_present(context.file_system, context.attempt_file)
+  context.current_attempt = attempt
+  context.notebook_ownership = attempt.notebook_ownership
+  context.current_plan = { name: attempt.task, path: attempt.selected_path }
+  try {
+    const invalid = delegation_route.validate_execution_record(execution, { controls: attempt.selection.requested })
+    if (invalid) throw looper_error(invalid)
+    if (execution.task_id !== attempt.task || execution.attempt_id !== claim.owner_token || execution.kind !== attempt.selection.kind || execution.candidate_id !== attempt.selection.candidate_id
+        || JSON.stringify(execution.source_identity) !== JSON.stringify(attempt.source_identity)) throw looper_error('execution evidence does not match the claimed plan, source and executor')
+    write_attempt_record(context, { ...attempt, phase: 'child-exited', execution })
+    if (execution.state !== 'completed') throw looper_error(`interactive task ${execution.state}; preserve its pending plan and resolve ownership before retrying`)
+    if (execution.outputs.completion_line !== context.completion_line) throw looper_error('interactive completion evidence does not match the configured notebook')
+    if (attempt.envelope_identity) verify_file_identity(context.file_system, attempt.envelope_identity.selected_path, attempt.envelope_identity)
+    initialize_generated_queue(context)
+    complete_plan(context, context.current_plan, attempt, attempt.notebook_before)
+    release_lock(context)
+    return { completed: true, task: attempt.task, kind: execution.kind, archived_path: path.join(context.done_dir, attempt.task) }
+  } catch (error) {
+    throw fail_plan(context, error)
+  }
+}
+
 const run_plan = async (context, task) => {
   context.current_plan = task
   const start_view = queue_view(context, task.name)
@@ -1618,6 +1901,12 @@ const run_plan = async (context, task) => {
   let prompt
   let args
   let notebook_before
+  context.notebook_ownership = null
+  try { notebook_before = reserve_notebook_round(context) } catch (error) {
+    context.current_plan = null
+    release_lock(context)
+    throw error
+  }
   try {
     identity = read_file_identity(context.file_system, task.path)
     write_attempt_record(context, {
@@ -1625,13 +1914,14 @@ const run_plan = async (context, task) => {
       task: task.name,
       ...identity,
       completion_line: context.completion_line,
+      notebook_before,
+      notebook_ownership: context.notebook_ownership,
     })
     maybe_crash(context, 'identity-recorded')
 
     verify_queue_identity(context)
     prompt = build_prompt(context, task)
     args = build_args(context, task, prompt)
-    if (context.options.verify_notebook_round !== false) notebook_before = read_notebook_round_state(context)
     say(context, context.worker_model && context.worker_effort
       ? `Worker: ${context.worker_model}/${context.worker_effort}`
       : 'Worker: model/effort use CLI defaults')
@@ -1677,75 +1967,7 @@ const run_plan = async (context, task) => {
       throw looper_error(`child exited with code ${child_result.exit_code}`)
     if (child_result.matches !== 1)
       throw looper_error(`completion evidence was not exactly one line matching ${context.completion_line}; found ${child_result.matches}`)
-    verify_notebook_round(context, notebook_before)
-    if (has_stop_marker(context))
-      throw looper_error(`stop marker exists after child completion: ${context.stop_file}`)
-    verify_generated_queue(context)
-    verify_file_identity(context.file_system, identity.selected_path, identity)
-
-    write_attempt_record(context, {
-      ...(context.current_attempt || {}),
-      phase: 'completion-verified',
-      diagnostic_tail,
-    })
-    maybe_crash(context, 'completion-verified')
-
-    const rechecked_identity = verify_file_identity(context.file_system, identity.selected_path, identity)
-    write_attempt_record(context, {
-      ...(context.current_attempt || {}),
-      phase: 'identity-rechecked',
-      rechecked_sha256: rechecked_identity.sha256,
-      rechecked_dev: rechecked_identity.dev,
-      rechecked_ino: rechecked_identity.ino,
-      rechecked_size: rechecked_identity.size,
-      diagnostic_tail,
-    })
-    maybe_crash(context, 'identity-rechecked')
-
-    const destination = path.join(context.done_dir, task.name)
-    if (has_stop_marker(context))
-      throw looper_error(`stop marker exists before archival: ${context.stop_file}`)
-    if (path_is_present(context.file_system, destination))
-      throw looper_error(`archive destination collision: ${destination}`)
-    verify_queue_identity(context)
-    verify_file_identity(context.file_system, identity.selected_path, identity)
-    const archive_result = archive_plan(context, identity.selected_path, destination, identity)
-    if (context.generated_queue_authority) {
-      try {
-        context.generated_queue_authority = queue_contract.read_frozen_queue(context.tasks_dir)
-      } catch (error) {
-        throw looper_error(`generated frozen queue authority failed: ${error_message(error)}`)
-      }
-    }
-    verify_generated_queue(context)
-    write_attempt_record(context, {
-      ...(context.current_attempt || {}),
-      phase: 'archive-moved',
-      archived_path: destination,
-      recovery_path: archive_result.recovery_path,
-      diagnostic_tail,
-    })
-    maybe_crash(context, 'archive-moved')
-
-    const archived_identity = read_file_identity(context.file_system, archive_result.destination)
-    const completed_record = {
-      ...(context.current_attempt || {}),
-      phase: 'completed',
-      archived_path: destination,
-      recovery_path: archive_result.recovery_path,
-      archived: true,
-      archived_sha256: archived_identity.sha256,
-      archived_dev: archived_identity.dev,
-      archived_ino: archived_identity.ino,
-      archived_size: archived_identity.size,
-    }
-    delete completed_record.diagnostic_tail
-    write_attempt_record(context, completed_record)
-    maybe_crash(context, 'completed-state-written')
-    notify(context, 'plan-completed', { task: task.name, destination })
-    const completed_view = queue_view(context)
-    say(context, `Completed ${completed_view.lines[0].replace('Progress: ', '')} — ${task.name}.`)
-    context.current_plan = null
+    complete_plan(context, task, identity, notebook_before, diagnostic_tail)
   } catch (error) {
     if (error && (error.crash || error.interruption)) throw error
     if (error && error.reported) throw error
@@ -1792,6 +2014,7 @@ const run_looper = async (options = {}) => {
     existing_attempt_blocks(context)
     if (has_stop_marker(context))
       throw looper_error(`stop marker exists: ${context.stop_file}`)
+    if (generated_tasks(context).length) configure_child(context)
     acquire_lock(context)
     verify_queue_identity(context)
     context.file_system.mkdirSync(context.done_dir, { recursive: true })
@@ -1813,7 +2036,7 @@ const run_looper = async (options = {}) => {
     }
   } catch (error) {
     if (context.current_plan) show_queue(context, null, context.current_plan.name)
-    result = failure_result(context, error)
+    result = error.handoff ? { code: 2, handoff: true, message: error.message, launched: [], pending: generated_tasks(context).map(task => task.name) } : failure_result(context, error)
   } finally {
     remove_signal_handlers(context)
     if (context.completion_message_descriptor !== null) {
@@ -1904,6 +2127,8 @@ module.exports = {
   queue_view,
   render_help,
   run_looper,
+  claim_host_plan,
+  finish_host_plan,
   workspace_defaults,
   write_all_sync,
 }

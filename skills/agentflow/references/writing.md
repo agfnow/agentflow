@@ -2,52 +2,56 @@
 
 ## Scope
 
-Apply this style by default to all human-readable prose and Markdown, including devlogs, RUNs, Replies, trackers, designs, reports, guides, manuals, tutorials, slides, specifications, operational logs, prompts, and skills. Preserve an established stricter format when required. Machine-serialized data, source code, tables, exact quotations, and formats whose contract requires adjacent lines are exempt from presentation-only spacing rules.
+- Apply by default to all human-readable prose and Markdown, including devlogs, trackers, designs, reports, guides, slides, specifications, operational logs, prompts, and skills. Where required, preserve an established stricter format, including report sections and numbered answers.
 
 ## Concise list style
 
-- Keep the body list-based, with one result, incident, reason, decision, evidence item, or next action per bullet. Aim for fewer than 50 words per item; clarity and completeness take priority. Connected sentences may explain the same idea.
+- Keep the body list-based: one result, incident, reason, decision, evidence item, or next action per bullet; connected sentences may explain the same idea. Clarity and completeness outrank brevity.
 
-- Lead items with concrete results or actions. Use short bold scan cues for important items, never entire sentences. Put lengthy evidence in supporting bullets or links when it obscures the result.
+- Lead with the concrete result or action. Bold only short scan cues, never whole sentences. Number ordered steps, with necessary detail in nested bullets.
 
-- Use everyday words in plain English. Say what happened, what it means for them, and what happens next. Explain unavoidable technical terms once; include filenames and internal details only when readers need them. Number ordered steps; put necessary detail in supporting bullets.
+- Use everyday words (用口語、說人話). **NO COMPRESSED TECHNICAL TERMS OR EXPRESSIONS**, even to meet a length limit. Say what happened, what it means for the user, and what happens next. Explain each unavoidable technical term once, before use, without substituting another unfamiliar term. Include filenames and internal details only when readers need them.
 
-- Separate every adjacent Markdown list item with exactly one empty line, including nested bullets and numbered items. Apply this loose-list spacing by default in all writing governed by this protocol, including Agentflow Ask/RUN/WIP/Reply content. Do not compact consecutive list items onto adjacent non-empty lines. Preserve adjacency only where a machine format, table, code block, exact quotation, or established contract requires it.
+- Separate adjacent list items, including nested and numbered ones, with exactly one empty line, except in machine-serialized data, code, tables, exact quotations, and formats whose contract requires adjacent lines.
 
 ## Opening and reader action
 
-- Make the opening understandable on its own: state the outcome, why it matters, and any needed action or decision. Put a warning or decision first when it changes the reader's next step; say that no immediate action is needed only when that could otherwise be unclear. Avoid activity lists, miniature reports, and repeating the same result throughout the document.
+- Make the opening understandable on its own, without task IDs or linked files: the outcome, why it matters, any material problem or limitation, and any needed action or decision. Lead with a warning or decision when it changes the reader's next step; say no immediate action is needed only when that would otherwise be unclear.
 
-- Group supporting explanations around the reader's questions and preserve the document's established format.
+- Avoid activity lists, miniature reports, and repeating the same result. Group supporting detail around the reader's questions.
 
 ## Evidence and status
 
-- Keep essential evidence beside its conclusion; move hashes, process accounting, repair history, raw paths, and lengthy technical evidence into links or later supporting detail.
+- Keep essential evidence beside its conclusion; put formulas, hashes, raw paths, process and scope accounting, repair history, and other lengthy technical detail after it or in links.
 
-- Distinguish tests running, requested behavior working, and task completion; separate earlier from current results. State uncertainty plainly and preserve material failures and limitations when shortening.
+- Distinguish tests running, requested behavior working, and task completion; separate earlier from current results. State uncertainty plainly. When shortening, keep material failures and limitations.
 
-- Before delivery, check that the opening conveys the outcome, material problem or limitation, and next action, and that the details explain them in everyday words. Reader comprehension is the acceptance test. This author check and presentation choices are advisory, never automated completion gates; they do not replace required content, evidence, or established formats.
+- In findings and closing limits, separate trigger, impact, evidence, and action when distinct. Preserve exact verdict fields, severity, IDs, uncertainty, literal patch blocks, and final `Self-check:` boundaries.
+
+- Before delivery, check the opening against these rules and confirm the reader could explain the conclusion and next step in their own words. This check and all presentation choices are advisory, never automated completion gates, and never replace required content, evidence, or established formats.
+
+## Research reports
+
+- Write for an intelligent reader with no background in statistics, mathematics, or quantitative finance. Tie the opening to the owner's goal and recommend a next step.
+
+- For each important result, say what was tested, what it was compared with, what the number counts, and what conclusion it does and doesn't support. Give counts before percentages ("18 mistaken selections out of 500 trials"); add one concrete example when it helps. Never assign a probability the method doesn't justify.
+
+- Separate software failures, missing information, weak experiments, and evidence that a trading idea doesn't work. Say whether the user can continue, on what assumptions, what must be repaired, and how we'll know the repair worked.
+
+- Use connected prose where bullets would fragment the explanation.
+
+- In progress reports, state separately whether the software is built, whether experiments have run, what continues automatically after this turn, and what is waiting. Give calendar dates in the owner's timezone.
 
 ## Document-specific formats
 
-- For `show-diff`, follow SKILL.md's reasoned unified-diff format; standalone-report opening and supporting-section guidance does not apply to the diff.
+- `show-diff`: follow SKILL.md's reasoned unified-diff format; standalone-report opening and supporting-section rules don't apply to the diff.
 
-- For Agentflow devlogs, follow `references/closeout.md` for exact Reply structure and apply this style within the Ask/RUN/WIP/Reply format. A `[FINAL REPORT]` section is still a devlog answer, not a standalone report.
+- Agentflow devlogs: follow `references/closeout.md` for exact Reply structure and apply this style within Ask/RUN/WIP/Reply. A `[FINAL REPORT]` section is a devlog answer, not a standalone report.
 
-- Worker reports and specifications follow this report guidance even when their document type is outside the default style scope.
+- Standalone reports and guides, plus worker reports and specifications even outside default scope: write for a human reader. After required identity and revision lines, open with a TL;DR, BLUF, or summary of two to four short bullets: result or decision, material risks or missing evidence, and next action or owner choice. Scale to the report; don't invent issues or actions to fill slots. Fit it within the stage's allowed headings; a short bold label needs no extra heading.
 
-- For standalone reports and guides, write for a human reader. Place a short TL;DR, BLUF or summary after required identity and revision lines.
-
-- Use two to four short opening bullets covering the result or decision, material risks or missing evidence, and the next action or owner choice. Scale to the report; do not invent issues or actions to fill slots.
-
-- Fit that opening within the stage's allowed headings. A short bold label needs no extra heading.
-
-- In requirements refreshes, keep append-only question history unchanged and put the current overview in the one replaceable `# Final requirements summary`; do not create a second authoritative summary.
-
-- Keep findings and closing limits list-based, with one idea per bullet. Separate trigger, impact, evidence and action when they are distinct; put paths, hashes and scope accounting after the conclusion they support. Preserve exact verdict fields, severity, IDs, uncertainty, literal patch blocks and final `Self-check:` boundaries.
+- Requirements refreshes: leave the append-only question history unchanged; put the current overview only in the single replaceable `# Final requirements summary`.
 
 ## Editing writing instructions
 
-- Before editing, record the exact requested improvement and preserved format obligations in the current task record. Compare every deletion with its replacement and owner authorization; leave unrelated rules intact.
-
-- Inspect a resulting example for the outcome, material warning or limitation, and next action. Preserve its document-specific format, including numbered devlog answers. This author inspection adds no automated gate and does not waive substantive checks.
+- Before editing, record the exact requested improvement and the format obligations to preserve in the current task record. Check every deletion against its replacement and the owner's authorization; leave unrelated rules intact.

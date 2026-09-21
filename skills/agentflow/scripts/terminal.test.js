@@ -2,21 +2,31 @@
 
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
-const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
 const test = require('node:test')
 
 const settings = require('./ag-settings.js')
+const ownership_fixture = require('./fixtures/notebook-owner')
 const setup = require('./setup.js')
 const { format_local_timestamp } = require('./local-time.js')
+const make_temp_directory = require('./fixtures/temp-directory')
 
 const expect = '/usr/bin/expect'
 const agf = path.join(__dirname, 'agf.js')
 const looper = path.join(__dirname, 'looper.js')
 
-const terminal_available = process.platform === 'darwin' && fs.existsSync(expect)
+const write_looper_config = (root, notebook = 'devlog.md') => {
+  const config = settings.make_template('claude')
+  config.switches['target-doc'] = notebook
+  config.switches['cli-provider'] = 'on'
+  config['external-workers'] = config['external-workers'].filter(profile => profile.family === 'claude')
+  const file = settings.resolve_config_path(root, notebook)
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, JSON.stringify(config))
+}
 
+const terminal_available = process.platform === 'darwin' && fs.existsSync(expect)
 const local_stamp = (offset_ms = -120000) => format_local_timestamp(new Date(Date.now() + offset_ms))
 
 const clean_terminal_env = (extra = {}) => ({
@@ -62,7 +72,7 @@ const terminal = (command, args = [], options = {}) => {
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8' })
 
 const make_repo = (options = {}) => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), options.spaces ? 'agentflow terminal agf ' : 'agentflow-terminal-agf-')))
+  const dir = fs.realpathSync(make_temp_directory(options.spaces ? 'agentflow terminal agf ' : 'agentflow-terminal-agf-'))
   git(dir, ['init', '-b', 'main'])
   git(dir, ['config', 'user.email', 'terminal@example.com'])
   git(dir, ['config', 'user.name', 'Terminal Test'])
@@ -85,7 +95,7 @@ const make_repo = (options = {}) => {
   git(dir, ['add', '-A'])
   git(dir, ['commit', '-m', 'initial'])
   if (options.remote) {
-    const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentflow-terminal-remote-')))
+    const remote = fs.realpathSync(make_temp_directory('agentflow-terminal-remote-'))
     git(remote, ['init', '--bare'])
     git(dir, ['remote', 'add', 'origin', remote])
     git(dir, ['push', '-u', 'origin', 'main'])
@@ -105,6 +115,9 @@ const close_notebook = (repo, key) => {
 
 const make_completion_journey = () => {
   const repo = make_repo()
+  const config = JSON.parse(fs.readFileSync(path.join(repo, 'ag.json'), 'utf8'))
+  config.switches['ask-names'] = 'off'
+  fs.writeFileSync(path.join(repo, 'ag.json'), JSON.stringify(config))
   const checkpoint_stamp = local_stamp()
   const reply_stamp = local_stamp()
   const status = fs.readFileSync(path.join(repo, 'devlog.md'), 'utf8').split('# → Ask / A-001')[0]
@@ -171,6 +184,7 @@ ${checkpoint}`
   const draft_path = path.join('artifacts', work_key, 'reply.md')
   fs.mkdirSync(work_root, { recursive: true })
   fs.writeFileSync(path.join(repo, draft_path), reply)
+  ownership_fixture.adopt(repo, 'devlog.md', 'codex', 'terminal-test')
 
   return { repo, work_key, work_root, draft_path, reply, checkpoint_stamp }
 }
@@ -268,34 +282,6 @@ test('real terminal helper supplies a clean TTY, fixed width, input, output, and
   assert.match(result.output, /"codex":null/)
 })
 
-test('release preview assembles versioned public documents through a real terminal without pushing', { skip: !terminal_available }, t => {
-  const repo = path.resolve(__dirname, '../../..')
-  const destination = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agentflow-release-pty-')))
-  t.after(() => fs.rmSync(destination, { recursive: true, force: true }))
-  fs.writeFileSync(path.join(destination, 'LICENSE'), 'release journey fixture license\n')
-  const result = terminal('/bin/sh', ['-c', [
-    'test -t 0 && test -t 1 && test -t 2 || exit 91',
-    'printf "terminal stdin=true stdout=true stderr=true\\n"',
-    'IFS= read -r request',
-    'printf "request: %s\\n" "$request"',
-    'exec "$1" "$2" --assemble --dest "$3"',
-  ].join('\n'), 'release-journey', process.execPath, path.join(repo, 'release/publish.js'), destination], {
-    cwd: repo,
-    input: 'prepare local release preview\n',
-    columns: 100,
-  })
-  assert.equal(result.status, 0, result.output)
-  assert.match(result.output, /terminal stdin=true stdout=true stderr=true/)
-  assert.match(result.output, /request: prepare local release preview/)
-  assert.match(result.output, /assembled .* release at/)
-  const version = fs.readFileSync(path.join(repo, 'skills/agentflow/SKILL.md'), 'utf8').match(/^  version: "([^"]+)"$/m)[1]
-  const plugin = JSON.parse(fs.readFileSync(path.join(destination, '.claude-plugin/plugin.json'), 'utf8'))
-  assert.equal(plugin.version, version)
-  for (const file of ['README.md', 'README.zh-tw.md']) assert.ok(fs.readFileSync(path.join(destination, file), 'utf8').startsWith(`# Agentflow v${version}\n`))
-  assert.equal(fs.readFileSync(path.join(destination, 'CHANGELOG.md'), 'utf8'), fs.readFileSync(path.join(repo, 'CHANGELOG.md'), 'utf8'))
-  assert.equal(fs.readFileSync(path.join(destination, 'LICENSE'), 'utf8'), 'release journey fixture license\n')
-  assert.equal(fs.existsSync(path.join(destination, '.git')), false)
-})
 
 test('real terminal journey reports the machine-local numeric offset', { skip: !terminal_available }, () => {
   const local_time = path.join(__dirname, 'local-time.js')
@@ -324,6 +310,7 @@ test('real terminal journey preserves the quoted A-351 records before appending 
     '+ add to task: fix this too,',
   ].join('\n') + '\n'
   fs.writeFileSync(notebook, `${status}# → Ask / A-351\n\n${quoted}`)
+  ownership_fixture.adopt(repo, 'devlog.md', 'codex', 'terminal-test')
   const event = `## [RUN-001] Event — ${format_local_timestamp(new Date(Date.now() - 120000))} (during round A-351)\n\n- The first real RUN was appended through a PTY.\n`
   const writer = path.join(__dirname, 'notebook-write.js')
   const result = terminal(process.execPath, [writer, 'append-run', '--notebook', 'devlog.md', '--ask', 'A-351', '--input-stdin'], {
@@ -434,7 +421,7 @@ test('real terminal rename and new-to-start journey preserves root history and s
   git(repo, ['commit', '-m', 'prepare canonical notebook'])
   const commits_before = Number(git(repo, ['rev-list', '--count', 'HEAD']).trim())
 
-  const renamed = terminal(process.execPath, [path.join(__dirname, 'ag-settings.js'), 'rename', '--repo', repo, '--host', 'codex', '--from', '.agentflow/devlog.md', '--to', 'notes.md'], { cwd: repo })
+  const renamed = terminal(process.execPath, [path.join(__dirname, 'ag-settings.js'), 'rename', '--repo', repo, '--host', 'codex', '--session', 'terminal-test', '--from', '.agentflow/devlog.md', '--to', 'notes.md'], { cwd: repo })
   assert.equal(renamed.status, 0, renamed.output)
   assert.match(renamed.output, /renamed \.agentflow\/devlog\.md → notes\.md in two commits/)
   assert.equal(Number(git(repo, ['rev-list', '--count', 'HEAD']).trim()), commits_before + 2)
@@ -453,7 +440,7 @@ test('real terminal rename and new-to-start journey preserves root history and s
   const command = `test -t 0 && test -t 1 && test -t 2 || exit 9
 print 'terminal identity: stdin/stdout/stderr are TTYs'
 set -x
-node "$1" start --repo "$2" --host codex --message-stdin --json <<'STREAM_INPUT'
+node "$1" start --repo "$2" --host codex --session terminal-stream-test --message-stdin --json <<'STREAM_INPUT'
 Continue this stream only.
 STREAM_INPUT`
   const started = terminal('/bin/zsh', ['-c', command, 'stream-journey', agf, worktree], { cwd: worktree })
@@ -470,7 +457,7 @@ STREAM_INPUT`
 
 test('agf uninstall crosses a real terminal and keeps optional skill removal recoverable', { skip: !terminal_available }, (t) => {
   const repo = make_repo()
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'agentflow-terminal-uninstall-home-'))
+  const home = make_temp_directory('agentflow-terminal-uninstall-home-')
   const installed = path.join(home, '.codex', 'skills', 'agentflow')
   fs.mkdirSync(path.dirname(installed), { recursive: true })
   fs.cpSync(path.resolve(__dirname, '..'), installed, { recursive: true })
@@ -499,8 +486,8 @@ test('agf uninstall crosses a real terminal and keeps optional skill removal rec
 })
 
 test('every documented looper command-line form crosses a real terminal boundary', { skip: !terminal_available }, (t) => {
-  const root = fs.mkdtempSync(path.join(os.homedir(), '.agentflow-terminal-looper-'))
-  const state = fs.mkdtempSync(path.join(os.homedir(), '.agentflow-terminal-state-'))
+  const root = make_temp_directory('.agentflow-terminal-looper-')
+  const state = make_temp_directory('.agentflow-terminal-state-')
   t.after(() => {
     fs.rmSync(root, { recursive: true, force: true })
     fs.rmSync(state, { recursive: true, force: true })
@@ -522,9 +509,10 @@ test('every documented looper command-line form crosses a real terminal boundary
 
   const executable_queue = path.join(root, 'executable')
   fs.mkdirSync(executable_queue)
+  write_looper_config(root)
   fs.writeFileSync(path.join(executable_queue, 'plan-001.md'), 'run the plan\n')
   fs.writeFileSync(path.join(root, 'devlog.md'), '# → Ask / A-001\n\n+\n')
-  const worker = path.join(root, 'worker')
+  const worker = path.join(root, 'claude')
   fs.writeFileSync(worker, `#!/usr/bin/env node
 const fs = require('node:fs')
 const file = ${JSON.stringify(path.join(root, 'devlog.md'))}
@@ -532,7 +520,7 @@ const text = fs.readFileSync(file, 'utf8').replace('# → Ask / A-001\\n\\n+\\n'
 fs.writeFileSync(file, text)
 process.stdout.write('devlog.md updated\\n')
 `, { mode: 0o755 })
-  const executable = terminal(process.execPath, [looper, '--tasks-dir', executable_queue, '--executable', worker], base)
+  const executable = terminal(process.execPath, [looper, '--tasks-dir', executable_queue, '--completion-path', 'devlog.md', '--executable', worker], base)
   assert.equal(executable.status, 0, executable.output)
   assert.equal(fs.existsSync(path.join(executable_queue, 'done', 'plan-001.md')), true)
 
@@ -570,7 +558,7 @@ test('agf remote lifecycle preserves literal user text and remote state from a n
 })
 
 test('agf refuses common wrong-place, dirty-state, premature-delivery, and ambiguous cleanup actions', { skip: !terminal_available }, (t) => {
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'agentflow-terminal-outside-'))
+  const outside = make_temp_directory('agentflow-terminal-outside-')
   const repo = make_repo()
   t.after(() => {
     fs.rmSync(outside, { recursive: true, force: true })
@@ -606,8 +594,8 @@ test('agf refuses common wrong-place, dirty-state, premature-delivery, and ambig
 })
 
 test('looper handles paths with spaces, literal completion paths, and a second completed invocation', { skip: !terminal_available }, (t) => {
-  const root = fs.mkdtempSync(path.join(os.homedir(), '.agentflow terminal looper '))
-  const state = fs.mkdtempSync(path.join(os.homedir(), '.agentflow terminal state '))
+  const root = make_temp_directory('.agentflow terminal looper ')
+  const state = make_temp_directory('.agentflow terminal state ')
   t.after(() => {
     fs.rmSync(root, { recursive: true, force: true })
     fs.rmSync(state, { recursive: true, force: true })
@@ -619,8 +607,9 @@ test('looper handles paths with spaces, literal completion paths, and a second c
   const completion = '.agentflow/features/my feature/dev log.md'
   const completion_file = path.join(root, completion)
   fs.mkdirSync(path.dirname(completion_file), { recursive: true })
+  write_looper_config(root, completion)
   fs.writeFileSync(completion_file, '# → Ask / A-001\n\n+\n')
-  const worker = path.join(root, 'worker with spaces')
+  const worker = path.join(root, 'claude')
   fs.writeFileSync(worker, `#!/usr/bin/env node
 const fs = require('node:fs')
 const file = ${JSON.stringify(completion_file)}
@@ -649,8 +638,8 @@ test('looper help and visible progress cross a real terminal boundary', { skip: 
 })
 
 test('looper refuses malformed options, missing queues, and failed child attempts without losing the plan', { skip: !terminal_available }, (t) => {
-  const root = fs.mkdtempSync(path.join(os.homedir(), '.agentflow-terminal-looper-errors-'))
-  const state = fs.mkdtempSync(path.join(os.homedir(), '.agentflow-terminal-state-errors-'))
+  const root = make_temp_directory('.agentflow-terminal-looper-errors-')
+  const state = make_temp_directory('.agentflow-terminal-state-errors-')
   t.after(() => {
     fs.rmSync(root, { recursive: true, force: true })
     fs.rmSync(state, { recursive: true, force: true })
@@ -668,15 +657,17 @@ test('looper refuses malformed options, missing queues, and failed child attempt
 
   const queue = path.join(root, 'planned')
   fs.mkdirSync(queue)
+  write_looper_config(root)
+  fs.writeFileSync(path.join(root, 'devlog.md'), '# → Ask / A-001\n\n+\n')
   fs.writeFileSync(path.join(queue, 'plan-001.md'), 'must survive failure\n')
-  const worker = path.join(root, 'failing-worker')
+  const worker = path.join(root, 'claude')
   fs.writeFileSync(worker, '#!/bin/sh\nprintf "%s\\n" "child failed" >&2\nexit 7\n', { mode: 0o755 })
-  const failed = terminal(process.execPath, [looper, '--tasks-dir', queue, '--executable', worker], options)
+  const failed = terminal(process.execPath, [looper, '--tasks-dir', queue, '--completion-path', 'devlog.md', '--executable', worker], options)
   assert.equal(failed.status, 1, failed.output)
-  assert.match(failed.output, /child exited with code 7|HALT:/)
+  assert.match(failed.output, /child exited with code 7/)
   assert.equal(fs.readFileSync(path.join(queue, 'plan-001.md'), 'utf8'), 'must survive failure\n')
   assert.equal(fs.existsSync(path.join(queue, 'done', 'plan-001.md')), false)
-  const recovery_refusal = terminal(process.execPath, [looper, '--tasks-dir', queue, '--executable', worker], options)
+  const recovery_refusal = terminal(process.execPath, [looper, '--tasks-dir', queue, '--completion-path', 'devlog.md', '--executable', worker], options)
   assert.equal(recovery_refusal.status, 1)
   assert.match(recovery_refusal.output, /attempt evidence|human review/i)
 })
@@ -697,8 +688,9 @@ test('close recovery rejects raw STATUS in a real terminal and preserves the not
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
   const notebook = path.join(repo, 'devlog.md')
   fs.writeFileSync(notebook, fs.readFileSync(notebook, 'utf8').replace(/\+ \n$/u, '+ finish this round\n'))
+  ownership_fixture.adopt(repo, 'devlog.md', 'codex', 'terminal-test')
   const before = fs.readFileSync(notebook)
-  const result = terminal(process.execPath, [path.join(__dirname, 'notebook-write.js'), 'close-round', '--notebook', 'devlog.md', '--input-stdin'], { cwd: repo, input: JSON.stringify({ ask: 'A-001', run_events: [], reply: 'Done.', status: '# STATUS\n' }) + '\n', eof: true })
+  const result = terminal(process.execPath, [path.join(__dirname, 'notebook-write.js'), 'close-round', '--notebook', 'devlog.md', '--host', 'codex', '--session', 'terminal-test', '--input-stdin'], { cwd: repo, input: JSON.stringify({ ask: 'A-001', run_events: [], reply: 'Done.', status: '# STATUS\n' }) + '\n', eof: true })
   assert.notEqual(result.status, 0, result.output)
   assert.match(result.output, /STATUS.*fields object/)
   assert.deepEqual(fs.readFileSync(notebook), before)
@@ -715,6 +707,7 @@ test('linked completion closeout and cleanup settings work through a real PTY', 
   fs.writeFileSync(path.join(repo, 'devlog.md'), fs.readFileSync(path.join(repo, 'devlog.md'), 'utf8').replace(/\+ \n$/u, '+ finish this round\n\n+ skip-review: disposable terminal fixture\n'))
   git(repo, ['add', 'ag.json', 'devlog.md'])
   git(repo, ['commit', '-m', 'prepare linked completion journey'])
+  ownership_fixture.adopt(repo, 'devlog.md', 'codex', 'completion-terminal-fixture')
   const manifest = {
     version: 1, notebook: 'devlog.md', ask: 'A-001', run_events: [],
     reply: '## [SUMMARY]\n\n- Completed.\n\n## [FINAL REPORT]\n\n1. Verified the terminal journey.\n\n```completion-metadata\nHost review: PASS — inspected the disposable terminal fixture.\n```\n',
@@ -733,4 +726,30 @@ test('linked completion closeout and cleanup settings work through a real PTY', 
   assert.equal(read.error, '')
   assert.ok(fs.existsSync(read.record_file))
   assert.equal(git(repo, ['status', '--porcelain']), '')
+})
+
+test('configured custom default works through a real terminal stream journey', { skip: !terminal_available }, t => {
+  const repo = make_repo()
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  git(repo, ['switch', '-c', 'trunk'])
+  git(repo, ['config', 'agentflow.default-branch', 'trunk'])
+  const before_main = git(repo, ['rev-parse', 'main'])
+  const opened = terminal('/bin/sh', ['-c', [
+    'test -t 0 && test -t 1 && test -t 2 || exit 91',
+    'printf "terminal stdin=true stdout=true stderr=true\\n"',
+    'IFS= read -r request',
+    'printf "request: %s\\n" "$request"',
+    'exec "$1" "$2" new custom-default',
+  ].join('\n'), 'branch-journey', process.execPath, agf], { cwd: repo, input: 'use configured trunk\n' })
+  assert.equal(opened.status, 0, opened.output)
+  assert.match(opened.output, /terminal stdin=true stdout=true stderr=true/)
+  assert.match(opened.output, /request: use configured trunk/)
+  const worktree = path.join(repo, '.worktrees/custom-default')
+  const prepared = terminal(process.execPath, [agf, 'finish', '--prep'], { cwd: worktree })
+  assert.equal(prepared.status, 0, prepared.output)
+  const cleaned = terminal(process.execPath, [agf, 'cleanup', 'custom-default'], { cwd: repo })
+  assert.equal(cleaned.status, 0, cleaned.output)
+  assert.equal(fs.existsSync(worktree), false)
+  assert.equal(git(repo, ['rev-parse', '--abbrev-ref', 'HEAD']).trim(), 'trunk')
+  assert.equal(git(repo, ['rev-parse', 'main']), before_main)
 })

@@ -289,6 +289,8 @@ const adapter_supported = (facts, options = {}) => {
 const lint_executor_record = (facts, options = {}) => {
   if (facts === null || typeof facts !== 'object' || Array.isArray(facts)) return 'executor decision must be an object';
 
+  if (Object.hasOwn(facts, 'record_version')) return delegation_route.validate_execution_record(facts, options);
+
   if (!nonempty_text(facts.stage_id)) return 'executor decision stage_id must be a non-empty stable string';
   if (!executor_values.includes(facts.executor_class)) return 'executor decision executor_class is unsupported';
   if (!string_array(facts.material_risks)) return 'executor decision material_risks must be an array of non-empty risk identifiers';
@@ -620,6 +622,7 @@ const lint_tracker = facts => {
     return make_check('tracker', 'Durable tracker is honest', 'fail', 'tracker facts need a boolean required value');
   }
   if (!facts.required) return make_check('tracker', 'Durable tracker is honest', 'pass', 'no task list was created');
+  if (facts.repository?.state === 'error') return make_check('tracker', 'Durable tracker is honest', 'fail', facts.repository.detail || 'repository state could not be determined');
 
   const path = facts.path;
   const work_root = facts.work_root;
@@ -752,7 +755,8 @@ const lint_tracker = facts => {
     if (!tracker_is_no(fields['Operation running']) && !tracker_is_none(fields['Operation running'])) errors.push('complete tracker has a running operation');
     if (!tracker_is_none(fields['Next safe action']) || !tracker_is_none(fields['Next action remaining'])) errors.push('complete tracker has a next action');
     if (tracker_plain_value(fields['Evidence status']) !== 'complete') errors.push('complete tracker lacks complete evidence status');
-    if (!/\b[0-9a-f]{40}\b/iu.test(fields['Evidence commit'] ?? '') || !format_only && facts.evidence_commit_verified !== true) errors.push('complete tracker lacks a verified evidence commit');
+    const local_marker = facts.repository?.state === 'plain' && /^not applicable(?:; plain folder)?$/u.test(tracker_plain_value(fields['Evidence commit']));
+    if (!local_marker && (!/\b[0-9a-f]{40}\b/iu.test(fields['Evidence commit'] ?? '') || !format_only && facts.evidence_commit_verified !== true)) errors.push('complete tracker lacks a verified evidence commit');
   } else {
     if (unfinished === 0) errors.push('nonterminal tracker needs unfinished work');
     if (tracker_is_none(fields['Next safe action'])) errors.push('nonterminal tracker needs a next safe action');
@@ -788,11 +792,13 @@ const checkpoint_segments = round => {
 const lint_checkpoint_verification = (devlog_text, facts) => {
   if (facts === undefined) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'skip', 'verification facts were not provided');
   if (facts === null || typeof facts !== 'object' || facts.required !== true) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'skip', 'new checkpoint verification is not required');
-  const boolean_facts = ['tracker_current', 'run_current', 'progress_current'];
+  const boolean_facts = ['tracker_current', 'progress_current', ...(facts.run_required === false ? [] : ['run_current'])];
   if (boolean_facts.some(name => facts[name] !== true) || facts.scope_checked === false) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'fail', 'one or more checked checkpoint claims lack current evidence');
   const segments = checkpoint_segments(parse_devlog(devlog_text).last_round);
   if (segments.length === 0) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'fail', 'current round has no checkpoint');
-  const combined = '- **Checks:** [x] tracker.md | [x] devlog RUN | [x] scope matches tracker';
+  const combined = facts.run_required === false
+    ? '- **Checks:** [x] tracker.md | [x] scope matches tracker'
+    : '- **Checks:** [x] tracker.md | [x] devlog RUN | [x] scope matches tracker';
   for (const segment of segments) {
     const nonempty_lines = segment.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (nonempty_lines[nonempty_lines.length - 1] === '---') nonempty_lines.pop();
@@ -801,9 +807,9 @@ const lint_checkpoint_verification = (devlog_text, facts) => {
       return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'warn', 'presentation only: checkpoints should end with the combined verification line; do not repeat completed work');
     }
   }
-  if (facts.scope_checked !== true) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'warn', 'tracker and RUN checks passed; scope remains unverified by automation and requires host inspection');
+  if (facts.scope_checked !== true) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'warn', 'required tracker and progress checks passed; scope remains unverified by automation and requires host inspection');
   if (facts.scope_label_present === false) return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'warn', 'presentation only: the Scope check label is absent; scope verification remains the host responsibility');
-  return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'pass', `current tracker and RUN evidence supports ${segments.length} checkpoint(s); prose labels do not prove scope verification`);
+  return make_check('checkpoint_verification', 'Latest checkpoint claims have evidence', 'pass', `current tracker and required progress evidence supports ${segments.length} checkpoint(s); prose labels do not prove scope verification`);
 };
 
 const lint_next_ask_scaffold = devlog_text => {
@@ -845,7 +851,13 @@ const lint_next_ask_scaffold = devlog_text => {
     : make_check('next_ask_scaffold', 'Completed Reply has the next empty Ask scaffold', 'fail', 'the trailing empty Ask scaffold does not use the next sequential Ask id');
 };
 
-const lint_terminal_output = terminal_output => {
+const lint_terminal_output = (terminal_output, inline_reply = 'off', devlog_text = '') => {
+  if (terminal_output !== undefined && inline_reply === 'on') {
+    const saved = parse_devlog(devlog_text).rounds.filter(round => round.reply_text.trim()).at(-1)?.reply_text.replace(/\r?\n---\s*$/u, '').trim();
+    return String(terminal_output).trim() === saved
+      ? make_check('terminal_one_line', 'Terminal output matches saved Reply', 'pass', 'inline Reply matches the saved notebook')
+      : make_check('terminal_one_line', 'Terminal output matches saved Reply', 'warn', 'presentation only: inline output should match the saved Reply');
+  }
   if (terminal_output === undefined) {
     return make_check('terminal_one_line', 'Terminal output is one line', 'skip', 'terminal output was not provided');
   }
@@ -961,7 +973,7 @@ const inline_completion_metadata = reply => {
   const seen = new Set();
   const document_effects = [];
   for (const line of text.split('\n')) {
-    const singleton = /^(Cross-check implementation|Cross-check review|Host review):/iu.exec(line);
+    const singleton = /^(Cross-check implementation|Cross-check review|Review record|Host review):/iu.exec(line);
     const effect = /^(Informational document|Non-behavioral change):\s*([^\r\n]+?)\s+—\s+(\S[^\r\n]*)$/iu.exec(line);
     const path = effect?.[2].trim().replace(/^`([^`]+)`$/u, '$1');
     const key = singleton ? singleton[1].toLowerCase() : effect ? 'path:' + path : undefined;
@@ -1620,7 +1632,22 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
       ? make_check('cross_check', 'Requested implementation has a review', 'pass', 'the owner waived external review; the host recorded its self-review result')
       : make_check('cross_check', 'Requested implementation has a review', 'fail', 'external review is waived, but host self-review is required: record Host review: PASS — <inspected scope, evidence and findings> in the Reply');
   }
-  const reply_fields = metadata.text;
+  let reply_fields = metadata.text;
+  let review_record;
+  const record_lines = reply_fields.split(/\r?\n/u).filter(line => /^Review record:/iu.test(line));
+  if (record_lines.length) {
+    try {
+      if (record_lines.length !== 1 || /^(?:Cross-check implementation|Cross-check review|Host review):/imu.test(reply_fields)) throw Error('review record must be the single review authority');
+      const serialized = record_lines[0].replace(/^Review record:\s*/iu, '');
+      if (ag_settings.duplicate_json_key(serialized) !== null) throw Error('review record contains duplicate JSON keys');
+      review_record = JSON.parse(serialized);
+      const error = require('./completion-record').validate_review_record(review_record, decision);
+      if (error) throw Error(error);
+      reply_fields = `Cross-check review: ${review_record.report}\nCross-check implementation: ${review_record.source.commit || '0'.repeat(40)}`;
+    } catch (error) {
+      return make_check('cross_check', 'Review evidence matches its policy', 'fail', error.message);
+    }
+  }
   const review_matches = [...reply_fields.matchAll(new RegExp(cross_check_review_pattern.source, 'gimu'))];
   const review_match = review_matches[0];
   if (review_matches.length !== 1) {
@@ -1679,7 +1706,8 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
     if (verdicts.length !== 1) {
       return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report must contain exactly one verdict');
     }
-    if (verdicts[0] !== 'PASS' || reviewed_matches.length !== 1) {
+    const no_git = review_record?.source.kind === 'no-git';
+    if (verdicts[0] !== 'PASS' || (!no_git && reviewed_matches.length !== 1)) {
       return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report must record Verdict: PASS and the reviewed 40-character implementation commit');
     }
     for (const [dimension, pattern] of Object.entries(cross_check_dimension_patterns)) {
@@ -1687,6 +1715,13 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
       if (dimension_verdicts.length !== 1 || dimension_verdicts[0] !== 'PASS') {
         return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', `external review report must contain exactly one ${dimension[0].toUpperCase()}${dimension.slice(1)}: PASS verdict`);
       }
+    }
+    if (no_git) {
+      if (require('./repository-state').detect(root).state !== 'plain') throw Error('no-Git review cannot replace Git source evidence');
+      const identity = require('./completion-record').verify_review_files(root, review_record.source);
+      const identities = [...report_fields.matchAll(/^Reviewed source sha256:\s+([a-f0-9]{64})\s*$/gmu)];
+      if (reviewed_matches.length || identities.length !== 1 || identities[0][1] !== identity) throw Error('review report does not match the declared no-Git source');
+      return make_check('cross_check', 'Review evidence matches its policy', 'pass', `${review_record.kind === 'host-review' ? 'host review' : review_record.kind} passed for the current declared file digests; ${review_record.limitations.join('; ')}`);
     }
     if (reviewed_match[1] !== implementation_match[1]) {
       return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report commit does not match the round\'s final implementation commit');
@@ -1707,9 +1742,10 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
       return make_check('cross_check', 'Reviewed source is current', 'fail', 'review target must be an existing ancestor commit with available current Git evidence');
     }
   } catch (error) {
-    return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report is missing or unreadable');
+    return make_check('cross_check', 'Requested implementation has a review', 'fail', `review report or source is unavailable: ${error.message}`);
   }
 
+  if (review_record) return make_check('cross_check', 'Review evidence matches its policy', presentation_warning ? 'warn' : 'pass', `${review_record.kind === 'host-review' ? 'host review' : review_record.kind} passed for the current implementation; ${review_record.limitations.join('; ')}`);
   return make_check('cross_check', 'Requested implementation has an external cross-check', presentation_warning ? 'warn' : 'pass', `${relative_path} records a PASS verdict for a named implementation commit; ${presentation_warning ? 'stamp or Self-check placement is presentation only' : 'pipeline acceptance may supply this same report'}`);
 };
 
@@ -1825,6 +1861,7 @@ const lint_configuration = context => {
     const config = ag_settings.load_config(config_path, {
       ...context,
       repo_root: project_root,
+      persist_migration: false,
     });
     const active_host = context.active_host || context.explicit_host || context.coordinator_host || 'runtime host';
     return make_check('configuration_valid', 'Applicable ag.json is valid', 'pass', `${ag_settings.display_path(config_path, project_root)} is valid for ${active_host}`);
@@ -2036,7 +2073,7 @@ const final_report_body = devlog_text => {
   return reply_sections(reply_body).find(section => section.label === 'final report')?.body ?? null;
 };
 
-const lint_round_reporting = (facts, devlog_text) => {
+const lint_round_reporting = (facts, devlog_text, verbosity = 'all') => {
   if (facts === undefined) {
     return make_check('round_reporting', 'Substantial rounds have timely progress and final records', 'skip', 'substantial-round facts were not provided');
   }
@@ -2075,7 +2112,7 @@ const lint_round_reporting = (facts, devlog_text) => {
     return make_check('round_reporting', 'Substantial rounds have timely progress and final records', 'fail', 'completed_at cannot precede first_substantive_action_at');
   }
 
-  if (!Array.isArray(facts.checkpoints) || facts.checkpoints.length === 0) {
+  if (!Array.isArray(facts.checkpoints) || verbosity !== 'off' && facts.checkpoints.length === 0) {
     return make_check('round_reporting', 'Substantial rounds have timely progress and final records', 'fail', 'a substantial round requires an ordered checkpoints array');
   }
   if (!Array.isArray(facts.material_milestones) || !Array.isArray(facts.material_incidents)) {
@@ -2119,6 +2156,12 @@ const lint_round_reporting = (facts, devlog_text) => {
     .map(([, label]) => label);
   if (missing_report_items.length > 0) {
     return make_check('round_reporting', 'Substantial rounds have timely progress and final records', 'fail', `trusted final-report coverage is missing ${missing_report_items.join(', ')}`);
+  }
+
+  if (verbosity === 'off') {
+    return final_report_body(devlog_text)?.trim()
+      ? make_check('round_reporting', 'Substantial rounds retain final records', 'pass', 'progress records are disabled; final report and coverage are complete')
+      : make_check('round_reporting', 'Substantial rounds retain final records', 'fail', 'the final report is missing or empty');
   }
 
   const actual = checkpoint_heading_records(devlog_text);
@@ -3350,10 +3393,13 @@ const lint_round = context => {
       ? { claims: context.claims, evidence: context.evidence, repository_state: context.repository_state }
       : undefined;
   const checks = [
+    ...(context.repository_state?.state === 'error'
+      ? [make_check('repository_state', 'Repository state is known', 'fail', context.repository_state.detail)]
+      : []),
     ...(fast_lane?.state === 'pending' && current_round.reply_text.trim()
       ? [make_check('fast_lane_task', 'Fast-lane activation waits for a task', 'fail', 'bare fast-lane must remain open until a task arrives; do not close an activation-only round')]
       : []),
-    lint_terminal_output(context.terminal_output),
+    lint_terminal_output(context.terminal_output, context['inline-reply'], devlog_text),
     lint_timestamps(devlog_text, now_ms, future_skew_min, max_age_hours),
     lint_reply_structure(devlog_text, substantial),
     lint_round_boundaries(devlog_text),
@@ -3361,7 +3407,7 @@ const lint_round = context => {
     lint_tracker(context.tracker),
     lint_checkpoint_still_to_do(devlog_text),
     lint_checkpoint_verification(devlog_text, context.checkpoint_verification),
-    lint_round_reporting(reporting_facts, devlog_text),
+    lint_round_reporting(reporting_facts, devlog_text, context['log-verbosity']),
     workflow_check('direct_route_completion', () => lint_direct_route_completion(direct_facts, context)),
     lint_evidence_classification(context.evidence_classification ?? context.defect_classes),
     lint_material_claims(material_claim_facts),

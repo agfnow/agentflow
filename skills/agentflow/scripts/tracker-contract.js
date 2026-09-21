@@ -69,12 +69,14 @@ const template = `# Tracker
 
 - Saving this tracker is a recovery checkpoint, not a stop signal.
 
+- For completed work, Evidence commit names the Git evidence commit, or is not applicable in a plain folder. Local file and test proof is still required.
+
 - Work continues with the next unfinished item unless an independent stop condition applies.
 `;
 
 const file_identity = file => node_crypto.createHash('sha256').update(node_fs.readFileSync(file)).digest('hex');
 
-const validation_facts = ({ repo, tracker }) => {
+const validation_facts = ({ repo, tracker, repository = require('./repository-state').detect(repo) }) => {
   const absolute_repo = node_path.resolve(repo);
   const absolute_tracker = node_path.resolve(tracker);
   const relative = node_path.relative(absolute_repo, absolute_tracker).split(node_path.sep).join('/');
@@ -86,6 +88,7 @@ const validation_facts = ({ repo, tracker }) => {
     path: relative,
     work_root: node_path.posix.dirname(relative),
     repository_root: '.',
+    repository,
     text,
     file: { regular: entry.isFile(), symlink: entry.isSymbolicLink(), checked_identity: identity, opened_identity: identity, read_identity: identity },
     format_only: true

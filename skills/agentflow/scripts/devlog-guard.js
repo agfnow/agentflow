@@ -12,6 +12,7 @@ const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 const settings = require('./ag-settings')
+const { resolve_default_branch } = require('./default-branch.js')
 
 const git = (args) => {
 	try { return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() }
@@ -39,11 +40,7 @@ const main = () => {
 		const top = git(['rev-parse', '--show-toplevel'])
 		if (!top) return 0
 		const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'])
-		const head = git(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'])
-		const from_head = head ? (/refs\/remotes\/origin\/(.+)$/.exec(head) || [])[1] : ''
-		const def = from_head
-			|| ['main', 'master'].find((b) => git(['rev-parse', '--verify', '--quiet', `refs/heads/${b}`]) !== null)
-			|| ''
+		const def = resolve_default_branch(git).branch
 		const staged = (git(['diff', '--cached', '--name-only']) || '').split('\n').filter(Boolean)
 		let paths = { notebook: '.agentflow/devlog.md', features: '.agentflow/features' }
 		try { paths = settings.workspace_paths(JSON.parse(fs.readFileSync(path.join(top, 'ag.json'), 'utf8'))) } catch {}

@@ -1,10 +1,10 @@
-# Agentflow v8.2.0
+# Agentflow v8.3.0
 
 [English](README.md) · **繁體中文**
 
 幫 AI 助理準備一本專案筆記，明天開新的對話，也能接著今天的工作做。
 
-Agentflow 適用於 **Codex 和 Claude Code**，會把你的要求、決定、進度和結果保存在容易閱讀的檔案裡。改文件、修程式，或分好幾次完成一個專案，都能用。
+Agentflow 已驗證 **Codex 和 Claude Code** 的整合，也提供 通用核心流程，讓具備檔案、指令和狀態保存能力的其他 host 使用。它會把你的要求、決定、進度和結果保存在容易閱讀的檔案裡。改文件、修程式，或分好幾次完成一個專案，都能用。
 
 - **直接開始：** 輸入 `godev`，再用平常說話的方式交代任務。
 
@@ -14,7 +14,7 @@ Agentflow 適用於 **Codex 和 Claude Code**，會把你的要求、決定、�
 
 ## 安裝
 
-需要 Node.js 18 或更新版本，以及可正常使用的 Codex 或 Claude Code。要保留版本紀錄、建立功能工作區，或使用某些安裝方式時，需要 Git。一般筆記工作可以在還不是 Git 儲存庫的資料夾裡進行。
+需要 Node.js 18 或更新版本，以及能讀寫檔案、執行指令的 host。Codex 和 Claude 提供已驗證的 hooks；其他助理 要使用明確安全 ID、選填的已知 family，並手動記錄訊息和收尾，因為它沒有這些 hooks。要保留版本紀錄、建立功能工作區，或使用某些安裝方式時，需要 Git。一般筆記工作可以在還不是 Git 儲存庫的資料夾裡進行。
 
 在終端機執行以下指令，再選擇助理和安裝範圍：
 
@@ -32,7 +32,7 @@ npx skills add agfnow/agentflow
 
 ## 控場模型怎麼選
 
-使用 Codex 時，Agentflow 維護者依自己的使用經驗，建議以 **`gpt-5.6-sol/low` 作為表現最穩定的控場模型**：模型選 `gpt-5.6-sol`，推理程度選 `low`。控場就是負責和你對話、安排工作、檢查成果的主要助理。這項建議不會自動更動你的模型設定。另見[官方模型說明](https://developers.openai.com/api/docs/models/gpt-5.6-sol)。
+使用 Codex 時，我們建議以 **`gpt-5.6-sol/low` 作為表現最穩定的控場模型**：模型選 `gpt-5.6-sol`，推理程度選 `low`。控場就是負責和你對話、安排工作、檢查成果的主要助理。這項建議不會自動更動你的模型設定。另見[官方模型說明](https://developers.openai.com/api/docs/models/gpt-5.6-sol)。
 
 ## 記得更新
 
@@ -56,7 +56,7 @@ godev
 保留現有連結，做好後先讓我檢查，不要上傳。
 ```
 
-小事可以簡單處理。`fast-lane` 讓一項任務由目前的助理完成，略過外部審查，但保留必要檢查和自行審查。`cross-check` 要求獨立檢查已完成的成果；`ag` 則在專案的 `allow-ag` 設定允許時，要求完整開發流程。
+小事可以簡單處理。`fast-lane` 讓一項任務由目前的助理完成，略過 另一位助理審查，但保留必要檢查和自行審查。`cross-check` 要求 另一位助理審查；`review-policy: prefer-independent` 會在 另一位助理審查 確認無法使用後允許清楚標記的 目前助理自行審查，`require-independent` 則維持嚴格要求。`ag` 則在專案的 `allow-ag` 設定允許時，要求完整開發流程。
 
 對話會留在筆記裡。換新對話後，輸入 `godev` 就能接續尚未完成的要求。有 Git 時，Agentflow 通常會提交完成的工作，並在設有遠端儲存庫時推送；如果只想在本機完成，請先說明。
 
@@ -70,8 +70,8 @@ godev
 
 - [English user guide](skills/agentflow/docs/AG_GUIDE.md)。
 
-- [版本更新紀錄](CHANGELOG.md)，最新版本放在最上方。
+- [版本更新紀錄](docs/CHANGELOG.md)，最新版本放在最上方。
 
 - [指令參考](skills/agentflow/scripts/README.md)，供進階設定與問題排除使用。
 
-專案設定保存在 `ag.json`，目前使用設定格式版本 7。輸入 `settings` 即可查看。設定格式版號與 Agentflow 發佈版號不同；模型組合放在 `external-workers`，顧問角色設定放在 `pipeline-roles`。
+專案設定保存在 `ag.json`，目前使用設定格式版本 8。輸入 `settings` 即可查看；既有 v7 檔案只在開啟時以保守方式遷移。`allowed-worker` 是 external、internal、host 的無順序權限清單，排列順序不代表執行優先級；`cli-provider` 只篩選 external profile。模型組合放在 `external-workers`，顧問角色設定放在 `pipeline-roles`。

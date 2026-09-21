@@ -8,6 +8,8 @@ const path = require('node:path')
 
 const { sweep_completion_records } = require('./completion-cleanup.js')
 const settings = require('./ag-settings.js')
+const ownership_fixture = require('./fixtures/notebook-owner')
+ownership_fixture.configure()
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.parse('2026-09-11T00:00:00Z')
@@ -66,6 +68,7 @@ test('real sidecar records are swept once and retained references keep missing e
   for (const ask of ['A-001', 'A-002']) {
     const ctx = { ...fixture, ask }
     fs.writeFileSync(notebook, `# → Ask / ${ask}\n\n+ fixture\n`)
+    ownership_fixture.adopt(fixture.project_root, fixture.notebook_path)
     const reply = records.publish_reply('## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n1. Verified.\n\n```completion-metadata\nHost review: PASS — inspected the fixture.\n```\n', ctx)
     const stamp = require('./local-time').format_local_timestamp(new Date(now))
     parts.push(`# → Ask / ${ask}\n\n+ fixture\n\n# ← Reply / ${ask}\n\n* _${stamp} (codex/unknown)_\n\n${reply}`)

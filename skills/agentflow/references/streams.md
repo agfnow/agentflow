@@ -26,6 +26,10 @@ From a second terminal, preserve foreign uncommitted files exactly: do not commi
 
 A dirty checkout alone does not make the active notebook foreign. The main-checkout session that received the current Ask must answer it and update the configured main STATUS, while staging only its notebook and any current task records or review evidence required by that Ask; it never creates a new audit side file. If ownership is unknown, leave the notebook unchanged and report the conflict.
 
+Startup, prompt hooks and notebook writers enforce a persistent local owner for each checkout/notebook/Ask. The same host/session resumes; a different session cannot write its prompts, progress, STATUS or completion evidence. `streams: off` retains this guard. Actual linked worktrees accept only their canonical stream notebook, including custom workspaces. A notebook rename by its owner locks both paths and transfers ownership; its old forwarding card does not grant write authority.
+
+Owner-requested activation/resume through startup can claim a populated next Ask when its immediate sequential predecessor has a valid released owner and completed Reply; no second confirmation is needed. Hooks and ordinary writers cannot claim that populated Ask before activation. Use `agf owner inspect --notebook <path>` for other recovery. A populated legacy Ask without release proof, or an actively owned foreign Ask, requires owner-authorized `agf owner adopt` with the inspected Ask, expected token (or `unowned`), notebook SHA-256, host and retained session ID. Existing takeover authorization suffices. Never infer a handoff from dirty files, elapsed time or a stopped helper process. This guard coordinates cooperating writers; it is not a filesystem sandbox.
+
 Every worktree is `.worktrees/<taskkey>` inside the repository and is ignored by `.gitignore`; it is a collision remedy, not a security boundary. One live CLI owns one worktree. The worktree does not stop processes from reaching the main checkout.
 
 ## `merge-back`

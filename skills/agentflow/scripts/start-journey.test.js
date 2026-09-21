@@ -8,6 +8,8 @@ const path = require('node:path');
 const test = require('node:test');
 const { format_local_timestamp } = require('./local-time.js');
 const { detect_initial_language } = require('./ag-settings.js');
+const ownership_fixture = require('./fixtures/notebook-owner');
+ownership_fixture.configure();
 
 const SKILL_ROOT = path.resolve(__dirname, '..');
 const AGF = path.join(SKILL_ROOT, 'scripts', 'agf.js');
@@ -33,6 +35,7 @@ const run = (cwd, command, input, env) => {
 		env: {
 			...process.env,
 			...env,
+			AGENTFLOW_SESSION_ID: ownership_fixture.session,
 			JOURNEY_MODE: command.includes('start') ? 'start' : command[0] === STOP ? 'stop' : 'close',
 			JOURNEY_HOST: command[command.indexOf('--host') + 1] || 'codex',
 			JOURNEY_NODE: process.execPath,
@@ -241,7 +244,10 @@ test('real PTY startup detects the computer language and preserves the saved cho
 
 test('active-host real PTY startup adds the other host only when it runs', () => {
 	const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-host-journey-')));
+	let prior_host;
 	for (const host of ['codex', 'codex', 'claude', 'claude']) {
+		if (prior_host && prior_host !== host) ownership_fixture.adopt(root, '.agentflow/devlog.md', host);
+		prior_host = host;
 		const result = run(root, [AGF, 'start', '--host', host], 'active host journey\n');
 		assert.equal(result.status, 0, result.stderr + result.stdout);
 		assert.match(result.stdout, /\/dev\/tty/);

@@ -1,6 +1,6 @@
 {
   "name": "agentflow",
-  "version": "8.2.0",
+  "version": "8.3.0",
   "description": "A project notebook for Codex and Claude Code, with resumable work, optional planning, and independent review.",
   "author": {
     "name": "agfnow"

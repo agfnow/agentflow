@@ -16,10 +16,10 @@ test('the resolved language setting overrides host defaults for Agentflow writin
 	assert.match(skill, /configuration\.language.*Agentflow writing/i)
 	assert.match(skill, /overrides host\/personal defaults/i)
 	assert.match(skill, /answers, devlog records, user documents, code comments, and commits/i)
-	assert.match(english, /required language for AI-written answers, devlog records, documents, comments, and commit messages/i)
-	assert.match(english, /overrides the AI host's normal language default/i)
-	assert.match(chinese, /必須使用的語言/)
-	assert.match(chinese, /覆蓋 AI host 平常的預設語言/)
+	assert.match(english, /Language:\*\* `lang: en` or `lang: zh-tw` controls AI-written replies, records, documents, comments, and commits/i)
+	assert.match(english, /Your original messages stay as written/i)
+	assert.match(chinese, /語言：\*\* `lang: en` 或 `lang: zh-tw` 控制 AI 撰寫的回覆、紀錄、文件、註解和提交訊息/u)
+	assert.match(chinese, /你的原話會保留/u)
 })
 
 test('delegated workers receive the resolved language as a mandatory brief fact', () => {

@@ -13,6 +13,7 @@ const test = require('node:test')
 const { HELP, notebook_round_state, parse_cli, queue_view, render_help, run_looper, workspace_defaults, write_all_sync } = require('./looper')
 const agentflow_settings = require('./ag-settings')
 const queue_contract = require('./queue-contract')
+const make_temp_directory = require('./fixtures/temp-directory')
 
 const completion_path = 'devlog.md'
 const completion_line = `${completion_path} updated`
@@ -59,6 +60,10 @@ test('notebook completion proof requires exact Reply and next empty Ask headings
   assert.deepEqual(notebook_round_state('## [FINAL REPORT]\n\nDone.\n\ndevlog.md updated\n'), {
     reply_ids: [],
     next_ask_id: 0,
+  })
+  assert.deepEqual(notebook_round_state('# ← Reply / A-001 (owner)\r\n\r\n---\r\n\r\n# → Ask / A-002 (owner)\r\n\r\n+\r\n'), {
+    reply_ids: [1],
+    next_ask_id: 2,
   })
 })
 
@@ -109,7 +114,7 @@ test('a completion signal cannot archive a plan without a new notebook round', a
 })
 
 const module_path = path.join(__dirname, 'looper.js')
-const test_state_root = fs.mkdtempSync(path.join(os.homedir(), '.agentflow-looper-state-'))
+const test_state_root = make_temp_directory('.agentflow-looper-state-')
 
 process.once('exit', () => {
   fs.rmSync(test_state_root, { recursive: true, force: true })
@@ -279,6 +284,7 @@ const output = async () => {
     const log_signal = (signal) => append_json(config.signal_file, { who: 'grandchild', signal, at: Date.now(), pid: process.pid })
     process.on('SIGINT', () => log_signal('SIGINT'))
     process.on('SIGTERM', () => log_signal('SIGTERM'))
+    fs.writeFileSync(config.heartbeat_file + '.ready', 'ready')
     setInterval(() => fs.appendFileSync(config.heartbeat_file, Date.now() + '\n'), 20)
     return
   }
@@ -312,7 +318,7 @@ main().catch((error) => {
 })
 `
 
-const make_temp_dir = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
+const make_temp_dir = (prefix) => make_temp_directory(`${prefix}-`)
 
 const remove_temp_dir = (dir) => {
   fs.rmSync(dir, { recursive: true, force: true })
@@ -811,33 +817,33 @@ test('default launch selects and preserves the literal external-workers command'
     switches: { 'cli-provider': 'on' },
     'external-workers': [
       { id: 'lower', command: ['unused-worker', '--quiet'], priority: 2, family: 'unused' },
-      { id: 'chosen', command: ['configured-worker', '--literal-flag'], priority: 5, family: 'custom' },
+      { id: 'chosen', command: ['claude', '-p', '--literal-flag'], priority: 5, family: 'claude', tiers: { basic: 'fixture/low' } },
     ],
   }
   const result = await run_looper(base_options(queue, fake_child, {}, {
     executable: undefined,
     build_args: undefined,
     worker_config: config,
-    executable_available: command => command === 'configured-worker',
+    executable_available: command => command === 'claude',
     spawn: (executable, args) => {
       calls.push({ executable, args })
       return spawn(process.execPath, [fake_child, JSON.stringify({ mode: 'success', marker: completion_line })], { stdio: ['ignore', 'pipe', 'pipe'] })
     },
   }))
   assert.equal(result.code, 0)
-  assert.equal(calls[0].executable, 'configured-worker')
-  assert.deepEqual(calls[0].args.slice(0, 1), ['--literal-flag'])
-  assert.match(calls[0].args[1], /^Execute the frozen plan directly: /)
-  assert.match(calls[0].args[1], /already launched by agf-looper/i)
-  assert.match(calls[0].args[1], /execute the named plan directly/i)
-  assert.match(calls[0].args[1], /do not invoke agf-looper/i)
-  assert.match(calls[0].args[1], /complete the Agentflow notebook record/i)
-  assert.match(calls[0].args[1], /# ← Reply \/ A-NNN/)
-  assert.match(calls[0].args[1], /# → Ask \/ A-NNN/)
-  assert.match(calls[0].args[1], /bare plus line/i)
-  assert.match(calls[0].args[1], /without the Reply heading/i)
-  assert.match(calls[0].args[1], /entire final response must be exactly/i)
-  assert.match(calls[0].args[1], new RegExp(completion_line.replace('.', '\\.')))
+  assert.equal(calls[0].executable, 'claude')
+  assert.deepEqual(calls[0].args.slice(0, 2), ['-p', '--literal-flag'])
+  assert.match(calls[0].args.at(-1), /^Execute the frozen plan directly: /)
+  assert.match(calls[0].args.at(-1), /already launched by agf-looper/i)
+  assert.match(calls[0].args.at(-1), /execute the named plan directly/i)
+  assert.match(calls[0].args.at(-1), /do not invoke agf-looper/i)
+  assert.match(calls[0].args.at(-1), /complete the Agentflow notebook record/i)
+  assert.match(calls[0].args.at(-1), /# ← Reply \/ A-NNN/)
+  assert.match(calls[0].args.at(-1), /# → Ask \/ A-NNN/)
+  assert.match(calls[0].args.at(-1), /bare plus line/i)
+  assert.match(calls[0].args.at(-1), /without the Reply heading/i)
+  assert.match(calls[0].args.at(-1), /entire final response must be exactly/i)
+  assert.match(calls[0].args.at(-1), new RegExp(completion_line.replace('.', '\\.')))
 })
 
 const run_case = async (config = {}, overrides = {}) => {
@@ -907,22 +913,40 @@ test('a generated queue derives completion and dependency authority from its fro
   }
 })
 
+test('incomplete generated plans refuse the handwritten fallback before launch', async () => {
+  const dir = make_temp_dir('agentflow-looper-incomplete-generated')
+  try {
+    const queue = make_queue()
+    const fake_child = make_fake_child(dir)
+    const launch_log = path.join(dir, 'launch.jsonl')
+    write_generated_queue(queue)
+    fs.unlinkSync(path.join(queue, queue_contract.ENVELOPE_NAME))
+    const result = await run_looper(base_options(queue, fake_child, { launch_log }))
+    assert.notEqual(result.code, 0)
+    assert.match(result.message, /generated|authority|envelope/i)
+    assert.deepEqual(read_json_lines(launch_log), [])
+    remove_temp_dir(queue)
+  } finally {
+    remove_temp_dir(dir)
+  }
+})
+
 test('a generated stream queue derives its worker configuration from the envelope completion path', async () => {
   const dir = make_temp_dir('agentflow-looper-generated-stream-config')
   try {
     const queue = path.join(dir, 'artifacts', 'stream', 'planned')
     fs.mkdirSync(path.join(queue, 'done'), { recursive: true })
-    const fake_child = make_fake_child(dir)
-    write_generated_queue(queue, { completion_path: 'artifacts/stream/devlog.md' })
-    const config = command => {
-      const value = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'ag.json'), 'utf8'))
-      value.switches['allow-ag'] = 'on'
-      value['external-workers'] = [{
-        ...value['external-workers'][0],
+	const fake_child = make_fake_child(dir)
+	write_generated_queue(queue, { completion_path: 'artifacts/stream/devlog.md' })
+	const config = command => {
+		const value = agentflow_settings.make_template('codex')
+		value.switches['allow-ag'] = 'on'
+		value['external-workers'] = [{
+			...value['external-workers'].find(profile => profile.family === 'claude'),
         id: command,
-        command: [command],
+        command: ['claude', '-p', '--profile', command],
         priority: 1,
-        family: 'custom',
+        family: 'claude',
       }]
       return JSON.stringify(value)
     }
@@ -935,7 +959,7 @@ test('a generated stream queue derives its worker configuration from the envelop
       completion_path: undefined,
       executable: undefined,
       build_args: undefined,
-      executable_available: command => command === 'root-worker' || command === 'stream-worker',
+      executable_available: command => command === 'claude',
       spawn: (executable, args, options) => {
         calls.push({ executable, args })
         return spawn(process.execPath, [fake_child, JSON.stringify({
@@ -946,7 +970,8 @@ test('a generated stream queue derives its worker configuration from the envelop
 
     assert.equal(result.code, 0)
     assert.equal(calls.length, 3)
-    assert.deepEqual(calls.map(call => call.executable), ['stream-worker', 'stream-worker', 'stream-worker'])
+    assert.deepEqual(calls.map(call => call.executable), ['claude', 'claude', 'claude'])
+    assert.ok(calls.every(call => call.args.includes('stream-worker') && !call.args.includes('root-worker')))
   } finally {
     remove_temp_dir(dir)
   }
@@ -2690,24 +2715,28 @@ test('missing directories, non-directories, and unavailable executables fail con
     }
   })
 
-  await t.test('unavailable executable', async () => {
-    const dir = make_temp_dir('agentflow-looper-no-exec')
-    try {
-      const queue = make_queue()
-      write_plan(queue, 'plan-001.md')
-      const result = await run_looper({
-        tasks_dir: queue,
+	await t.test('unavailable executable', async () => {
+		const dir = make_temp_dir('agentflow-looper-no-exec')
+		try {
+			const queue = path.join(dir, 'planned')
+			fs.mkdirSync(path.join(queue, 'done'), { recursive: true })
+			fs.writeFileSync(path.join(dir, 'ag.json'), JSON.stringify(agentflow_settings.make_template('codex')))
+			write_plan(queue, 'plan-001.md')
+			const result = await run_looper({
+				tasks_dir: queue,
+				root: dir,
         state_root: test_state_root,
         completion_path,
         executable: path.join(dir, 'missing-executable'),
         silent: true,
       })
       assert.notEqual(result.code, 0)
-      assert.match(result.message, /launch|spawn|ENOENT|executable/i)
-      assert.ok(fs.existsSync(stop_path(queue)))
-    } finally {
-      remove_temp_dir(dir)
-    }
+      assert.equal(result.handoff, true)
+      assert.match(result.message, /interactive host/i)
+      assert.equal(fs.existsSync(stop_path(queue)), false)
+		} finally {
+			remove_temp_dir(dir)
+		}
   })
 
   await t.test('inaccessible directory', async () => {
@@ -2734,10 +2763,12 @@ test('missing directories, non-directories, and unavailable executables fail con
     }
   })
 
-  await t.test('ownership evidence permission failure', async () => {
-    const dir = make_temp_dir('agentflow-looper-owner-permission')
-    try {
-      const queue = make_queue()
+	await t.test('ownership evidence permission failure', async () => {
+		const dir = make_temp_dir('agentflow-looper-owner-permission')
+		try {
+			const queue = path.join(dir, 'planned')
+			fs.mkdirSync(path.join(queue, 'done'), { recursive: true })
+			fs.writeFileSync(path.join(dir, 'ag.json'), JSON.stringify(agentflow_settings.make_template('codex')))
       const denied_fs = new Proxy(fs, {
         get(target, property) {
           if (property === 'writeFileSync') return (file, ...args) => {
@@ -2752,8 +2783,8 @@ test('missing directories, non-directories, and unavailable executables fail con
           return typeof value === 'function' ? value.bind(target) : value
         },
       })
-      write_plan(queue, 'plan-001.md')
-      const result = await run_looper({ tasks_dir: queue, state_root: test_state_root, fs: denied_fs, silent: true })
+		write_plan(queue, 'plan-001.md')
+		const result = await run_looper({ tasks_dir: queue, root: dir, state_root: test_state_root, fs: denied_fs, silent: true })
       assert.notEqual(result.code, 0)
       assert.match(result.message, /owner permission denied|ownership evidence/i)
       assert.equal(fs.existsSync(path.join(queue, 'plan-001.md')), true)
@@ -2834,6 +2865,8 @@ test('the default child boundary is injected, ephemeral, shell-free, and fresh p
       state_root: test_state_root,
       completion_path,
       executable: 'codex',
+      worker_config: { switches: { 'allowed-worker': ['external'], 'cli-provider': 'on' }, 'external-workers': [{ id: 'codex', command: ['codex', 'exec'], family: 'codex', priority: 1, tiers: { basic: 'fixture/low' } }] },
+      executable_available: () => true,
       spawn: injected_spawn,
       silent: true,
       verify_notebook_round: false,
@@ -2847,7 +2880,7 @@ test('the default child boundary is injected, ephemeral, shell-free, and fresh p
       const task = `plan-${String(index + 1).padStart(3, '0')}.md`
       const prompt = `Execute the frozen plan directly: ${path.relative(dir, path.join(queue, task))}\n\nYou are the plan worker already launched by agf-looper. Execute the named plan directly and complete the product work yourself. Do not invoke agf-looper or start another plan worker. Do not invoke Agentflow, codex, claude, another model CLI, a subagent, a delegate, or an independent review process. Complete the Agentflow notebook record for this plan. A completed round must contain its exact \`# ← Reply / A-NNN\` heading and must end with the next sequential scaffold in exactly this form, including the bare plus line: \`# → Ask / A-NNN\n\n+\`. Do not treat a summary, final report, commit, or bare completion signal as a completed notebook round without the Reply heading and that full next-Ask scaffold. When the plan and its record are safely complete, your entire final response must be exactly: ${completion_line}`
       assert.equal(call.executable, 'codex')
-      assert.deepEqual(call.args, ['exec', '--sandbox', 'workspace-write', '--ephemeral', '--output-last-message', '/dev/fd/3', prompt])
+      assert.deepEqual(call.args, ['exec', '--sandbox', 'workspace-write', '--ephemeral', '-m', 'fixture', '-c', 'model_reasoning_effort=low', '--output-last-message', '/dev/fd/3', prompt])
       assert.equal(call.options.shell, false)
       assert.equal(call.options.cwd, fs.realpathSync(dir))
     }
@@ -3003,7 +3036,7 @@ test('SIGINT and SIGTERM record interruption before forwarding and stop the deta
           },
         })
         await wait_for_file(launch_log)
-        await new Promise((resolve) => setTimeout(resolve, 80))
+        await wait_for_file(heartbeat_file + '.ready')
         const before_signal = Date.now()
         runner.kill(signal)
         runner.kill(signal)

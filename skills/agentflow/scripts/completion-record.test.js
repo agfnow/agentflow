@@ -6,10 +6,13 @@ const os = require('node:os')
 const path = require('node:path')
 const records = require('./completion-record')
 const { completion_metadata } = require('./round-linter')
+const ownership_fixture = require('./fixtures/notebook-owner')
+ownership_fixture.configure()
 const fixture = () => {
   const project_root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'completion-record-')))
   fs.mkdirSync(path.join(project_root, '.agentflow'))
   fs.writeFileSync(path.join(project_root, '.agentflow/devlog.md'), '# → Ask / A-001\n\n+ implement\n')
+  ownership_fixture.adopt(project_root, '.agentflow/devlog.md')
   return { project_root, notebook_path: '.agentflow/devlog.md', workspace_dir: '.agentflow', ask: 'A-001' }
 }
 const draft = '## [FINAL REPORT]\n\n1. Done.\n\n```completion-metadata\nHost review: PASS — inspected the requested change.\n```\n'
@@ -239,6 +242,7 @@ test('records are bound to notebook and immutable after their Reply is published
   assert.throws(() => records.publish_reply(draft.replace('inspected', 'changed'), ctx), /referenced|immutable/i)
   const other = { ...ctx, notebook_path: '.agentflow/other.md' }
   fs.writeFileSync(path.join(ctx.project_root, other.notebook_path), '# → Ask / A-001\n\n+ other\n')
+  ownership_fixture.adopt(ctx.project_root, other.notebook_path)
   const other_reply = records.publish_reply(draft, other)
   assert.notEqual(completion_metadata(other_reply, other).record_file, completion_metadata(reply, ctx).record_file)
 })
@@ -344,6 +348,7 @@ test('stream records with the same Ask ID do not collide with root records', () 
   const stream = { ...root, notebook_path: '.agentflow/features/red/red.devlog.md' }
   fs.mkdirSync(path.dirname(path.join(root.project_root, stream.notebook_path)), { recursive: true })
   fs.writeFileSync(path.join(root.project_root, stream.notebook_path), '# → Ask / A-001\n\n+ stream work\n')
+  ownership_fixture.adopt(root.project_root, stream.notebook_path)
   const root_read = completion_metadata(records.publish_reply(draft, root), root)
   const stream_read = completion_metadata(records.publish_reply(draft, stream), stream)
   assert.equal(stream_read.error, '')

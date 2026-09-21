@@ -10,6 +10,8 @@ const ag_settings = require('./ag-settings.js');
 const { format_local_timestamp } = require('./local-time.js');
 
 const SCRIPT = node_path.join(__dirname, 'notebook-write.js');
+const ownership_fixture = require('./fixtures/notebook-owner');
+ownership_fixture.configure();
 
 node_test.test('writer generates RUN and WIP scaffolds from content without model-authored time', () => {
   const fixture = setup();
@@ -125,12 +127,30 @@ node_test.test('an input receipt cannot hide a message whose notebook replacemen
   node_assert.equal(node_fs.readFileSync(fixture.notebook_file, 'utf8').split('+ same text').length - 1, 2);
 });
 
-node_test.test('input receipts refuse a linked host directory without changing the notebook', () => {
+node_test.test('input receipts refuse a linked workspace runtime directory without changing the notebook', () => {
   const fixture = setup({ text: notebook({ body: '+\n' }) });
   const before = node_fs.readFileSync(fixture.notebook_file, 'utf8');
-  node_fs.symlinkSync(make_root(), node_path.join(fixture.root, '.codex'), 'dir');
+  node_fs.symlinkSync(make_root(), node_path.join(fixture.root, '.agentflow', '.tmp'), 'dir');
   node_assert.throws(() => require('./notebook-write.js').append_input({ root: fixture.root, notebook: fixture.notebook_path, text: 'save me', message_id: 'first' }), /symbolic link/);
   node_assert.equal(node_fs.readFileSync(fixture.notebook_file, 'utf8'), before);
+});
+
+node_test.test('Codex manual capture stores receipts in workspace without writing host configuration', () => {
+  const fixture = setup({ text: notebook({ body: '+\n' }) });
+  const writer = require('./notebook-write');
+  const open = node_fs.openSync;
+  const mkdir = node_fs.mkdirSync;
+  const protected_path = node_path.join(fixture.root, '.codex');
+  const deny = file => { if (String(file) === protected_path || String(file).startsWith(protected_path + node_path.sep)) throw Object.assign(new Error('simulated protected Codex directory'), { code: 'EPERM' }); };
+  try {
+    node_fs.openSync = (file, ...args) => { deny(file); return open(file, ...args); };
+    node_fs.mkdirSync = (file, ...args) => { deny(file); return mkdir(file, ...args); };
+    const options = { root: fixture.root, notebook: fixture.notebook_path, host: 'codex', text: 'manual recovery', message_id: 'first' };
+    node_assert.equal(writer.append_input(options).inserted, true);
+    node_assert.equal(writer.append_input(options).inserted, false);
+  } finally { node_fs.openSync = open; node_fs.mkdirSync = mkdir; }
+  node_assert.equal(node_fs.existsSync(protected_path), false);
+  node_assert.ok(node_fs.readdirSync(node_path.join(fixture.root, '.agentflow', '.tmp')).some(file => file.startsWith('agentflow-input-codex-')));
 });
 
 node_test.test('append-run cannot race an active closeout writer', () => {
@@ -219,10 +239,85 @@ const setup = ({ relative = '.agentflow/devlog.md', text, mode = 0o644 } = {}) =
   const root = make_root();
   const notebook_path = relative;
   const notebook_file = write(root, notebook_path, text ?? notebook(), mode);
+  ownership_fixture.adopt(root, notebook_path);
   const draft_path = 'draft.md';
   const draft_file = write(root, draft_path, checkpoint(1, 'A-001', 'new WIP'));
   return { root, notebook_path, notebook_file, draft_path, draft_file };
 };
+
+const emulate_mode = (t, platform, observed_mode) => {
+  const original_platform = Object.getOwnPropertyDescriptor(process, 'platform');
+  const chmod = node_fs.chmodSync;
+  Object.defineProperty(process, 'platform', { value: platform });
+  t.after(() => Object.defineProperty(process, 'platform', original_platform));
+  t.mock.method(node_fs, 'chmodSync', (file, mode) => chmod(file, observed_mode(mode)));
+};
+
+for (const [platform, requested, observed, accepted] of [
+  ['win32', 0o600, 0o666, true],
+  ['win32', 0o400, 0o444, true],
+  ['win32', 0o600, 0o444, false],
+  ['win32', 0o400, 0o666, false],
+  ['linux', 0o600, 0o666, false],
+  ['linux', 0o640, 0o600, false],
+]) node_test.test(`atomic replacement checks ${platform} permissions ${requested.toString(8)} -> ${observed.toString(8)}`, {
+  skip: platform !== 'win32' && process.platform === 'win32' ? 'requires POSIX permission bits' : false,
+}, t => {
+  const fixture = setup();
+  const before = read_bytes(fixture.notebook_file);
+  const before_names = node_fs.readdirSync(node_path.dirname(fixture.notebook_file));
+  emulate_mode(t, platform, () => observed);
+  const replace = () => require('./notebook-write').atomic_replace(fixture.notebook_file, Buffer.from('replacement\n'), requested);
+  if (accepted) {
+    replace();
+    node_assert.equal(node_fs.readFileSync(fixture.notebook_file, 'utf8'), 'replacement\n');
+  } else {
+    node_assert.throws(replace, error => {
+      node_assert.match(error.message, /temporary notebook mode could not be preserved/u);
+      node_assert.ok(error.message.includes(fixture.notebook_file), error.message);
+      return true;
+    });
+    node_assert.deepEqual(read_bytes(fixture.notebook_file), before);
+  }
+  node_assert.deepEqual(node_fs.readdirSync(node_path.dirname(fixture.notebook_file)), before_names);
+});
+
+node_test.test('Windows permission mapping preserves Claude receipts and later owner input', t => {
+  const fixture = setup({ text: notebook({ body: '+\n' }) });
+  emulate_mode(t, 'win32', mode => mode & 0o200 ? 0o666 : 0o444);
+  const writer = require('./notebook-write');
+  const options = { root: fixture.root, notebook: fixture.notebook_path, host: 'claude', session: ownership_fixture.session };
+  writer.capture_input_scope(fixture.root, fixture.notebook_path, 'claude', 'A-001', { session: ownership_fixture.session });
+  node_assert.equal(writer.append_input({ ...options, text: 'godev' }).reason, 'activation_only');
+  for (const [message_id, text] of [['first', 'hihi'], ['second', 'follow-up'], ['second', 'follow-up']]) {
+    writer.append_input({ ...options, message_id, text });
+  }
+  const saved = node_fs.readFileSync(fixture.notebook_file, 'utf8');
+  node_assert.equal(saved.split('+ hihi').length - 1, 1);
+  node_assert.equal(saved.split('+ follow-up').length - 1, 1);
+  const receipt = node_fs.readdirSync(node_path.join(fixture.root, '.agentflow', '.tmp')).find(file => file.startsWith('agentflow-input-'));
+  const data = JSON.parse(node_fs.readFileSync(node_path.join(fixture.root, '.agentflow', '.tmp', receipt), 'utf8'));
+  node_assert.equal(data.ask, 'A-001');
+  node_assert.equal(Object.keys(data.entries).length, 2);
+});
+
+node_test.test('startup --json reports the receipt path when permission preservation fails', () => {
+  const root = make_root();
+  const preload = write(root, 'mode-failure.cjs', [
+    "const fs = require('node:fs');",
+    'const chmod = fs.chmodSync;',
+    "fs.chmodSync = (file, mode) => chmod(file, String(file).includes('agentflow-input-') ? 0o444 : mode);",
+  ].join('\n'));
+  const result = node_child_process.spawnSync(process.execPath, [
+    '--require', preload, node_path.join(__dirname, 'agf.js'), 'start',
+    '--repo', root, '--host', 'claude', '--session', ownership_fixture.session, '--message-stdin', '--json',
+  ], { cwd: root, input: 'hihi\n', encoding: 'utf8' });
+  node_assert.equal(result.status, 1);
+  node_assert.match(result.stderr, /temporary notebook mode could not be preserved/u);
+  node_assert.ok(result.stderr.includes(node_path.join(root, '.agentflow', '.tmp', 'agentflow-input-')), result.stderr);
+  node_assert.match(result.stderr, /requested 600, observed 444/u);
+  node_assert.doesNotMatch(node_fs.readFileSync(node_path.join(root, '.agentflow/devlog.md'), 'utf8'), /\+ hihi/u);
+});
 
 const command = (root, notebook_path, draft_path, ask_id = 'A-001') => [
   'append-wip',
@@ -289,6 +384,7 @@ const close_fixture = ({ text = `${complete_status()}---\n\n# → Ask / A-001\n\
   const root = make_root();
   write(root, 'ag.json', `${JSON.stringify(ag_settings.make_template('codex'), null, 2)}\n`);
   const notebook_file = write(root, 'devlog.md', text, mode);
+  ownership_fixture.adopt(root, 'devlog.md');
   return { root, notebook_path: 'devlog.md', notebook_file };
 };
 
@@ -315,6 +411,7 @@ node_test.test('append-wip appends after the target Ask WIPs despite repeated id
   });
   const target = old_round + checkpoint(1, 'A-002', 'first target WIP', expected_timestamp) + checkpoint(2, 'A-002', 'second target WIP', expected_timestamp);
   const notebook_file = write(root, notebook_path, target);
+  ownership_fixture.adopt(root, notebook_path);
   const draft_path = 'draft.md';
   const draft = write(root, draft_path, checkpoint(3, 'A-002', 'new target WIP', expected_timestamp));
 
@@ -337,6 +434,7 @@ node_test.test('close-round validates and saves runs, Reply, STATUS, and the nex
 
   node_assert.equal(first.status, 0, failure_text(first));
   const updated = read_bytes(fixture.notebook_file).toString('utf8');
+  node_assert.match(updated, /\+ finish the round\n\n---\n\n## \[RUN-001\]/u);
   node_assert.match(updated, /\[RUN-001\][\s\S]*# ← Reply \/ A-001[\s\S]*# → Ask \/ A-002(?: \([^\r\n)]+\))?\n\n\+\n$/u);
   node_assert.equal((updated.match(/\[RUN-001\]/g) || []).length, 1);
   node_assert.match(first.stdout, /"runs_inserted": 1/);
@@ -829,6 +927,7 @@ node_test.test('append-reply closes only the exact final Ask and creates the nex
     later: `# → Ask / A-002\n\n+ current request\n\n${checkpoint(1, 'A-002', 'same footer')}`
   });
   const notebook_file = write(root, notebook_path, old, 0o640);
+  ownership_fixture.adopt(root, notebook_path);
   const draft_path = 'reply.md';
   write(root, draft_path, reply('A-002', '## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n- The checkpointed round is complete.\n\n## Questions (batched — each with a suggested default)\n\n- None.'));
   const before = read_bytes(notebook_file);
@@ -949,6 +1048,28 @@ node_test.test('closed retry matcher rejects retired runs alias and accepts cano
   node_assert.equal(writer.match_closed_close({ notebook_text: candidate.candidate_text, input: { ...input, run_events: undefined, runs: [] } }), null);
 });
 
+node_test.test('failed boundary validation does not poison the next in-process notebook operation', () => {
+  const writer = require('./notebook-write.js');
+  const fixture = close_fixture();
+  const notebook = writer.read_regular_file(fixture.notebook_file, 'notebook');
+  const ownership = require('./notebook-owner').guard({ root: fixture.root, notebook: fixture.notebook_path, text: notebook.text, host: 'codex', session: ownership_fixture.session, ask: 'A-001' });
+  node_assert.throws(() => writer.prepare_close_candidate({
+    notebook,
+    notebook_path: fixture.notebook_path,
+    root: fixture.root,
+    ownership,
+    input: { ...JSON.parse(close_input()), reply: '# ← Reply / A-001\n\n# → Ask / A-999\n' },
+  }), /Ask heading|boundary|Reply/i);
+  const prepared = writer.prepare_close_candidate({
+    notebook,
+    notebook_path: fixture.notebook_path,
+    root: fixture.root,
+    ownership,
+    input: JSON.parse(close_input()),
+  });
+  node_assert.equal(prepared.next_ask, 'A-002');
+});
+
 node_test.test('suffix-free drafts use the selected Ask and preserve legacy records', () => {
   for (const [command_name, make_record] of [['append-run', run_event], ['append-wip', checkpoint]]) {
     const historical = notebook({ body: '+ earlier work\n\n' + make_record(1, 'A-001'), reply: '# ← Reply / A-001\n\nDone.\n' });
@@ -1024,6 +1145,7 @@ node_test.test('append-reply publishes metadata and record-write failure leaves 
 node_test.test('new Replies use current transcript metadata and close retries preserve saved identity', () => {
   const fixture = close_fixture();
   const id = '01a0927f-421d-7263-ab12-083e0839d8ac';
+  ownership_fixture.adopt(fixture.root, fixture.notebook_path, 'codex', id);
   const codex_home = node_path.join(fixture.root, 'runtime');
   const sessions = node_path.join(codex_home, 'sessions', '2026', '09', '12');
   node_fs.mkdirSync(sessions, { recursive: true });
@@ -1040,4 +1162,40 @@ node_test.test('new Replies use current transcript metadata and close retries pr
   const text = node_fs.readFileSync(fixture.notebook_file, 'utf8');
   node_assert.match(text, /\(actual-model\/high\)_/u);
   node_assert.ok(require('./notebook-write').match_closed_close({ notebook_text: text, input, project_root: fixture.root, notebook_path: fixture.notebook_path }));
+});
+
+node_test.test('legacy Codex receipt migrates without changing deduplication or the original file', () => {
+  const fixture = setup({ text: notebook({ body: '+\n' }) });
+  const writer = require('./notebook-write');
+  const options = { root: fixture.root, notebook: fixture.notebook_path, host: 'codex', text: 'record this once', message_id: 'migration-turn' };
+  writer.append_input(options);
+  const runtime = node_path.join(fixture.root, '.agentflow', '.tmp');
+  const current = node_path.join(runtime, node_fs.readdirSync(runtime).find(file => file.startsWith('agentflow-input-codex-')));
+  const legacy_dir = node_path.join(fixture.root, '.codex');
+  node_fs.mkdirSync(legacy_dir, { recursive: true });
+  const legacy = node_path.join(legacy_dir, node_path.basename(current).replace('agentflow-input-codex-', 'agentflow-input-'));
+  const original = node_fs.readFileSync(current);
+  node_fs.writeFileSync(legacy, original);
+  node_fs.unlinkSync(current);
+  const saved = node_fs.readFileSync(fixture.notebook_file);
+  node_assert.equal(writer.append_input(options).inserted, false);
+  node_assert.deepEqual(node_fs.readFileSync(fixture.notebook_file), saved);
+  writer.append_input({ ...options, text: 'new instruction', message_id: 'migration-next' });
+  node_assert.deepEqual(node_fs.readFileSync(legacy), original);
+  const migrated = JSON.parse(node_fs.readFileSync(current, 'utf8'));
+  node_assert.deepEqual(migrated.scope, JSON.parse(original).scope);
+  node_assert.equal(Object.keys(migrated.entries).length, 2);
+});
+
+node_test.test('receipt storage follows a custom nested workspace and its active notebook configuration', () => {
+  const root = make_root();
+  const notebook_path = 'notes/task.md';
+  write(root, notebook_path, notebook({ body: '+\n' }));
+  write(root, 'ag.json', JSON.stringify({ switches: { 'target-doc': notebook_path, 'workspace-dir': 'local/workflow' } }));
+  const writer = require('./notebook-write');
+  writer.append_input({ root, notebook: notebook_path, host: 'codex', text: 'custom workspace input', message_id: 'custom' });
+  const runtime = node_path.join(root, 'local/workflow/.tmp');
+  node_assert.ok(node_fs.readdirSync(runtime).some(name => name.startsWith('agentflow-input-codex-')));
+  node_assert.equal(node_fs.existsSync(node_path.join(root, '.agentflow')), false);
+  node_assert.equal(node_fs.existsSync(node_path.join(root, '.codex')), false);
 });

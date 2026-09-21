@@ -9,6 +9,8 @@ const { test } = require('node:test');
 const settings = require('./ag-settings');
 const writer = require('./notebook-write');
 const agf = require('./agf');
+const ownership_fixture = require('./fixtures/notebook-owner');
+ownership_fixture.configure();
 
 const fixture = () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agf-ask-names-'));
@@ -19,7 +21,7 @@ const fixture = () => {
 };
 
 const status = () => ({ project: 'names', notebook: '.agentflow/devlog.md', notebook_kind: 'root', current_commit: 'none', tests_scenarios: 'names', config_path: 'ag.json', host: 'codex', validation: 'validated', proven: 'names', open: 'none', next: 'await owner', artifacts: 'none', archived_eras: 'none', streams: [] });
-const reply = '# ← Reply / A-001\n\n## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n1. Done.\n\nHost review: PASS — inspected disposable heading fixture.\n\n## Questions (batched — each with a suggested default)\n\n- None.\n';
+const reply = '# ← Reply / A-001\n\n## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n1. Done.\n\n```completion-metadata\nHost review: PASS — inspected disposable heading fixture.\n```\n\n## Questions (batched — each with a suggested default)\n\n- None.\n';
 
 test('ask-names initialization resolves the repository owner', () => {
   const f = fixture();
@@ -49,6 +51,7 @@ test('ask-names close and reply append honor on/off, preserve history and suppor
         const old = '# → Ask / A-001 (Historical Owner)\n\n+ skip-review: disposable heading test\n';
         const before = (settings.format_status(status()) + '\n---\n\n' + old).replace(/\n/g, newline);
         fs.writeFileSync(f.notebook_path, before);
+        ownership_fixture.adopt(f.root, '.agentflow/devlog.md');
         const document = { ask: 'A-001', run_events: [], reply, status: status() };
         const manifest = { version: 1, notebook: '.agentflow/devlog.md', ...document, allowed_paths: ['.agentflow/devlog.md'], commit_message: 'record names', delivery: { mode: 'local' } };
         const script = operation === 'agf-close' ? 'agf.js' : 'notebook-write.js';
@@ -60,7 +63,7 @@ test('ask-names close and reply append honor on/off, preserve history and suppor
         const heading = '# → Ask / A-002' + (setting === 'on' ? ' (Named Owner)' : '');
         assert.ok(saved.endsWith(`${heading}${newline}${newline}+${newline}`), `${operation}/${setting}`);
         assert.ok(saved.includes(old.replace(/\n/g, newline)));
-        if (operation !== 'append-reply') assert.ok(writer.match_closed_close({ notebook_text: saved, input: document }));
+        if (operation !== 'append-reply') assert.ok(writer.match_closed_close({ notebook_text: saved, input: document, project_root: f.root, notebook_path: '.agentflow/devlog.md' }));
         if (operation === 'agf-close') {
           const retried = invoke();
           assert.equal(retried.status, 0, retried.stdout + retried.stderr);

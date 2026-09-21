@@ -226,7 +226,7 @@ const stream_tracker_scope = (project_root, notebook_path, workspace_dir) => {
   return match === null ? undefined : node_path.join(project_root, root, 'features', match[1]);
 };
 
-const tracker_facts = (project_root, current_round, ask_id, notebook_path, workspace_dir) => {
+const tracker_facts = (project_root, current_round, ask_id, notebook_path, workspace_dir, repository) => {
   if (ask_id === undefined || current_round === undefined) return { tracker: undefined, work: undefined };
   const has_checkpoint = /^## \[WIP-\d+\] Checkpoint\b/mu.test(current_round.wip_text);
   const search_root = stream_tracker_scope(project_root, notebook_path, workspace_dir) ?? project_root;
@@ -248,7 +248,7 @@ const tracker_facts = (project_root, current_round, ask_id, notebook_path, works
   const relative = node_path.relative(project_root, tracker_path).split(node_path.sep).join('/');
   const root = node_path.posix.dirname(relative);
   return {
-    tracker: tracker_contract.validation_facts({ repo: project_root, tracker: tracker_path }),
+    tracker: tracker_contract.validation_facts({ repo: project_root, tracker: tracker_path, repository }),
     work: {
       ask_id,
       work_key: node_path.posix.basename(root),
@@ -258,7 +258,7 @@ const tracker_facts = (project_root, current_round, ask_id, notebook_path, works
   };
 };
 
-const gather_checkpoint_verification = (project_root, devlog_text, work, config_path) => {
+const gather_checkpoint_verification = (project_root, devlog_text, work, notebook_path) => {
   const { current_round, ask_id } = current_round_info(devlog_text);
   if (current_round === undefined || ask_id === undefined) return undefined;
   const checkpoints = [...current_round.wip_text.matchAll(/^## \[WIP-\d+\] Checkpoint — (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?: [+-]\d{4}| Asia\/Taipei)?)/gmu)];
@@ -280,6 +280,7 @@ const gather_checkpoint_verification = (project_root, devlog_text, work, config_
   return {
     required: true,
     tracker_current: tracker_stamp !== undefined && timestamp_ms(tracker_stamp) >= timestamp_ms(latest_checkpoint_minute),
+    run_required: ag_settings.read_notebook_controls(project_root, notebook_path)['log-verbosity'] === 'all',
     run_current: run_events.length > 0,
     progress_current: ['Finished', 'Running now', 'Still to do', 'Next work action'].every(label => current_round.wip_text.slice(checkpoints.at(-1).index).includes(`${label}:`)),
     // A prose label is presentation, not proof that the changed scope was checked.
@@ -288,19 +289,22 @@ const gather_checkpoint_verification = (project_root, devlog_text, work, config_
 };
 
 const same_config_except_language = (actual, expected, project_root, active_host) => {
-  if (!['codex', 'claude'].includes(active_host)) return false;
+  try { ag_settings.detect_host({ explicit_host: active_host }); } catch { return false; }
   const options = { repo_root: project_root, active_host, check_executables: false };
   if (![actual, expected].every(config => ag_settings.validate_config(config, options).valid)) return false;
   return isDeepStrictEqual(actual, { ...expected, switches: { ...expected.switches, lang: actual.switches.lang } });
 };
 
 const canonical_bootstrap_config = (project_root, notebook_path, config_path, active_host) => {
-  if (!['codex', 'claude'].includes(active_host) || config_path === undefined) return false;
+  if (config_path === undefined) return false;
   const relative_config = node_path.relative(project_root, config_path).split(node_path.sep).join('/');
   if (relative_config !== 'ag.json') return false;
   try {
     const actual = JSON.parse(node_fs.readFileSync(config_path, 'utf8'));
     const expected = ag_settings.make_template(active_host);
+    for (const key of Object.keys(ag_settings.notebook_control_defaults)) {
+      if (!Object.hasOwn(actual.switches || {}, key)) delete expected.switches[key];
+    }
     if (Object.hasOwn(actual.switches || {}, 'workspace-dir')) expected.switches['workspace-dir'] = '.agentflow';
     expected.switches['target-doc'] = notebook_path;
     return same_config_except_language(actual, expected, project_root, active_host);
@@ -322,6 +326,34 @@ const language_only_config_change = (project_root, config_path, baseline, active
   }
 };
 
+// no-ag is an owner control for this Ask, not a persistent configuration edit.
+// Read controls in order so a later explicit review request or reactivation wins.
+const no_ag_review_waiver = owner_text => {
+  const commands = plain_record_text(owner_text.replace(/<!--[\s\S]*?-->/gu, '').replace(/^(?: {4}|\t).*$/gmu, ''))
+    .replace(/"[^"]*"|“[^”]*”|‘[^’]*’|(?<![\p{L}\p{N}])'[^']*'(?![\p{L}\p{N}])/gu, quoted => quoted.replace(/[^\r\n]+/gu, ' [quoted] '));
+  let active = false;
+  for (const raw of commands.split(/\r?\n/u)) {
+    const line = raw.trim();
+    if (/^[>›]/u.test(line) || /^\/?no-ag\s*[,，;:]\s*(?:if|unless)\b/iu.test(line)) continue;
+    if (/^for (?:the )?remaining tasks\s*[,，:]\s*(?:please )?use cross[- ]?check[.!]?$/iu.test(line)) { active = false; continue; }
+    const unquoted = line.replace(/`[^`]*`|"[^"\n]*"|“[^”\n]*”|'[^'\n]*'/gu, ' [quoted] ');
+    let first = true;
+    for (const part of unquoted.split(/[,，;]|[.!]\s+/u)) {
+      const command = part.trim().replace(/[.!]$/u, '');
+      const opt_out = /^\/?no-ag(?:\s*:\s*\S.*)?$/iu.test(command);
+      const opt_in = /^\/?(?:godev|ag|agentflow)(?:\s*:\s*\S.*)?$/iu.test(command)
+        || /^(?:please\s+)?(?:require|use)\s+(?:an?\s+)?(?:independent|external|separate|second)\s+review(?:er)?$/iu.test(command)
+        || /^(?:please\s+)?(?:run|perform|do|get|request|use)\s+(?:(?:one|an?|independent|external|separate|final)\s+)*(?:cross[- ]?check|review)(?:\s+for\s+(?:this|the)\s+(?:task|change))?$/iu.test(command)
+        || /^review-requirement:\s*(?:independent|fresh-context|enforced-read-only)$/iu.test(command)
+        || /^(?:do not|don't|never)\s+skip\s+(?:external\s+)?review$/iu.test(command);
+      if (first && !opt_out && !opt_in) break;
+      first = false;
+      if (opt_out || opt_in) active = opt_out;
+    }
+  }
+  return active;
+};
+
 const review_decision = (project_root, notebook_path, devlog_text, workspace_dir, config_path, active_host, git_facts) => {
   if (node_path.isAbsolute(notebook_path)) notebook_path = node_path.relative(project_root, notebook_path).split(node_path.sep).join('/');
   const notebook_name = node_path.basename(notebook_path, node_path.extname(notebook_path));
@@ -331,6 +363,9 @@ const review_decision = (project_root, notebook_path, devlog_text, workspace_dir
     return { error: 'completed round has no Ask identifier for its review decision' };
   }
   const ask_text = current_round.owner_text ?? current_round.ask_text ?? '';
+  if (no_ag_review_waiver(ask_text)) {
+    return { status: 'skip-review', reason: 'owner selected no-ag for this Ask; host self-review remains required', owner_authorized: true };
+  }
   if (require('./fast-lane.js').parse_fast_lane(ask_text)) {
     return { status: 'skip-review', reason: 'owner selected fast-lane for this round', owner_authorized: true };
   }
@@ -387,9 +422,16 @@ const review_decision = (project_root, notebook_path, devlog_text, workspace_dir
       owner_authorized: true
     };
   }
-  const facts = { changed_files, record_files, configuration_files, bootstrap_files, document_effects, ignored_working_paths: git_facts.ignored_working_paths || [] };
+  let switches = {};
+  try { switches = JSON.parse(node_fs.readFileSync(config_path || node_path.join(project_root, 'ag.json'), 'utf8')).switches || {}; } catch { /* Configuration validation reports missing or malformed settings separately. */ }
+  const allowed_worker = switches['allowed-worker'] || ['external', 'host'];
+  const review_policy = switches['review-policy'] || 'require-independent';
+  const independent_required = /^(?:review-requirement:\s*independent|(?:please\s+)?(?:require|use)\s+(?:an?\s+)?(?:independent|separate|second)\s+review(?:er)?)[.!]?$/imu.test(owner_commands);
+  const enforced_read_only_required = /^review-requirement:\s*enforced-read-only[.!]?$/imu.test(owner_commands);
+  const fresh_context_required = /^review-requirement:\s*fresh-context[.!]?$/imu.test(owner_commands);
+  const facts = { changed_files, record_files, configuration_files, bootstrap_files, document_effects, ignored_working_paths: git_facts.ignored_working_paths || [], allowed_worker, review_policy, independent_required, enforced_read_only_required, fresh_context_required };
   const implementation_changed = changed_files.some(file => review_eligible(file, facts));
-  if (implementation_changed) return { ...facts, status: 'required', reason: 'source, test, behavior-changing configuration, software instructions, or undeclared document effect detected from Git' };
+  if (implementation_changed || /^Review record:/imu.test(completion_metadata(current_round.reply_text || '', { project_root, notebook_path, workspace_dir, config_path, ask: current_round.id }).text) || independent_required || enforced_read_only_required || fresh_context_required) return { ...facts, status: 'required', reason: implementation_changed ? 'source, test, behavior-changing configuration, software instructions, or undeclared document effect detected from Git' : 'current review evidence or explicit review requirement needs validation' };
   return {
     status: 'not-requested',
     reason: 'no review-eligible change detected from Git',
@@ -420,7 +462,8 @@ const collect = ({
     workspace_dir = undefined;
   }
 
-  const record = tracker_facts(root, current_round, ask_id, notebook_path, workspace_dir);
+  const repository = require('./repository-state').detect(root);
+  const record = tracker_facts(root, current_round, ask_id, notebook_path, workspace_dir, repository);
   const push = gather_push(root);
   const status_output = terminal_output !== undefined ? terminal_output : gather_terminal_output(transcript_path);
   const git_status = git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
@@ -445,6 +488,7 @@ const collect = ({
   const changed_files = [...new Set([...committed_files, ...working_files])];
   const changed_lines = changed_line_count(root, effective_baseline, working_files);
   const repository_state = {
+    ...repository,
     head: push.head,
     branch: push.branch,
     status: git_status,
@@ -476,8 +520,9 @@ const collect = ({
     push,
     repository_state,
     terminal_output: status_output,
+    ...ag_settings.read_notebook_controls(root, notebook_path),
     tracker: record.tracker,
-    checkpoint_verification: gather_checkpoint_verification(root, devlog_text ?? '', record.work, node_fs.existsSync(config_file) ? config_file : undefined),
+    checkpoint_verification: gather_checkpoint_verification(root, devlog_text ?? '', record.work, notebook_path),
     review_decision: decision,
     current_ask: ask_id,
     work_key: record.work?.work_key,

@@ -4,7 +4,7 @@
 
 Turn the owner's intent into the smallest authoritative requirements record that lets specification proceed without guessing a material product choice. Read only the exact paths in the brief, including supplied evidence and an existing requirements report. Do not scan other artifacts or ask the owner directly. Elicit outcomes, users, constraints, failure behavior, scope, non-goals, and acceptance evidence—not implementation design.
 
-The brief supplies `auto_reply=on|off`; use it exactly. For new work use `requirements-brief.md` → `requirements-report.md`; preserve any already allocated path and history.
+The assignment supplies `auto_reply=on|off`; use it exactly. For new work use `requirements-report.md`; preserve an already allocated brief or report path and its history when one exists.
 
 ## Questions and authority
 
