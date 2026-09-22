@@ -967,7 +967,7 @@ const active_host_for_cli = (repo) => {
 const stream_doc = (repo, key) => {
 	const features = workspace_features(repo)
 	const candidates = [
-		path.join(features, key, `${key}.devlog.md`),
+		path.posix.join(features, key, `${key}.devlog.md`),
 	]
 	return candidates.find((rel) => fs.existsSync(path.join(repo, rel))) || ''
 }

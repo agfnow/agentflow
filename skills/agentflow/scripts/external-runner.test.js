@@ -137,7 +137,7 @@ node_test.test('external runner gives the fake worker an already-closed standard
 })
 
 node_test.test('external runner removes only opposite-host markers for provider workers', async () => {
-  const marker_names = ['CODEX_SESSION_ID', 'CODEX_THREAD_ID', 'CODEX_CI', 'CODEX_SANDBOX', 'CODEX_CLI', 'CLAUDE_PROJECT_DIR', 'CLAUDE_SESSION_ID', 'CLAUDE_CODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CLI', 'NEUTRAL_VALUE']
+  const marker_names = ['CODEX_SESSION_ID', 'CODEX_THREAD_ID', 'CODEX_CI', 'CODEX_SANDBOX', 'CODEX_CLI', 'CLAUDE_PROJECT_DIR', 'CLAUDE_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CLI', 'NEUTRAL_VALUE']
   const supplied_env = Object.fromEntries(marker_names.map(name => [name, `${name}-value`]))
 
   for (const provider of ['claude', 'codex']) {

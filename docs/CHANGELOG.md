@@ -1,6 +1,18 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.3.2. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.3.3. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.3.3]
+
+### Fixed
+
+- Recognize Claude Code's `CLAUDE_CODE_SESSION_ID` for notebook ownership, host detection, reply identity and worker environment filtering, while retaining legacy compatibility and rejecting conflicting session IDs.
+
+- Keep stream notebook paths in forward-slash form on Windows so startup and hooks can pass the canonical-path ownership check.
+
+### Changed
+
+- Release corrections must inspect the fetched public version and files before editing, preventing stale private checkouts from replacing newer published content.
 
 ## [8.3.2]
 

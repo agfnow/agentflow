@@ -40,6 +40,7 @@ test('rejects session, working directory and conflicting metadata identities', (
 test('absent, malformed, ambiguous and unsafe transcript evidence stays unknown', () => {
   assert.equal(detect_reply_identity({ env: {}, root: process.cwd() }), 'host/unknown');
   assert.equal(detect_reply_identity({ env: { CLAUDE_SESSION_ID: 'session' } }), 'claude/unknown');
+  assert.equal(detect_reply_identity({ env: { CLAUDE_CODE_SESSION_ID: 'session' } }), 'claude/unknown');
   for (const change of [f => fs.writeFileSync(f.file, '{broken\n'), f => fs.appendFileSync(f.file, '{partial'), f => fs.copyFileSync(f.file, path.join(path.dirname(f.file), `rollout-other-${id}.jsonl`)), f => { f.turn.payload.model = 'bad)label'; f.write(f.meta, f.turn); }, f => { f.options.env.CODEX_HOME = path.join(f.root, 'missing'); }]) {
     const f = fixture(); change(f);
     assert.equal(detect_reply_identity(f.options), 'codex/unknown');

@@ -66,7 +66,7 @@ const linked_worktree = root => {
 const identity = ({ host, session, env = process.env } = {}) => {
   host = host || require('./ag-settings').detect_host({ env });
   if (!/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(host)) fail('host must be a safe lowercase ID');
-  const native = host === 'codex' ? [env.CODEX_THREAD_ID, env.CODEX_SESSION_ID] : host === 'claude' ? [env.CLAUDE_SESSION_ID] : [];
+  const native = host === 'codex' ? [env.CODEX_THREAD_ID, env.CODEX_SESSION_ID] : host === 'claude' ? [env.CLAUDE_CODE_SESSION_ID, env.CLAUDE_SESSION_ID] : [];
   const candidates = [...native, session || env.AGENTFLOW_SESSION_ID].filter(value => value !== undefined && value !== '');
   if (candidates.some(value => !safe_id(value))) fail('session ID must contain 1–128 safe letters, digits, dots, colons, underscores or hyphens');
   if (new Set(candidates).size > 1) fail('conflicting session IDs; pass the current host session and remove conflicting inherited markers');

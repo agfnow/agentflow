@@ -2,16 +2,16 @@
 name: "agentflow"
 description: "Fast file-logged work with Git evidence and on-demand development machinery. Triggered by godev/devlog/ag/agentflow/fast-lane."
 metadata:
-  version: "8.3.2"
+  version: "8.3.3"
 ---
 
-# Agentflow v8.3.2
+# Agentflow v8.3.3
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
 `stream(branch/worktree)` is an owner/session feature workspace: normally a branch in a separate worktree with a notebook and adjacent configuration. Non-code notebook-only requests may create a stream file and root pointer without branching, even with Git. Ordinary notebook work also supports no-Git folders; `new-feature:` requires Git. External delegated workers use disposable no-remote clones; internal and host work use the actual host interface and recorded ownership facts.
 
-For releases, update version and heading together: major/minor/patch for breaking changes/features/fixes. This file supplies the release version. Follow repository release instructions; task commits are not releases.
+For releases, update version and heading together: major/minor/patch for breaking changes/features/fixes. This file supplies the release version. Follow repository release instructions; task commits are not releases. For a correction to an already-published release, first fetch and inspect the public branch and treat its current version and files as authoritative; never infer them from a private development checkout. A same-version public correction must preserve newer public files and verify the exact remote commit after pushing.
 
 Incident citations explain failures. Approved redesigns may replace obsolete remedies; preserve hazard checks and history.
 
@@ -27,7 +27,7 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    The portable core requires file and command tools plus enough session state to retain the notebook and resume a round. Generic hosts use a safe explicit host ID, a unique retained `--session <id>`, and optional known family, return `hooks: not_available`, and follow the manual capture and `agf close` instructions. Pass the same `--host <safe-id> --session <id>` to startup, capture, progress, compaction and close; `AGENTFLOW_SESSION_ID` is an equivalent command-scoped source. Independent sessions must use different IDs. Generic hosts never receive Codex or Claude hooks, transcript identity, model, effort, or permission claims by inference. Only real host tools establish native handles, result facts, and stop controls.
 
-   Startup and every notebook writer enforce one session owner for the active Ask. Codex uses agreeing `CODEX_THREAD_ID`/`CODEX_SESSION_ID` values; Claude uses its hook session or `CLAUDE_SESSION_ID`. When the current native host supplies no shell identity, retain its actual session ID through `--session <id>`. Conflicting identity refuses before mutation. A foreign or unknown owner leaves the notebook unchanged even with `streams: off`. Before a direct notebook edit, use `agf owner inspect --notebook <target-doc>` and confirm the recorded host/session and Ask match this session. Generic host names and dirty files never establish ownership.
+   Startup and every notebook writer enforce one session owner for the active Ask. Codex uses agreeing `CODEX_THREAD_ID`/`CODEX_SESSION_ID` values; Claude uses its hook session or `CLAUDE_CODE_SESSION_ID` (with `CLAUDE_SESSION_ID` retained for compatibility). When the current native host supplies no shell identity, retain its actual session ID through `--session <id>`. Conflicting identity refuses before mutation. A foreign or unknown owner leaves the notebook unchanged even with `streams: off`. Before a direct notebook edit, use `agf owner inspect --notebook <target-doc>` and confirm the recorded host/session and Ask match this session. Generic host names and dirty files never establish ownership.
 
    On explicit startup in a linked stream worktree, a populated first Ask can also be claimed without confirmation when there is no owner record, no progress or Reply, and Git HEAD contains the same notebook with only its single A-001 Ask still empty. Startup verifies that everything through the Ask heading is unchanged. Other unowned populated notebooks still require adoption. Successful closeout releases the completed round; a fresh session can claim the next empty Ask. If the owner populated that next Ask before activation, their request to activate/resume authorizes startup to claim it when its immediate sequential predecessor has a valid released owner and completed Reply. Do not ask for a second confirmation. Ordinary hooks and writers do not infer this authorization. To recover a legacy populated Ask without that release proof or hand off an actively owned Ask, inspect with `agf owner inspect --notebook <target-doc>`, then use `agf owner adopt --notebook <target-doc> --ask <A-NNN> --expect <owner-token|unowned> --sha256 <notebook-hash> --host <host> --session <id>` after the owner authorized taking over that round. Existing authorization suffices; use the exact inspected token, Ask and hash, and refuse changed preconditions. Never expire an owner from its age or a helper PID.
 

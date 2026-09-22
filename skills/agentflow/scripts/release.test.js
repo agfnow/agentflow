@@ -5,7 +5,6 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const repo_root = path.resolve(__dirname, '../../..')
-const read = relative => fs.readFileSync(path.join(repo_root, relative), 'utf8')
 
 test('candidate changelog keeps Unreleased empty and accounts for the 8.3.0 changes', () => {
   const changelog = fs.readFileSync(path.join(repo_root, 'docs', 'CHANGELOG.md'), 'utf8')

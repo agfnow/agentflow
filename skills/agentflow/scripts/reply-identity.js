@@ -10,7 +10,7 @@ const detect_reply_identity = ({ root = process.cwd(), env = process.env, host, 
   const ids = [env.CODEX_THREAD_ID, env.CODEX_SESSION_ID].filter(Boolean);
   const detected_host = explicit_host !== undefined
     ? String(explicit_host)
-    : ids.length ? 'codex' : env.CLAUDE_SESSION_ID || env.CLAUDE_CODE ? 'claude' : 'host';
+    : ids.length ? 'codex' : env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || env.CLAUDE_CODE ? 'claude' : 'host';
   const unknown = `${/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(detected_host) ? detected_host : 'host'}/unknown`;
   if (detected_host !== 'codex' || new Set(ids).size !== 1 || !/^[a-f0-9-]{36}$/iu.test(ids[0])) return unknown;
   try {

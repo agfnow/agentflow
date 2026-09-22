@@ -282,6 +282,24 @@ test('real terminal helper supplies a clean TTY, fixed width, input, output, and
   assert.match(result.output, /"codex":null/)
 })
 
+test('Claude Code native session starts and writes a notebook through a real terminal', { skip: !terminal_available }, t => {
+  const repo = fs.realpathSync(make_temp_directory('agentflow-terminal-claude-session-'))
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  const command = `test -t 0 && test -t 1 && test -t 2 || exit 9
+print 'terminal identity: stdin/stdout/stderr are TTYs'
+node "$1" start --repo "$2" --host claude --message-stdin --json <<'CLAUDE_INPUT'
+Record the native Claude session.
+CLAUDE_INPUT`
+  const started = terminal('/bin/zsh', ['-c', command, 'claude-journey', agf, repo], { cwd: repo, env: { CLAUDE_CODE_SESSION_ID: 'claude-terminal-session' } })
+  assert.equal(started.status, 0, started.output)
+  assert.match(started.output, /terminal identity: stdin\/stdout\/stderr are TTYs/)
+  assert.match(started.output, /"active_host": "claude"/)
+  assert.match(fs.readFileSync(path.join(repo, '.agentflow/devlog.md'), 'utf8'), /Record the native Claude session\./)
+  const recorded = require('./notebook-owner').inspect({ root: repo, notebook: '.agentflow/devlog.md' })
+  assert.equal(recorded.owner.host, 'claude')
+  assert.equal(recorded.owner.session, 'claude-terminal-session')
+})
+
 
 test('real terminal journey reports the machine-local numeric offset', { skip: !terminal_available }, () => {
   const local_time = path.join(__dirname, 'local-time.js')

@@ -149,6 +149,15 @@ test('identity requires a retained session and rejects native conflicts while ig
   assert.deepEqual(identity({ host: 'claude', session: 'native-payload', env: {} }), { host: 'claude', session: 'native-payload' });
 });
 
+test('Claude Code session identity accepts current and legacy names but rejects disagreements', () => {
+  const { identity } = require('./notebook-owner');
+  for (const env of [{ CLAUDE_CODE_SESSION_ID: 'current' }, { CLAUDE_SESSION_ID: 'current' }, { CLAUDE_CODE_SESSION_ID: 'current', CLAUDE_SESSION_ID: 'current' }]) {
+    assert.deepEqual(identity({ env }), { host: 'claude', session: 'current' });
+  }
+  assert.throws(() => identity({ host: 'claude', env: { CLAUDE_CODE_SESSION_ID: 'current', CLAUDE_SESSION_ID: 'different' } }), /conflicting/u);
+  assert.throws(() => identity({ host: 'claude', session: 'different', env: { CLAUDE_CODE_SESSION_ID: 'current' } }), /conflicting/u);
+});
+
 test('populated legacy Ask needs explicit exact adoption and stale handoff cannot change its owner', () => {
   const root = raw_fixture('+ legacy task\n');
   const before = read(root);

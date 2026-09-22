@@ -2727,7 +2727,17 @@ test('stream_doc accepts only the canonical notebook name', () => {
 	fs.writeFileSync(path.join(dir, '.agentflow/features', 'new', 'new.devlog.md'), 'x')
 	fs.mkdirSync(path.join(dir, '.agentflow/features', 'old'), { recursive: true })
 	fs.writeFileSync(path.join(dir, '.agentflow/features', 'old', 'devlog.md'), 'x')
-	assert.equal(agf.stream_doc(dir, 'new'), path.join('.agentflow/features', 'new', 'new.devlog.md'))
+	assert.equal(agf.stream_doc(dir, 'new'), '.agentflow/features/new/new.devlog.md')
+	const native_join = path.join
+	// Exercise Windows relative-path generation on every platform without changing filesystem access.
+	const simulated_path = { ...path, join: (...parts) => parts[0] === '.agentflow/features' ? path.win32.join(...parts) : native_join(...parts) }
+	const loaded = { exports: {} }
+	const filename = require.resolve('./agf')
+	const wrapper = require('node:vm').runInThisContext(require('node:module').wrap(fs.readFileSync(filename, 'utf8').replace(/^#![^\n]*/, '')), { filename })
+	wrapper(loaded.exports, name => name === 'node:path' ? simulated_path : require(name), loaded, filename, __dirname)
+	const relative = loaded.exports.stream_doc(dir, 'new')
+	assert.equal(relative, '.agentflow/features/new/new.devlog.md')
+	assert.equal(require('./notebook-owner').safe_path(dir, relative), native_join(dir, '.agentflow/features/new/new.devlog.md'))
 	assert.equal(agf.stream_doc(dir, 'old'), '')
 	assert.equal(agf.stream_doc(dir, 'missing'), '')
 	drop(dir)
