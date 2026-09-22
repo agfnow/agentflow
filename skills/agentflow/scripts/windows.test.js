@@ -36,3 +36,17 @@ test('PowerShell executes shortcuts with literal paths and forwards arguments', 
   } finally { drop(root) }
 })
 
+test('PowerShell shortcut preserves Unicode piped to native stdin', { skip: process.platform !== 'win32' }, () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agf-unicode-'))
+  try {
+    const scripts = path.join(root, 'scripts')
+    fs.mkdirSync(scripts)
+    const output = path.join(root, 'captured.txt')
+    fs.writeFileSync(path.join(scripts, 'agf.js'), `const fs=require('node:fs');const b=[];process.stdin.on('data',x=>b.push(x));process.stdin.on('end',()=>{fs.writeFileSync(process.argv[2],Buffer.concat(b));process.stdout.write(process.cwd())})`)
+    const profile = path.join(root, 'journey.ps1')
+    // Windows PowerShell 5.1 requires a BOM to read a .ps1 file as UTF-8.
+    fs.writeFileSync(profile, `\uFEFF${setup.lines_to_append('powershell', true, false, root, false)}\n'繁體中文🙂 café — 測試' | agf '${output.replaceAll("'", "''")}'\n`)
+    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', profile], { encoding: 'utf8' })
+    assert.equal(fs.readFileSync(output, 'utf8').trim(), '繁體中文🙂 café — 測試')
+  } finally { drop(root) }
+})

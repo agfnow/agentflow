@@ -76,7 +76,13 @@ const powershell_argument = value => value.startsWith('$HOME/')
 
 const agf_function_for = (shell, script_path) => {
   if (shell === 'powershell') return `function agf {
-  $dir = & node ${powershell_argument(script_path)} @args
+  $previousOutputEncoding = $OutputEncoding
+  try {
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $dir = $input | & node ${powershell_argument(script_path)} @args
+  } finally {
+    $OutputEncoding = $previousOutputEncoding
+  }
   if ($LASTEXITCODE -ne 0) { return }
   if ($dir) { Set-Location -LiteralPath $dir }
 }`
