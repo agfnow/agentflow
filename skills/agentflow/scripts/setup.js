@@ -355,7 +355,7 @@ const uninstall_main = (opts = {}) => {
 
   if (next !== original) {
     backup_config(cfg)
-    fs.writeFileSync(cfg, next)
+    fs.writeFileSync(cfg, shell === 'powershell' && !next.startsWith('\uFEFF') ? `\uFEFF${next}` : next)
     say(`removed managed shell settings from ${cfg}`)
   }
   if (opts.after_confirm && opts.after_confirm() !== 0) return 1
@@ -503,7 +503,7 @@ const main = (opts = {}) => {
 
   backup_config(cfg)
   fs.mkdirSync(path.dirname(cfg), { recursive: true })
-  fs.writeFileSync(cfg, next_content)
+  fs.writeFileSync(cfg, shell === 'powershell' && !next_content.startsWith('\uFEFF') ? `\uFEFF${next_content}` : next_content)
   say(`done — open a new terminal tab or run \`${shell === 'powershell' ? `. ${powershell_argument(cfg)}` : `source ${cfg}`}\`.`)
 
   write_marker(marker)
