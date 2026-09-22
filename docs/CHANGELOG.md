@@ -1,8 +1,14 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; The current release is 8.3.1. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.0. Earlier dates identify recorded source milestones, not independently verified public publication dates.
 
 ## [Unreleased]
+
+## [8.4.0]
+
+### Added
+
+- Manual notebook compaction accepts `--include-answered true` to archive completed rounds containing filled-in answers while preserving their exact bytes. Automatic compaction still retains answered rounds, and the current open round remains live.
 
 ## [8.3.1]
 

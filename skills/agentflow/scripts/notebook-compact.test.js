@@ -29,9 +29,9 @@ const fixture = (history = '', open = '+ current request\n') => {
   return { root, notebook, file, archive: path.join(root, '.agentflow/devlog.archive.md') };
 };
 const closed = (id, text = 'finished') => `# → Ask / ${id}\n\n+ request\n\n# ← Reply / ${id}\n\n${text}\n\n## Questions\n\n- None.\n\n---\n\n`;
-const compact = f => {
+const compact = (f, options = {}) => {
   const lock = writer.acquire_close_round_lock(f.file + '.close-round.lock');
-  try { return require('./notebook-compact').compact_locked({ root: f.root, notebook: f.notebook, original: writer.read_regular_file(f.file, 'notebook'), force: true }); }
+  try { return require('./notebook-compact').compact_locked({ root: f.root, notebook: f.notebook, original: writer.read_regular_file(f.file, 'notebook'), force: true, ...options }); }
   finally { writer.release_close_round_lock(lock); }
 };
 
@@ -77,6 +77,16 @@ test('compaction reports the answered round that conservatively blocks the prefi
   assert.equal(result.rounds.length, 0);
   assert.deepEqual(result.blocked, { ask: 'A-001', reason: 'answered-round-retained' });
   assert.match(result.message, /A-001|answered|live/i);
+});
+
+test('an explicit manual override archives answered rounds without changing their bytes', () => {
+  const answered = `${closed('A-001')}## Questions\n\n- ans: keep this decision\n\n---\n\n`;
+  const history = answered + closed('A-002');
+  const f = fixture(history);
+  const result = compact(f, { include_answered: true });
+  assert.equal(result.rounds.length, 2);
+  assert.deepEqual(fs.readFileSync(f.archive), Buffer.from(history));
+  assert.ok(fs.readFileSync(f.file, 'utf8').endsWith('# → Ask / A-003\n\n+ current request\n'));
 });
 
 for (const invocation of ['canonical', 'case-alias', 'case-alias-capture']) test(`stream compaction extends its canonical archive and rename preserves the history (${invocation})`, t => {

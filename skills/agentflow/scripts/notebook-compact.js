@@ -84,7 +84,7 @@ const publish_archive = ({ file, original, additions, notebook_file, notebook })
 };
 
 // Caller holds the notebook lock and has checked session ownership.
-const compact_locked = ({ root, notebook, original, force = false }) => {
+const compact_locked = ({ root, notebook, original, force = false, include_answered = false }) => {
   notebook = require('./notebook-owner').location({ root, notebook }).notebook;
   const result = { notebook, archive: archive_path_for_notebook(notebook), rounds: [], snapshot: original };
   if (!force && original.content.length < 768 * 1024 && (original.text.match(/\n/gu) || []).length <= 1000) return result;
@@ -96,7 +96,7 @@ const compact_locked = ({ root, notebook, original, force = false }) => {
       blocked = { ask: round.id, reason: 'open-round-retained' };
       break;
     }
-    if (/^[ \t]*[-+]?[ \t]*ans:[ \t]*\S/imu.test(round.text)) {
+    if (!include_answered && /^[ \t]*[-+]?[ \t]*ans:[ \t]*\S/imu.test(round.text)) {
       blocked = { ask: round.id, reason: 'answered-round-retained' };
       break;
     }
@@ -152,7 +152,7 @@ const compact_locked = ({ root, notebook, original, force = false }) => {
   return result;
 };
 
-const compact = ({ root = process.cwd(), notebook, host, session } = {}) => {
+const compact = ({ root = process.cwd(), notebook, host, session, include_answered = false } = {}) => {
   root = fs.realpathSync(root);
   if (!notebook) throw Error('compact requires --notebook <path>; use the active notebook returned by startup');
   const file = writer.resolve_path(root, notebook, 'notebook');
@@ -160,7 +160,7 @@ const compact = ({ root = process.cwd(), notebook, host, session } = {}) => {
   try {
     const original = writer.read_regular_file(file, 'notebook');
     require('./notebook-owner').guard({ root, notebook, text: original.text, host, session });
-    const { snapshot, ...result } = compact_locked({ root, notebook, original, force: true });
+    const { snapshot, ...result } = compact_locked({ root, notebook, original, force: true, include_answered });
     return { ...result, bytes_before: original.content.length, bytes_after: snapshot.content.length };
   } finally { writer.release_close_round_lock(lock); }
 };
@@ -168,10 +168,13 @@ const compact = ({ root = process.cwd(), notebook, host, session } = {}) => {
 const main = (argv, cwd) => {
   const options = { root: cwd };
   for (let i = 0; i < argv.length; i += 2) {
-    if (!['--notebook', '--host', '--session'].includes(argv[i]) || !argv[i + 1] || argv[i + 1].startsWith('--')) throw Error('usage: agf compact --notebook <path> [--host <id>] [--session <id>]');
+    if (!['--notebook', '--host', '--session', '--include-answered'].includes(argv[i]) || !argv[i + 1] || argv[i + 1].startsWith('--')) throw Error('usage: agf compact --notebook <path> [--host <id>] [--session <id>] [--include-answered true]');
     const key = argv[i].slice(2);
     if (options[key]) throw Error(`duplicate ${argv[i]}`);
-    options[key] = argv[i + 1];
+    if (key === 'include-answered') {
+      if (argv[i + 1] !== 'true') throw Error('--include-answered accepts only true');
+      options.include_answered = true;
+    } else options[key] = argv[i + 1];
   }
   return { json: compact(options) };
 };

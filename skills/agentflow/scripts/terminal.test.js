@@ -789,3 +789,37 @@ test('cleanup preserves closed stream completion records through a real PTY', { 
   assert.equal(git(repo, ['branch', '--list', key]).trim(), '')
   assert.ok(fs.existsSync(path.join(repo, notebook)))
 })
+
+test('explicit answered-round compaction preserves history through a real PTY', { skip: !terminal_available }, () => {
+  const repo = make_repo()
+  const notebook = 'devlog.md'
+  const file = path.join(repo, notebook)
+  const history = '# → Ask / A-001\n\n+ old request\n\n# ← Reply / A-001\n\nFinished.\n\n## Questions\n\n- ans: preserve this answer\n\n---\n\n'
+  const current = '# → Ask / A-002\n\n+ current request\n'
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/# → Ask \/ A-001[\s\S]*$/u, history + current))
+  const owner = require('./notebook-owner')
+  const writer = require('./notebook-write')
+  const session = process.env.CODEX_THREAD_ID || process.env.CODEX_SESSION_ID || 'compaction-terminal-fixture'
+  const lock = writer.acquire_close_round_lock(file + '.close-round.lock')
+  try {
+    const info = owner.inspect({ root: repo, notebook })
+    owner.transfer({ root: repo, notebook, host: 'codex', session, ask: info.ask, expected: 'unowned', sha256: info.sha256 })
+  } finally { writer.release_close_round_lock(lock) }
+  const args = [agf, 'compact', '--notebook', notebook, '--host', 'codex', '--session', session]
+  const before = fs.readFileSync(file)
+  const ordinary = terminal(process.execPath, args, { cwd: repo })
+  assert.equal(ordinary.status, 0, ordinary.output)
+  assert.match(ordinary.output, /answered-round-retained/)
+  assert.deepEqual(fs.readFileSync(file), before)
+  const invalid = terminal(process.execPath, [...args, '--include-answered', 'false'], { cwd: repo })
+  assert.notEqual(invalid.status, 0, invalid.output)
+  assert.match(invalid.output, /accepts only true/)
+  assert.deepEqual(fs.readFileSync(file), before)
+  const wrapper = 'if (![process.stdin,process.stdout,process.stderr].every(s=>s.isTTY)) process.exit(3); console.error("terminal identity: stdin/stdout/stderr are TTYs"); const r=require("node:child_process").spawnSync(process.execPath,process.argv.slice(1),{stdio:"inherit"}); process.exit(r.status ?? 1)'
+  const result = terminal(process.execPath, ['-e', wrapper, ...args, '--include-answered', 'true'], { cwd: repo })
+  assert.equal(result.status, 0, result.output)
+  assert.match(result.output, /terminal identity: stdin\/stdout\/stderr are TTYs/)
+  assert.match(result.output, /A-001/)
+  assert.deepEqual(fs.readFileSync(path.join(repo, 'devlog.archive.md')), Buffer.from(history))
+  assert.ok(fs.readFileSync(file, 'utf8').endsWith(current))
+})
