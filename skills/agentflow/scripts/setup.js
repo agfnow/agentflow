@@ -9,7 +9,7 @@
 //
 // Checks: node ≥18, git, skill files, agf() and agf-looper() shell functions, AGF_OPEN.
 // --fix installs or safely replaces Agentflow-managed lines after backup + confirmation.
-// Supports zsh, bash, and fish. Writes a marker so the first-run nudge fires once.
+// Supports zsh, bash, fish, and PowerShell. Writes a marker so the first-run nudge fires once.
 
 const fs = require('node:fs')
 const path = require('node:path')
@@ -23,6 +23,7 @@ const MARKER = path.join(SKILL_DIR, '.setup-checked')
 
 const detect_shell = (env_shell) => {
   const s = String(env_shell || '').toLowerCase()
+  if (s.includes('pwsh') || s.includes('powershell')) return 'powershell'
   if (s.includes('fish')) return 'fish'
   if (s.includes('bash')) return 'bash'
   return 'zsh'
@@ -30,6 +31,7 @@ const detect_shell = (env_shell) => {
 
 const config_file_for = (shell, home) => {
   const h = home || os.homedir()
+  if (shell === 'powershell') return path.join(h, 'Documents', 'WindowsPowerShell', 'Microsoft.PowerShell_profile.ps1')
   if (shell === 'fish') return path.join(h, '.config', 'fish', 'config.fish')
   if (shell === 'bash') return path.join(h, '.bashrc')
   return path.join(h, '.zshrc')
@@ -69,11 +71,22 @@ const LOOPER_FN_FISH = script_path => `function agf-looper
   node ${shell_script_argument(script_path)} $argv
 end`
 
+const powershell_argument = value => value.startsWith('$HOME/')
+  ? `"${value}"` : `'${String(value).replaceAll("'", "''")}'`
+
 const agf_function_for = (shell, script_path) => {
+  if (shell === 'powershell') return `function agf {
+  $dir = & node ${powershell_argument(script_path)} @args
+  if ($LASTEXITCODE -ne 0) { return }
+  if ($dir) { Set-Location -LiteralPath $dir }
+}`
   return shell === 'fish' ? AGF_FN_FISH(script_path) : AGF_FN_ZSH(script_path)
 }
 
 const looper_function_for = (shell, script_path) => {
+  if (shell === 'powershell') return `function agf-looper {
+  & node ${powershell_argument(script_path)} @args
+}`
   return shell === 'fish' ? LOOPER_FN_FISH(script_path) : LOOPER_FN_ZSH(script_path)
 }
 
@@ -107,6 +120,7 @@ const shortcut_paths_for = (skill_dir, home) => {
 
 const AGF_OPEN_ZSH = 'export AGF_OPEN="code"'
 const AGF_OPEN_FISH = 'set -gx AGF_OPEN "code"'
+const open_line_for = shell => shell === 'powershell' ? '$env:AGF_OPEN = "code"' : shell === 'fish' ? AGF_OPEN_FISH : AGF_OPEN_ZSH
 
 // ---------- checks ----------
 
@@ -190,7 +204,7 @@ const check_looper_function = (shell, cfg_path, script_paths = looper_script_for
 const check_agf_open = (env, shell, cfg_path) => {
   const val = (env || process.env).AGF_OPEN
   if (val) return { ok: true, label: `AGF_OPEN="${val}"` }
-  const configured_line = shell === 'fish' ? AGF_OPEN_FISH : AGF_OPEN_ZSH
+  const configured_line = open_line_for(shell)
   const configured = cfg_path && fs.existsSync(cfg_path) && fs.readFileSync(cfg_path, 'utf8').includes(configured_line)
   return {
     ok: Boolean(configured),
@@ -202,7 +216,7 @@ const check_agf_open = (env, shell, cfg_path) => {
 
 const lines_to_append = (shell, needs_fn, needs_open, skill_dir = SKILL_DIR, needs_looper = needs_fn, shortcut_paths = null) => {
   const parts = []
-  if (needs_open) parts.push(shell === 'fish' ? AGF_OPEN_FISH : AGF_OPEN_ZSH)
+  if (needs_open) parts.push(open_line_for(shell))
   if (needs_fn) {
     parts.push(agf_function_for(shell, shortcut_paths === null ? agf_script_for(skill_dir) : shortcut_paths.agf))
   }
@@ -224,7 +238,7 @@ const function_blocks = (shell, content, name) => {
     if (close === null) continue
     const finish = start + close.index + close[0].length
     const text = content.slice(start, finish)
-    blocks.push({ start, finish, text, managed: /\/skills\/agentflow\/scripts\/(?:agf|looper)\.js/u.test(text) })
+    blocks.push({ start, finish, text, managed: /[\\/]skills[\\/]agentflow[\\/]scripts[\\/](?:agf|looper)\.js/u.test(text) })
   }
   return blocks
 }
@@ -246,14 +260,14 @@ const fixed_content = ({ shell, content, needs_fn, needs_looper, needs_open, sho
     next = remove_managed_blocks(shell, next, 'agf-looper')
     additions.push(looper_function_for(shell, shortcut_paths.looper))
   }
-  if (needs_open) additions.unshift(shell === 'fish' ? AGF_OPEN_FISH : AGF_OPEN_ZSH)
+  if (needs_open) additions.unshift(open_line_for(shell))
   return `${next.trimEnd()}${next.trim().length > 0 && additions.length > 0 ? '\n\n' : ''}${additions.join('\n')}\n`
 }
 
 const uninstall_content = (shell, content) => {
   let next = content
   for (const name of ['agf', 'agf-looper']) next = remove_managed_blocks(shell, next, name)
-  const owned_open = shell === 'fish' ? AGF_OPEN_FISH : AGF_OPEN_ZSH
+  const owned_open = open_line_for(shell)
   next = next.split(/\r?\n/u).filter(line => line.trim() !== owned_open).join('\n')
   return `${next.trimEnd()}${next.trim().length > 0 ? '\n' : ''}`
 }
@@ -266,15 +280,20 @@ const uninstall_main = (opts = {}) => {
   const say = opts.say || (message => console.log(message))
   const ask = opts.ask || ask_tty
   const skills = argv.includes('--skills')
-  const unknown = argv.find(argument => argument !== '--skills')
+  const unknown = argv.find((argument, index) => argument !== '--skills' && argument !== '--profile' && argv[index - 1] !== '--profile')
   if (unknown) {
     say(`unknown uninstall option "${unknown}"`)
     return 1
   }
 
-  const shell = detect_shell(opts.shell || process.env.SHELL)
+  if (argv.includes('--profile') && (!argv[argv.indexOf('--profile') + 1] || argv[argv.indexOf('--profile') + 1].startsWith('--'))) {
+    say('--profile requires the path from PowerShell $PROFILE')
+    return 1
+  }
+  const shell = detect_shell(opts.shell || (argv.includes('--profile') ? 'powershell' : process.env.SHELL) || (process.platform === 'win32' ? 'powershell' : ''))
   const home = opts.home || os.homedir()
-  const cfg = config_file_for(shell, home)
+  const profile_index = argv.indexOf('--profile')
+  const cfg = opts.profile || (profile_index >= 0 ? argv[profile_index + 1] : null) || config_file_for(shell, home)
   const original = fs.existsSync(cfg) ? fs.readFileSync(cfg, 'utf8') : ''
   let next = original
   try {
@@ -338,7 +357,7 @@ const uninstall_main = (opts = {}) => {
     fs.renameSync(move.candidate, move.backup)
     say(`moved ${move.candidate} to ${move.backup}`)
   }
-  if (next !== original) say(`open a new terminal or run \`source ${cfg}\``)
+  if (next !== original) say(`open a new terminal or run \`${shell === 'powershell' ? `. ${powershell_argument(cfg)}` : `source ${cfg}`}\``)
   return 0
 }
 
@@ -374,9 +393,14 @@ const main = (opts = {}) => {
   const quiet = argv.includes('--quiet')
   const say = quiet ? () => {} : (opts.say || ((m) => console.log(m)))
 
-  const shell = detect_shell(opts.shell || process.env.SHELL)
+  if (argv.includes('--profile') && (!argv[argv.indexOf('--profile') + 1] || argv[argv.indexOf('--profile') + 1].startsWith('--'))) {
+    say('--profile requires the path from PowerShell $PROFILE')
+    return 1
+  }
+  const shell = detect_shell(opts.shell || (argv.includes('--profile') ? 'powershell' : process.env.SHELL) || (process.platform === 'win32' ? 'powershell' : ''))
   const home = opts.home || os.homedir()
-  const cfg = config_file_for(shell, home)
+  const profile_index = argv.indexOf('--profile')
+  const cfg = opts.profile || (profile_index >= 0 ? argv[profile_index + 1] : null) || config_file_for(shell, home)
   const skill_dir = path.resolve(opts.skill_dir || SKILL_DIR)
   const shortcut_paths = shortcut_paths_for(skill_dir, home)
   const formal_shortcuts = formal_installations_for(skill_dir, home)
@@ -474,7 +498,7 @@ const main = (opts = {}) => {
   backup_config(cfg)
   fs.mkdirSync(path.dirname(cfg), { recursive: true })
   fs.writeFileSync(cfg, next_content)
-  say(`done — open a new terminal tab or run \`source ${cfg}\`.`)
+  say(`done — open a new terminal tab or run \`${shell === 'powershell' ? `. ${powershell_argument(cfg)}` : `source ${cfg}`}\`.`)
 
   write_marker(marker)
   return 0
