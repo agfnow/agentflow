@@ -2,8 +2,6 @@
 
 Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.3.2. Earlier dates identify recorded source milestones, not independently verified public publication dates.
 
-## [Unreleased]
-
 ## [8.3.2]
 
 ### Added
