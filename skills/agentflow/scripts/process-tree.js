@@ -78,6 +78,24 @@ const find_nested_processes = (root_pid, table = read_process_table()) => {
   }
 }
 
+// Windows has no process groups, so a signal sent to the root leaves every
+// descendant running. taskkill /T is the only way to reach the tree, and /F is
+// needed with it because a graceful taskkill delivers WM_CLOSE, which a hidden
+// console worker never processes. Cancellation on Windows is therefore always
+// forceful, and SKILL.md records that.
+const send_tree_signal = (child, signal) => {
+  if (!child || !child.pid) return
+  if (process.platform !== 'win32') {
+    process.kill(-child.pid, signal)
+    return
+  }
+  child_process.execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+    windowsHide: true,
+    stdio: 'ignore',
+    timeout: 10000,
+  })
+}
+
 const contain_nested_processes = (processes, signal = 'SIGTERM') => {
   const actions = []
   for (const record of processes) {
@@ -91,4 +109,4 @@ const contain_nested_processes = (processes, signal = 'SIGTERM') => {
   return { attempted: processes.length > 0, actions }
 }
 
-module.exports = { contain_nested_processes, descendants, find_nested_processes, read_process_table }
+module.exports = { contain_nested_processes, descendants, find_nested_processes, read_process_table, send_tree_signal }

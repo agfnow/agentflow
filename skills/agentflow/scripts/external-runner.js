@@ -5,7 +5,7 @@ const node_crypto = require('node:crypto')
 const node_fs = require('node:fs')
 const node_os = require('node:os')
 const node_path = require('node:path')
-const { contain_nested_processes, find_nested_processes, read_process_table } = require('./process-tree.js')
+const { contain_nested_processes, find_nested_processes, read_process_table, send_tree_signal } = require('./process-tree.js')
 
 const MAX_OUTPUT_BYTES = 4096
 const DEFAULT_TIMEOUT_MS = 0
@@ -239,10 +239,12 @@ const process_group_is_alive = pid => {
   }
 }
 
+// Signalling only child.pid on Windows leaves the worker's descendants alive,
+// so a cancelled or timed-out run keeps burning a paid CLI session. Delegate to
+// the tree kill, which is a process-group signal everywhere else.
 const send_process_signal = (child, signal) => {
-  const target = process.platform === 'win32' ? child.pid : -child.pid
   try {
-    process.kill(target, signal)
+    send_tree_signal(child, signal)
     return { signal, sent: true, error: null }
   } catch (error) {
     return { signal, sent: false, error: error.code || error.message }
@@ -302,6 +304,7 @@ const run_child = ({ command, cwd, timeout_ms, stall_timeout_ms, nested_poll_ms,
       env: worker_environment(command, env),
       shell: false,
       detached: true,
+      windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch (error) {

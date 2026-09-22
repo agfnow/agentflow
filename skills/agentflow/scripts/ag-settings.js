@@ -436,11 +436,17 @@ const executable_available = (command, options = {}) => {
 	if (typeof path_value !== 'string') return false
 	for (const directory of path_value.split(node_path.delimiter)) {
 		if (!directory) continue
-		const candidate = node_path.join(directory, command)
-		try {
-			if (node_fs.statSync(candidate).isFile() && (process.platform === 'win32' || (node_fs.statSync(candidate).mode & 0o111) !== 0)) return true
-		} catch (error) {
-			// The next PATH entry is the only useful response to a missing file.
+		// Windows spawns without a shell, so an extensionless npm shim is a POSIX
+		// script that cannot start and must not count as available. Availability has
+		// to fail closed here or profile selection picks a worker that dies at spawn.
+		const names = process.platform === 'win32' ? [`${command}.exe`, `${command}.com`] : [command]
+		for (const name of names) {
+			const candidate = node_path.join(process.platform === 'win32' ? directory.replace(/^"|"$/g, '') : directory, name)
+			try {
+				if (node_fs.statSync(candidate).isFile() && (process.platform === 'win32' || (node_fs.statSync(candidate).mode & 0o111) !== 0)) return true
+			} catch (error) {
+				// The next PATH entry is the only useful response to a missing file.
+			}
 		}
 	}
 	return false
