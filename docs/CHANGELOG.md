@@ -1,8 +1,16 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; v8.3 is version 8.3.0. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; The current release is 8.3.1. Earlier dates identify recorded source milestones, not independently verified public publication dates.
 
 ## [Unreleased]
+
+## [8.3.1]
+
+### Fixed
+
+- Explicit first activation can claim a newly created stream after its first Ask is filled, using the committed empty notebook as proof while preserving session ownership protections.
+
+- Stream cleanup preserves recognized Agentflow local records, hook files and Finder metadata in private recovery storage before removing the worktree. Unknown files, active ownership and changes during cleanup still stop removal.
 
 ## [8.3.0]
 

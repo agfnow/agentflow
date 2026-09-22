@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "Fast file-logged work with Git evidence and on-demand development machinery. Triggered by godev/devlog/ag/agentflow/fast-lane."
 metadata:
-  version: "8.3.0"
+  version: "8.3.1"
 ---
 
-# Agentflow v8.3.0
+# Agentflow v8.3.1
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -29,7 +29,7 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    Startup and every notebook writer enforce one session owner for the active Ask. Codex uses agreeing `CODEX_THREAD_ID`/`CODEX_SESSION_ID` values; Claude uses its hook session or `CLAUDE_SESSION_ID`. When the current native host supplies no shell identity, retain its actual session ID through `--session <id>`. Conflicting identity refuses before mutation. A foreign or unknown owner leaves the notebook unchanged even with `streams: off`. Before a direct notebook edit, use `agf owner inspect --notebook <target-doc>` and confirm the recorded host/session and Ask match this session. Generic host names and dirty files never establish ownership.
 
-   Successful closeout releases the completed round; a fresh session can claim the next empty Ask. If the owner populated that next Ask before activation, their request to activate/resume authorizes startup to claim it when its immediate sequential predecessor has a valid released owner and completed Reply. Do not ask for a second confirmation. Ordinary hooks and writers do not infer this authorization. To recover a legacy populated Ask without that release proof or hand off an actively owned Ask, inspect with `agf owner inspect --notebook <target-doc>`, then use `agf owner adopt --notebook <target-doc> --ask <A-NNN> --expect <owner-token|unowned> --sha256 <notebook-hash> --host <host> --session <id>` after the owner authorized taking over that round. Existing authorization suffices; use the exact inspected token, Ask and hash, and refuse changed preconditions. Never expire an owner from its age or a helper PID.
+   On explicit startup in a linked stream worktree, a populated first Ask can also be claimed without confirmation when there is no owner record, no progress or Reply, and Git HEAD contains the same notebook with only its single A-001 Ask still empty. Startup verifies that everything through the Ask heading is unchanged. Other unowned populated notebooks still require adoption. Successful closeout releases the completed round; a fresh session can claim the next empty Ask. If the owner populated that next Ask before activation, their request to activate/resume authorizes startup to claim it when its immediate sequential predecessor has a valid released owner and completed Reply. Do not ask for a second confirmation. Ordinary hooks and writers do not infer this authorization. To recover a legacy populated Ask without that release proof or hand off an actively owned Ask, inspect with `agf owner inspect --notebook <target-doc>`, then use `agf owner adopt --notebook <target-doc> --ask <A-NNN> --expect <owner-token|unowned> --sha256 <notebook-hash> --host <host> --session <id>` after the owner authorized taking over that round. Existing authorization suffices; use the exact inspected token, Ask and hash, and refuse changed preconditions. Never expire an owner from its age or a helper PID.
 
 3. Run it once. Do not precede startup with `pwd`, file inventories, Git status/log, or instruction discovery; the host already supplied the repository and skill paths. Use the returned `local_timestamp`, `next_run_id`, configuration, Git, Ask, and changed paths; rediscover only on error. After startup, inspect only files needed for the current Ask; do not inventory directories, search parent directories, reread configuration, or probe runners for a standalone text-file request. Such a non-operational content artifact is direct host work: after the reference batch below, write the artifact, read the saved file once to verify it, inspect changed paths, then use the documented `agf close --manifest-stdin` example. A Write success/context hint does not replace the required saved-file read. Do not add a failing-test cycle, repeat content verification, or explore workflow source/tests to anticipate a closeout error. Diagnose an actual unresolved failure only after trying the documented close command.
 

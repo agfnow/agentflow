@@ -66,7 +66,7 @@ test('show-diff requires justified, human-scannable unified diff hunks', () => {
 
 test('general writing guidance preserves requirements refresh history outside advisor-only paths', () => {
 	const writing = read('skills/agentflow/references/writing.md')
-	assert.match(writing, /requirements refreshes.*append-only question history.*one replaceable `# Final requirements summary`/i)
+	assert.match(writing, /requirements refreshes.*append-only question history.*(?:one|single) replaceable `# Final requirements summary`/i)
 })
 
 test('the front door makes activation and closeout one-shot operations', () => {

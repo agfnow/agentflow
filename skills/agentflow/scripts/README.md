@@ -80,6 +80,8 @@ not a general guarantee that code or a model claim is honest.
 
 - **`agf.js`** — the unified owner-facing command. It provides `start`, initialization, setup, hook management, settings, feature-stream work, and safe removal with focused subcommand help. `start --repo <path> --host <safe-id> [--host-family <known-family>] --message-stdin --json` resolves or initializes the project, records one exact owner message only in an empty Ask, runs intake, and returns structured startup facts without committing. Generic hosts report `hooks: not_available` with manual capture and closeout instructions; Codex and Claude keep their integrations. `agf-looper` intentionally remains standalone. Internal validation and writing scripts are not public command families. Stream actions do not write the root notebook or replace a protocol round with an unrecorded direct Git sequence.
 
+- **`stream-cleanup.js`** — cleanup's narrow local-file inspection and recovery copy. Known stream receipts, released ownership, completion evidence, pure Agentflow hook files and Finder metadata are preserved under the shared Git directory before worktree removal. Unknown files, active ownership, symbolic links and changed snapshots refuse removal. See [stream cleanup and recovery](../references/streams.md#cleanuptaskkey).
+
 - **`notebook-write.js`** — the bounded notebook writer. Keep `append-run`, `append-wip`, and `append-reply` for long-running work. Use `close-round --notebook <path> --input-stdin` with one JSON object containing `ask`, ordered `run_events`, complete `reply`, and `status` or `status_fields` when the whole round is ready; it validates the candidate and replaces the notebook once.
 
 - **`devlog-guard.js`** — a fail-open pre-commit guard installed by

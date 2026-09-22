@@ -753,3 +753,39 @@ test('configured custom default works through a real terminal stream journey', {
   assert.equal(git(repo, ['rev-parse', '--abbrev-ref', 'HEAD']).trim(), 'trunk')
   assert.equal(git(repo, ['rev-parse', 'main']), before_main)
 })
+
+test('cleanup preserves closed stream completion records through a real PTY', { skip: !terminal_available }, (t) => {
+  const repo = make_repo()
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  fs.appendFileSync(path.join(repo, '.gitignore'), '.codex/\n.claude/\n.DS_Store\n')
+  git(repo, ['add', '.gitignore']); git(repo, ['commit', '-m', 'ignore local files'])
+  const key = 'cleanup-records'
+  assert.equal(terminal(process.execPath, [agf, 'new', key], { cwd: repo }).status, 0)
+  const worktree = path.join(repo, '.worktrees', key)
+  const notebook = `.agentflow/features/${key}/${key}.devlog.md`
+  const session = 'cleanup-terminal-fixture'
+  const start = spawnSync(process.execPath, [agf, 'start', '--repo', worktree, '--host', 'codex', '--session', session, '--message-stdin', '--json'], { cwd: worktree, input: 'Explain cleanup, fast-lane\n', encoding: 'utf8', env: clean_terminal_env() })
+  assert.equal(start.status, 0, start.stderr)
+  const manifest = {
+    version: 1, notebook, ask: 'A-001', run_events: [],
+    reply: '## [SUMMARY]\n\n- Completed.\n\n## [FINAL REPORT]\n\n1. Verified the disposable fixture.\n\n```completion-metadata\nHost review: PASS — inspected this disposable fixture.\n```\n',
+    status: { project: 'terminal test', notebook, notebook_kind: 'stream', current_commit: 'tested', tests_scenarios: 'PTY cleanup', config_path: `.agentflow/features/${key}/ag.json`, host: 'codex', validation: 'validated', proven: 'completion', open: 'none', next: 'cleanup', artifacts: 'none', archived_eras: 'none', streams: [] },
+    allowed_paths: [notebook], commit_message: 'record terminal completion', delivery: { mode: 'local' }
+  }
+  const closed = spawnSync(process.execPath, [agf, 'close', '--host', 'codex', '--session', session, '--manifest-stdin'], { cwd: worktree, input: JSON.stringify(manifest), encoding: 'utf8', env: clean_terminal_env() })
+  assert.equal(closed.status, 0, `${closed.stdout}\n${closed.stderr}`)
+  const record = require('./completion-record').location({ project_root: worktree, notebook_path: notebook, ask: 'A-001' })
+  const bytes = fs.readFileSync(record.file), reference = fs.readFileSync(record.reference_file)
+  fs.writeFileSync(path.join(worktree, '.DS_Store'), 'finder fixture')
+  const wrapper = 'if (![process.stdin,process.stdout,process.stderr].every(s=>s.isTTY)) process.exit(3); console.error("terminal identity: stdin/stdout/stderr are TTYs"); const r=require("node:child_process").spawnSync(process.execPath,[process.argv[1],"cleanup",process.argv[2]],{stdio:"inherit"}); process.exit(r.status ?? 1)'
+  const result = terminal(process.execPath, ['-e', wrapper, agf, key], { cwd: repo })
+  assert.equal(result.status, 0, result.output)
+  assert.match(result.output, /terminal identity: stdin\/stdout\/stderr are TTYs/)
+  const backup = /preserved local files: ([^\n]+)/.exec(result.output)?.[1]
+  assert.ok(backup, result.output)
+  assert.deepEqual(fs.readFileSync(path.join(backup, record.relative)), bytes)
+  assert.deepEqual(fs.readFileSync(path.join(backup, record.reference_relative)), reference)
+  assert.equal(fs.existsSync(worktree), false)
+  assert.equal(git(repo, ['branch', '--list', key]).trim(), '')
+  assert.ok(fs.existsSync(path.join(repo, notebook)))
+})

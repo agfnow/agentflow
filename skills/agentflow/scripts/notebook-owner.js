@@ -172,10 +172,27 @@ const save = (info, record) => {
 const rounds = text => require('./round-linter').parse_devlog(text).rounds;
 const recovery = (info, current, record, text) => `run agf owner inspect --notebook ${info.notebook}; after owner-authorized handoff, run agf owner adopt --notebook ${info.notebook} --ask ${current?.id || record?.ask || 'A-NNN'} --expect ${record?.token || 'unowned'} --sha256 ${crypto.createHash('sha256').update(text || '').digest('hex')} --host <host> --session <id>`;
 
+// agf new commits an empty first Ask before the owner writes their request.
+// Reuse that baseline instead of treating a fresh stream as a legacy notebook.
+const first_stream_request = (info, text, parsed) => {
+  if (parsed.length !== 1 || parsed[0].id !== 'A-001' || parsed[0].wip_text.trim() || parsed[0].reply_text.trim()) return false;
+  const result = require('node:child_process').spawnSync('git', ['show', `HEAD:${info.notebook}`], {
+    cwd: info.root, encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024,
+  });
+  if (result.status !== 0) return false;
+  const baseline = rounds(result.stdout);
+  if (baseline.length !== 1 || baseline[0].id !== 'A-001' || baseline[0].ask_text.trim() !== '+' || baseline[0].wip_text.trim() || baseline[0].reply_text.trim()) return false;
+  const { final_ask_span } = require('./resume-intake');
+  const before = final_ask_span(result.stdout);
+  const after = final_ask_span(text);
+  return before !== null && after !== null && result.stdout.slice(0, before.body_start) === text.slice(0, after.body_start);
+};
+
 const guard = ({ root = process.cwd(), notebook, text, host, session, ask, workspace, allow_missing = false, allow_closed = false, resume_unclaimed = false } = {}) => {
   const who = identity({ host, session });
   const info = location({ root, notebook, workspace });
-  if (linked_worktree(info.root)) {
+  const stream = linked_worktree(info.root);
+  if (stream) {
     const branch = require('node:child_process').spawnSync('git', ['branch', '--show-current'], { cwd: info.root, encoding: 'utf8' });
     const expected = branch.status === 0 ? require('./agf').stream_doc(info.root, branch.stdout.trim()) : null;
     if (!expected || path_key(canonical_relative(info.root, expected)) !== path_key(info.notebook)) fail('a stream worktree may write only its canonical stream notebook; the checked-out main notebook belongs to the main session');
@@ -202,7 +219,8 @@ const guard = ({ root = process.cwd(), notebook, text, host, session, ask, works
   // populated successor from a released predecessor on their own.
   const resumed = resume_unclaimed === true && record?.state === 'released' && predecessor?.id === record.ask && predecessor.reply_text.trim() && current.id === `A-${String(Number(record.ask.slice(2)) + 1).padStart(3, '0')}`;
   const empty = ['', '+'].includes(current.ask_text.trim()) && !current.wip_text.trim();
-  if (target !== current.id || current.reply_text.trim() || (!empty && !resumed)) fail(`ownership is unknown for ${notebook} ${current.id}; ${recovery(info, current, record, text)}`);
+  const first_stream = !empty && resume_unclaimed === true && record === null && stream && first_stream_request(info, text, parsed);
+  if (target !== current.id || current.reply_text.trim() || (!empty && !resumed && !first_stream)) fail(`ownership is unknown for ${notebook} ${current.id}; ${recovery(info, current, record, text)}`);
   if (record && !parsed.some(round => round.id === record.ask && round.reply_text.trim())) fail('released owner does not match a completed notebook round');
   const claimed = { version: 1, root: info.root, notebook: info.notebook, ask: current.id, ...who, token: crypto.randomBytes(16).toString('hex'), state: 'active' };
   save(info, claimed);
