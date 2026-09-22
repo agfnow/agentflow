@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "Fast file-logged work with Git evidence and on-demand development machinery. Triggered by godev/devlog/ag/agentflow/fast-lane."
 metadata:
-  version: "8.4.0"
+  version: "8.3.2"
 ---
 
-# Agentflow v8.4.0
+# Agentflow v8.3.2
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
