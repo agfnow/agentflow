@@ -118,7 +118,7 @@ node_test.test('an input receipt cannot hide a message whose notebook replacemen
   const rename = node_fs.renameSync;
   try {
     node_fs.renameSync = (from, to) => {
-      if (to === fixture.notebook_file) throw new Error('simulated notebook replacement failure');
+      if (node_fs.existsSync(to) && node_fs.realpathSync.native(to) === node_fs.realpathSync.native(fixture.notebook_file)) throw new Error('simulated notebook replacement failure');
       return rename(from, to);
     };
     node_assert.throws(() => writer.append_input({ ...options, message_id: 'second' }), /simulated/);
@@ -633,6 +633,7 @@ node_test.test('close-round remains old-or-new if the process fails after rename
 
 node_test.test('append-wip preserves notebook bytes outside the insertion and preserves mode', () => {
   const fixture = setup({ mode: 0o640 });
+  const original_mode = node_fs.statSync(fixture.notebook_file).mode & 0o7777;
   const before = read_bytes(fixture.notebook_file);
   const draft_bytes = read_bytes(fixture.draft_file);
   const result = run_writer(fixture.root, command(fixture.root, fixture.notebook_path, fixture.draft_path));
@@ -643,7 +644,7 @@ node_test.test('append-wip preserves notebook bytes outside the insertion and pr
   node_assert.ok(draft_start > 0);
   node_assert.deepEqual(after.subarray(0, draft_start), before);
   node_assert.deepEqual(after.subarray(draft_start), draft_bytes);
-  node_assert.equal(node_fs.statSync(fixture.notebook_file).mode & 0o7777, 0o640);
+  node_assert.equal(node_fs.statSync(fixture.notebook_file).mode & 0o7777, original_mode);
   node_assert.equal(node_fs.existsSync(fixture.draft_file), false);
 });
 
@@ -927,6 +928,7 @@ node_test.test('append-reply closes only the exact final Ask and creates the nex
     later: `# → Ask / A-002\n\n+ current request\n\n${checkpoint(1, 'A-002', 'same footer')}`
   });
   const notebook_file = write(root, notebook_path, old, 0o640);
+  const original_mode = node_fs.statSync(notebook_file).mode & 0o7777;
   ownership_fixture.adopt(root, notebook_path);
   const draft_path = 'reply.md';
   write(root, draft_path, reply('A-002', '## [SUMMARY]\n\n- Done.\n\n## [FINAL REPORT]\n\n- The checkpointed round is complete.\n\n## Questions (batched — each with a suggested default)\n\n- None.'));
@@ -940,7 +942,7 @@ node_test.test('append-reply closes only the exact final Ask and creates the nex
   const text = after.toString('utf8');
   node_assert.equal((text.match(/# ← Reply \/ A-002/g) || []).length, 1);
   node_assert.match(text, /# ← Reply \/ A-002[\s\S]*---\n\n# → Ask \/ A-003\n\n\+\n$/u);
-  node_assert.equal(node_fs.statSync(notebook_file).mode & 0o7777, 0o640);
+  node_assert.equal(node_fs.statSync(notebook_file).mode & 0o7777, original_mode);
   node_assert.equal(node_fs.existsSync(node_path.join(root, draft_path)), false);
 });
 

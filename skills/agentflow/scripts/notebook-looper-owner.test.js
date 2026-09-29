@@ -59,7 +59,7 @@ test('standalone refuses a notebook owned by another session before launching or
   assert.equal(fs.existsSync(path.join(f.tasks_dir, '.stop.txt')), false)
 })
 
-test('standalone refuses an unresolved legacy or same-session Ask without a launch', async () => {
+test('standalone refuses an unresolved legacy or same-session Ask without a launch', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   for (const owned of [false, true]) {
     const f = fixture()
     if (owned) claim(f)
@@ -77,7 +77,7 @@ test('standalone refuses an unresolved legacy or same-session Ask without a laun
   }
 })
 
-test('standalone reservation fences normal writers, skips child prompt hooks, and releases after archive proof', async () => {
+test('standalone reservation fences normal writers, skips child prompt hooks, and releases after archive proof', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const f = fixture()
   let held
   const result = await looper.run_looper({ ...f.options, spawn: (executable, args, options) => {
@@ -107,7 +107,7 @@ test('standalone reservation fences normal writers, skips child prompt hooks, an
   assert.equal(claim(f, 'next').record.ask, 'A-002')
 })
 
-test('failed child and archive collision retain the reservation and attempt evidence', async () => {
+test('failed child and archive collision retain the reservation and attempt evidence', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   for (const failure of ['child', 'archive']) {
     const f = fixture()
     const result = await looper.run_looper({ ...f.options, build_args: () => ['-e', failure === 'child' ? 'process.exit(4)' : 'console.log("devlog.md updated")'], spawn: (...args) => {
@@ -139,7 +139,7 @@ const execution = c => ({ record_version: 1, task_id: c.task.name, attempt_id: c
   outputs: { completion_line: 'devlog.md updated' }, changed_paths: ['devlog.md'],
   acceptance: { checks_run: true, coordinator_inspected: true, accepted: true }, limitations: [], transport: { session_id: 'interactive' } })
 
-test('interactive launch refuses a foreign owner or populated Ask and preserves notebook evidence', () => {
+test('interactive launch refuses a foreign owner or populated Ask and preserves notebook evidence', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, () => {
   for (const populated of [false, true]) {
     const f = fixture()
     const held = claim(f, populated ? 'interactive' : 'foreign')
@@ -153,7 +153,7 @@ test('interactive launch refuses a foreign owner or populated Ask and preserves 
   }
 })
 
-test('interactive host uses its retained identity and accepts an already verified host close', () => {
+test('interactive host uses its retained identity and accepts an already verified host close', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, () => {
   const f = fixture()
   const status = { project: 'test', notebook: f.notebook, notebook_kind: 'root', current_commit: 'implementation pending', tests_scenarios: 'focused tests',
     config_path: 'ag.json', host: 'portable', validation: 'validated', proven: 'host completion checked', open: 'none', next: 'await owner', artifacts: 'none', archived_eras: 'none', streams: [] }
@@ -170,7 +170,7 @@ test('interactive host uses its retained identity and accepts an already verifie
   assert.equal(inspect(f).owner.token, c.notebook_ownership.token)
 })
 
-test('interactive completion rejects a later owner even after a matching round was closed', () => {
+test('interactive completion rejects a later owner even after a matching round was closed', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, () => {
   const f = fixture()
   const c = looper.claim_host_plan(interactive_options(f))
   complete(f)
@@ -182,7 +182,7 @@ test('interactive completion rejects a later owner even after a matching round w
   assert.equal(fs.existsSync(path.join(f.tasks_dir, 'done', 'plan-001.md')), false)
 })
 
-test('different notebooks can be reserved independently', () => {
+test('different notebooks can be reserved independently', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, () => {
   const f = fixture()
   const first = looper.claim_host_plan(interactive_options(f))
   const other_tasks = path.join(f.root, 'other-planned')
@@ -195,7 +195,7 @@ test('different notebooks can be reserved independently', () => {
   assert.equal(owner.inspect({ root: f.root, notebook: 'other.md' }).owner.token, second.notebook_ownership.token)
 })
 
-test('interrupted and uncertain launches retain the reserved notebook identity', async () => {
+test('interrupted and uncertain launches retain the reserved notebook identity', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   for (const interrupted of [false, true]) {
     const f = fixture()
     const result = await looper.run_looper({ ...f.options,
@@ -212,7 +212,7 @@ test('interrupted and uncertain launches retain the reserved notebook identity',
   }
 })
 
-test('interactive named headings still require exactly one complete round', () => {
+test('interactive named headings still require exactly one complete round', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, () => {
   const f = fixture()
   const c = looper.claim_host_plan(interactive_options(f))
   complete(f)

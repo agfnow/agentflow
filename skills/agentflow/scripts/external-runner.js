@@ -48,7 +48,7 @@ const remove_remotes = root => {
 const resolve_existing_path = value => {
   const resolved = node_path.resolve(value)
   try {
-    return node_fs.realpathSync(resolved)
+    return process.platform === 'win32' ? node_fs.realpathSync.native(resolved) : node_fs.realpathSync(resolved)
   } catch {
     return resolved
   }
@@ -284,9 +284,14 @@ const host_markers = Object.freeze({
   claude: ['CLAUDE_PROJECT_DIR', 'CLAUDE_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CLI'],
 })
 
+const worker_name = executable => {
+  const name = node_path.basename(executable)
+  return process.platform === 'win32' ? name.toLowerCase().replace(/\.exe$/u, '') : name
+}
+
 const worker_environment = (command, requested_env) => {
   const environment = { ...(requested_env || process.env) }
-  const executable = node_path.basename(command.executable)
+  const executable = worker_name(command.executable)
   const opposite = executable === 'claude' ? 'codex' : executable === 'codex' ? 'claude' : null
   if (opposite !== null) for (const marker of host_markers[opposite]) delete environment[marker]
   return environment
@@ -531,7 +536,7 @@ const normalize_result_file = (result_file, clone_root) => {
 }
 
 const declared_result_output_collision = (command, clone_root, result_file_path) => {
-  if (!result_file_path || node_path.basename(command.executable) !== 'codex') return null
+  if (!result_file_path || worker_name(command.executable) !== 'codex') return null
   for (let index = 0; index < command.args.length - 1; index += 1) {
     const option = command.args[index]
     if (option !== '-o' && option !== '--output-last-message') continue

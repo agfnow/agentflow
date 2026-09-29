@@ -36,7 +36,13 @@ const filesystem_spelling = value => {
       current = path.join(current, exact);
       continue;
     }
-    const aliases = entries.filter(entry => entry.toLowerCase() === part.toLowerCase());
+    // Windows may supply an 8.3 directory alias (for example RUNNER~1).
+    // Resolve its stored name only for a real entry, never a symbolic link.
+    let native_name = part;
+    if (process.platform === 'win32') {
+      try { if (!fs.lstatSync(requested).isSymbolicLink()) native_name = path.basename(fs.realpathSync.native(requested)); } catch {}
+    }
+    const aliases = entries.filter(entry => entry.toLowerCase() === part.toLowerCase() || entry === native_name);
     if (aliases.length === 1) {
       const candidate = path.join(current, aliases[0]);
       try {

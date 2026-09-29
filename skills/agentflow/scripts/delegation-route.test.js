@@ -469,3 +469,27 @@ test('availability recovery accepts legacy attempts without kind and missing fac
 	const other_choice = { ...base, task: { ...base.task, executor_choice: { kind: 'host', candidate_id: 'missing-host', reason: 'An explicit different host candidate' } } }
 	assert.equal(route.next_executor_action(other_choice, unavailable).status, 'unsatisfied')
 })
+
+test('threeways configured tier reaches actual launch and shared evidence without downgrade', async () => {
+	const config = settings.make_template('codex')
+	config['pipeline-roles'].threeways = 'best'
+	const calls = []
+	const facts = {
+		ask_text: '3ways', work_root: '.agentflow/artifacts/A-001-plan', worker_starts: 0,
+		config, worker_selection: { active_host: 'codex', executables: ['codex'] },
+		runner_options: { source_directory: '/repo' }, runner_arguments: ['review'],
+	}
+	const result = await route.launch_threeways_debate(facts, {
+		run_external_command: async options => { calls.push(options); return { status: 'completed' } },
+	})
+	assert.equal(result.worker.tier, 'best')
+	assert.equal(result.selection.requested.tier, 'best')
+	assert.deepEqual(calls[0].command, [result.worker.executable, ...result.worker.args, 'review'])
+	assert.equal(`${result.worker.model}/${result.worker.effort}`, config['external-workers'][0].tiers.best)
+	const rejected = await route.launch_threeways_debate(facts, {
+		resolve_worker: () => ({ tier: 'better', executable: 'codex', args: ['exec'] }),
+		run_external_command: async () => { throw Error('must not launch a downgraded worker') },
+	})
+	assert.equal(rejected.valid, false)
+	assert.match(rejected.error, /best/)
+})

@@ -14,6 +14,16 @@ ownership_fixture.configure();
 const SKILL_ROOT = path.resolve(__dirname, '..');
 const AGF = path.join(SKILL_ROOT, 'scripts', 'agf.js');
 const STOP = path.join(SKILL_ROOT, 'scripts', 'stop-hook.js');
+const terminal_executable = command => {
+  const candidates = command.includes('/') ? [command] : (process.env.PATH || '').split(path.delimiter).map(directory => path.join(directory, command));
+  return candidates.some(file => {
+    try { fs.accessSync(file, fs.constants.X_OK); return fs.statSync(file).isFile(); } catch { return false; }
+  });
+};
+const terminal_skip = process.platform === 'win32'
+  ? 'requires a Unix PTY; native Windows is not supported by this terminal fixture'
+  : ['/usr/bin/expect', '/bin/sh', 'tty', 'tee'].every(terminal_executable) ? false : 'requires executable /usr/bin/expect, /bin/sh, tty and tee for this Unix PTY fixture';
+
 const PTY_SCRIPT = [
 	'set timeout 30',
 	'log_user 1',
@@ -65,7 +75,7 @@ const transcript_json = transcript => {
 
 const git = (cwd, args) => child_process.execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
-for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'non-behavioral', 'natural-waiver', 'non-git', 'non-git-normal', 'archive-retry']) test(`${mode} real start and one-command close journey proves visible input, JSON output, and scoped local delivery`, () => {
+for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'non-behavioral', 'natural-waiver', 'non-git', 'non-git-normal', 'archive-retry']) test(`${mode} real start and one-command close journey proves visible input, JSON output, and scoped local delivery`, { skip: terminal_skip }, () => {
 	const non_git = mode.startsWith('non-git');
 	const fast_lane = ['inline', 'resume', 'comma-resume', 'non-git'].includes(mode);
 	const resuming = mode === 'resume' || mode === 'comma-resume';
@@ -222,7 +232,7 @@ for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'n
 	}
 });
 
-test('real PTY startup detects the computer language and preserves the saved choice', () => {
+test('real PTY startup detects the computer language and preserves the saved choice', { skip: terminal_skip }, () => {
 	const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-locale-journey-')));
 	const expected = detect_initial_language();
 	const first = run(root, [AGF, 'start', '--host', 'codex'], 'locale journey\n');
@@ -242,7 +252,7 @@ test('real PTY startup detects the computer language and preserves the saved cho
 	assert.equal(fs.readFileSync(config_path, 'utf8'), saved);
 });
 
-test('active-host real PTY startup adds the other host only when it runs', () => {
+test('active-host real PTY startup adds the other host only when it runs', { skip: terminal_skip }, () => {
 	const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-host-journey-')));
 	let prior_host;
 	for (const host of ['codex', 'codex', 'claude', 'claude']) {

@@ -148,7 +148,7 @@ const add_hook = (config, host, { scope = 'project', cwd = process.cwd(), event 
       if (!owned(hook.command)) return [hook];
       if (kept_one) return [];
       kept_one = true;
-      return [{ ...hook, command: desired_command }];
+      return [is_our_command(hook.command, host) ? hook : { ...hook, command: desired_command }];
     });
     return hooks.length === 0 ? [] : [{ ...entry, hooks }];
   });

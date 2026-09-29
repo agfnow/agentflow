@@ -34,12 +34,13 @@ test('detects explicit model and Agentflow entry points', () => {
 })
 
 test('ignores a fake entry point only below an inspected Node test-runner ancestor', () => {
+  // The injected table models Unix ps output; no native process inspection is used.
   const table = process_table([
     [100, 1, '/bin/sh -c node --test /work/scripts.test.js'],
-    [200, 100, `${process.execPath} --test /work/scripts.test.js`],
-    [201, 200, `${process.execPath} /work/external-worker.js`],
+    [200, 100, 'node --test /work/scripts.test.js'],
+    [201, 200, 'node /work/external-worker.js'],
     [202, 201, '/tmp/fake/codex nested-child'],
-    [300, 100, `${process.execPath} /work/external-worker.js`],
+    [300, 100, 'node /work/external-worker.js'],
     [301, 300, 'codex exec --full-auto'],
     [302, 300, 'node /work/skills/agentflow/scripts/agf.js start'],
   ])

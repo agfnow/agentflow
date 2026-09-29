@@ -14,7 +14,8 @@ const notebook = rounds => `${Array.from({ length: rounds }, (_, index) => `# â†
 
 test('kept live-gate state stays below home tmp even when setup fails', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'live-gate-location-'))
-  t.after(() => execFileSync('trash', [root]))
+  // Retain the disposable fixture where the Unix Trash CLI is unavailable.
+  if (process.platform !== 'win32') t.after(() => execFileSync('trash', [root]))
   const fakeHome = path.join(root, 'home'), fakeTemp = path.join(root, 'system-temp')
   fs.mkdirSync(fakeHome)
   fs.mkdirSync(fakeTemp)

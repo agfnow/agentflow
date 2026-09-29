@@ -639,7 +639,7 @@ node_test.test('pipeline_artifacts accepts a valid same-directory basename', () 
 });
 
 [
-	['absolute filename', () => node_path.join(node_os.tmpdir(), 'round-linter-absolute.md'), (artifact_dir, file_name) => write_valid_artifact(node_path.join(artifact_dir, file_name))],
+	['absolute filename', () => node_path.join(node_os.tmpdir(), 'round-linter-absolute.md'), () => {}],
 	['separator filename', () => 'nested/requirements.md', (artifact_dir, file_name) => write_valid_artifact(node_path.join(artifact_dir, file_name))],
 	['current-directory filename', () => '.', () => {}],
 	['parent-directory filename', () => '..', () => {}],
@@ -715,7 +715,7 @@ node_test.test('pipeline_artifacts rejects a directory entry', () => {
 	node_assert.match(status_for(result, 'pipeline_artifacts').detail, /regular non-symlink file/);
 });
 
-node_test.test('pipeline_artifacts rejects a nonregular entry', () => {
+node_test.test('pipeline_artifacts rejects a nonregular entry', { skip: process.platform === 'win32' ? 'Requires a Unix filesystem FIFO created by mkfifo' : false }, () => {
 	const artifact_dir = node_fs.mkdtempSync(node_path.join(node_os.tmpdir(), 'round-linter-'));
 	const candidate = node_path.join(artifact_dir, 'requirements.md');
 	node_child_process.execFileSync('mkfifo', [candidate]);
@@ -2036,7 +2036,7 @@ Cross-check implementation: 0123456789abcdef0123456789abcdef01234567
 `, '2026-08-16 12:01:00 +0800').replace('+ do the thing', '+ cross-check this implementation');
   const result = lint_round({ devlog_text, project_root, review_decision: { status: 'required', reason: 'source changed', changed_implementation: true } });
   node_assert.strictEqual(status_for(result, 'cross_check').status, 'fail');
-  node_assert.match(status_for(result, 'cross_check').detail, /exactly one verdict/i);
+  node_assert.match(status_for(result, 'cross_check').detail, /conflicting or non-PASS overall verdict/i);
 });
 
 node_test.test('cross-check rejects a PASS report that omits a required independent verdict dimension', () => {
@@ -3135,7 +3135,7 @@ node_test.test('round-linter CLI rejects a non-object context value', () => {
 	node_assert.match(child.stderr, /context JSON must contain one object/);
 });
 
-node_test.test('context reader rejects another nonregular file type before opening it', () => {
+node_test.test('context reader rejects another nonregular file type before opening it', { skip: process.platform === 'win32' ? 'Requires a Unix filesystem FIFO created by mkfifo' : false }, () => {
 	const fixture_dir = node_fs.mkdtempSync(node_path.join(node_os.tmpdir(), 'round-linter-context-fifo-'));
 	const context_path = node_path.join(fixture_dir, 'facts.json');
 	node_child_process.execFileSync('mkfifo', [context_path]);
@@ -3148,12 +3148,15 @@ node_test.test('context reader detects a same-size in-place change during readin
 	const context_path = node_path.join(fixture_dir, 'facts.json');
 	node_fs.writeFileSync(context_path, '{"value":1}');
 	const original_read = node_fs.readSync;
+	const original_stat = node_fs.statSync(context_path);
 	let changed = false;
 	node_fs.readSync = (...args) => {
 		const bytes_read = original_read(...args);
 		if (!changed && bytes_read > 0) {
 			changed = true;
 			node_fs.writeFileSync(context_path, '{"value":2}');
+			// Make the race observable even when the filesystem defers write timestamps.
+			node_fs.utimesSync(context_path, original_stat.atime, new Date(original_stat.mtimeMs + 2000));
 		}
 		return bytes_read;
 	};
@@ -3165,7 +3168,7 @@ node_test.test('context reader detects a same-size in-place change during readin
 	}
 });
 
-node_test.test('context reader rejects pathname replacement while staying on the opened descriptor', () => {
+node_test.test('context reader rejects pathname replacement while staying on the opened descriptor', { skip: process.platform === 'win32' ? 'Requires Unix replacement of a pathname with an open descriptor' : false }, () => {
 	const fixture_dir = node_fs.mkdtempSync(node_path.join(node_os.tmpdir(), 'round-linter-context-replace-'));
 	const context_path = node_path.join(fixture_dir, 'facts.json');
 	const replacement_path = node_path.join(fixture_dir, 'replacement.json');
@@ -4422,4 +4425,18 @@ node_test.test('suffix-free RUN and WIP records retain round and timestamp bound
       first + second + record.replace(heading, heading + ' (during round A-bad)'),
     ]) node_assert.equal(lint_round_boundaries(bad).status, 'fail', bad);
   }
+});
+
+node_test.test('timestamps_sane accepts old RUN and WIP history while requiring a fresh Reply', () => {
+  const old = '2026-08-12 10:00:00 +0800';
+  const recent = '2026-08-15 11:00:00 +0800';
+  const text = '# → Ask / A-001\n\n+ long running task\n\n'
+    + '## [RUN-001] Event — ' + old + ' (A-001)\n\n- started\n\n'
+    + '## [WIP-001] Checkpoint — ' + old + ' (A-001)\n\n- checkpoint\n\n'
+    + '# ← Reply / A-001\n\n* _' + recent + ' (test-model)_\n\nDone.\n';
+  const check = value => status_for(lint_round({ devlog_text: value, now_ms: fixed_now_ms }), 'timestamps_sane');
+  node_assert.equal(check(text).status, 'pass');
+  node_assert.equal(check(text + '\n# → Ask / A-002\n\n+\n').status, 'pass');
+  node_assert.match(check(text.replace(recent, old)).detail, /too old/);
+  node_assert.match(check(text.replaceAll(old, '2026-08-16 10:00:00 +0800')).detail, /future/);
 });

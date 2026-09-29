@@ -36,6 +36,7 @@ const USAGE_COMMANDS = [
 	{ label: 'skills', syntax: 'agf skills audit [--json]', description: 'inventory local skills and provide a read-only conflict audit prompt' },
 	{ label: 'start', syntax: 'agf start --repo <path> --host <id> [--session <id>] [--host-family <family>] --message-stdin [--json]', description: 'initialize, record the owner message, and return one bounded intake result' },
 	{ label: 'owner', syntax: 'agf owner <inspect|adopt> --notebook <path>', description: 'inspect ownership or explicitly adopt with expected owner, Ask and hash' },
+	{ label: 'review', syntax: 'agf review --notebook <path> [--host <id>]', description: 'show the current review decision before closeout without changing the notebook' },
 	{ label: 'close', syntax: 'agf close --manifest-stdin [--push-authorized]', description: 'validate, replace, commit, and optionally push one prepared closeout manifest' },
 	{ label: 'compact', syntax: 'agf compact --notebook <path> [--host <id>] [--session <id>] [--include-answered true]', description: 'archive completed notebook rounds with byte and hash verification; explicit override includes answered rounds' },
 	{ label: 'init', syntax: 'agf init', description: 'create Agentflow records, ignore entries, and project hooks in one repeatable action' },
@@ -2590,7 +2591,37 @@ const close_main = (argv, cwd, log, _ask, _width = 80) => {
 
 // ---------- dispatch ----------
 
-const COMMANDS = { owner: (...args) => require('./notebook-owner.js').cli(...args), compact: (...args) => require('./notebook-compact.js').main(...args), skills: (...args) => require('./skills-audit.js').main(...args), start: start_main, close: close_main, init: init_main, new: new_main, finish: finish_main, cleanup: clean_main, clean: clean_main, merge: clean_main, ditch: ditch_main, uninstall: uninstall_main, setup: setup_main, hooks: hooks_main, settings: settings_main }
+const review_main = (argv, cwd, log) => {
+	let notebook
+	let host
+	for (let index = 0; index < argv.length; index += 1) {
+		const flag = argv[index]
+		if ((flag === '--notebook' || flag === '--host') && argv[index + 1] && !argv[index + 1].startsWith('--')) {
+			if (flag === '--notebook' && !notebook) notebook = argv[++index]
+			else if (flag === '--host' && !host) host = argv[++index]
+			else return log(`duplicate ${flag}`), 1
+			continue
+		}
+		return log('usage: agf review --notebook <path> [--host <id>]'), 1
+	}
+	if (!notebook || (host && !/^[a-z0-9][a-z0-9_-]{0,127}$/u.test(host))) return log('usage: agf review --notebook <path> [--host <safe-id>]'), 1
+	try {
+		const repo = fs.realpathSync(cwd)
+		const file = path.resolve(repo, notebook)
+		if (file === repo || !file.startsWith(repo + path.sep) || fs.realpathSync(file) !== file) throw Error('notebook must be a regular file inside the project')
+		const source = notebook_writer.read_regular_file(file, 'notebook')
+		const relative = path.relative(repo, file).split(path.sep).join('/')
+		const facts = completion_context.collect({ project_root: repo, notebook_path: relative, devlog_text: source.text, active_host: host || active_host_for_cli(repo) })
+		const decision = facts.review_decision
+		if (!decision || decision.error) throw Error(decision?.error || 'review decision is unavailable')
+		return { json: { ask: facts.current_ask, status: decision.status, reason: decision.reason, host_review_required: decision.status === 'skip-review' } }
+	} catch (error) {
+		log(`review precheck failed: ${sanitize_diagnostic(error.message)}`)
+		return 1
+	}
+}
+
+const COMMANDS = { owner: (...args) => require('./notebook-owner.js').cli(...args), compact: (...args) => require('./notebook-compact.js').main(...args), skills: (...args) => require('./skills-audit.js').main(...args), start: start_main, review: review_main, close: close_main, init: init_main, new: new_main, finish: finish_main, cleanup: clean_main, clean: clean_main, merge: clean_main, ditch: ditch_main, uninstall: uninstall_main, setup: setup_main, hooks: hooks_main, settings: settings_main }
 
 const main = (argv, cwd, log, ask, width = 80) => {
 	const cmd = COMMANDS[argv[0]]
@@ -2605,7 +2636,7 @@ const main = (argv, cwd, log, ask, width = 80) => {
 module.exports = {
 	kebab_case, is_key, next_key, parse_new_args, parse_clean_args, parse_finish_args, resolve_key,
 	parse_start_args, parse_close_args, render_usage, devlog_template, key_from_path, default_from_origin_head,
-	is_yes, near_keys, stream_doc, host_from_root_status, active_host_for_cli, sanitize_diagnostic, git_timeout_ms, delivery_lock_path, write_all_sync, update_ignore_file, init_main, start_main, close_main, new_main, finish_main, clean_main, ditch_main, uninstall_main, setup_main, hooks_main, settings_main, main,
+	is_yes, near_keys, stream_doc, host_from_root_status, active_host_for_cli, sanitize_diagnostic, git_timeout_ms, delivery_lock_path, write_all_sync, update_ignore_file, init_main, start_main, review_main, close_main, new_main, finish_main, clean_main, ditch_main, uninstall_main, setup_main, hooks_main, settings_main, main,
 }
 
 if (require.main === module) {

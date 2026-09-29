@@ -9,7 +9,7 @@ const { execFileSync } = require('node:child_process')
 
 const setup = require('./setup.js')
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'agf-setup-'))
+const tmp = () => fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-setup-')))
 const drop = (dir) => fs.rmSync(dir, { recursive: true, force: true })
 
 const write_fake_agf = (skill_dir, output_dir = skill_dir) => {
@@ -549,7 +549,7 @@ test('main --fix creates the config file when it does not exist', () => {
   drop(dir)
 })
 
-test('generated zsh, bash, and fish shortcuts execute the installed agf.js and looper.js', () => {
+test('generated zsh, bash, and fish shortcuts execute the installed agf.js and looper.js', { skip: process.platform === 'win32' ? 'requires native Unix shells; Windows Bash may cross into WSL' : false }, () => {
   const shells = [
     ['zsh', 'zsh'],
     ['bash', 'bash'],

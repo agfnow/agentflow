@@ -405,8 +405,10 @@ const review_decision = (project_root, notebook_path, devlog_text, workspace_dir
     const clauses = /^(?:implement|fix|build|create|add|update)\b/iu.test(unquoted)
       ? unquoted.split(/[.!;]\s+/u) : [unquoted];
     return clauses.some(clause => {
-      const command = clause.trim().replace(/[,;]\s*never over[- ](?:engineering|egnieering)[.!]?$/iu, '').replace(/[.!]$/u, '').trim();
+      const command = clause.trim().replace(/[,;]\s*never over[- ](?:engineering|egnieering)[.!]?$/iu, '').replace(/[.,;!]$/u, '').trim();
       if (/^(?:please\s+)?(?:skip[- ](?:the\s+)?(?:final\s+)?(?:external\s+)?(?:review|cross[- ]check)|no\s+(?:external\s+)?(?:review|cross[- ]check)|(?:stop|cancel)\s+(?:the\s+)?(?:background\s+)?reviewer\s+and\s+(?:continue|finish))$/iu.test(command)) return true;
+      if (/^(?:please\s+)?review\s+(?:it|this(?:\s+change)?)\s+yourself$/iu.test(command)
+        || /^(?:please\s+)?(?:stop|cancel)\s+(?:the\s+)?(?:background\s+)?reviewer\s+and\s+review\s+(?:it|this(?:\s+change)?)\s+yourself$/iu.test(command)) return true;
       const list = /^(?:please\s+)?skip\s+(.+)$/iu.exec(command)?.[1];
       if (!list) return false;
       const items = list.split(/\s*,\s*(?:and\s+)?|\s+and\s+/iu);
@@ -429,7 +431,8 @@ const review_decision = (project_root, notebook_path, devlog_text, workspace_dir
   const independent_required = /^(?:review-requirement:\s*independent|(?:please\s+)?(?:require|use)\s+(?:an?\s+)?(?:independent|separate|second)\s+review(?:er)?)[.!]?$/imu.test(owner_commands);
   const enforced_read_only_required = /^review-requirement:\s*enforced-read-only[.!]?$/imu.test(owner_commands);
   const fresh_context_required = /^review-requirement:\s*fresh-context[.!]?$/imu.test(owner_commands);
-  const facts = { changed_files, record_files, configuration_files, bootstrap_files, document_effects, ignored_working_paths: git_facts.ignored_working_paths || [], allowed_worker, review_policy, independent_required, enforced_read_only_required, fresh_context_required };
+  const facts = { changed_files, record_files, configuration_files, bootstrap_files, document_effects, ignored_working_paths: git_facts.ignored_working_paths || [], allowed_worker, review_policy, independent_required, enforced_read_only_required, fresh_context_required,
+    review_only_baseline: has_captured_baseline && git_succeeds(project_root, ['merge-base', '--is-ancestor', git_facts.captured_baseline, 'HEAD']) ? git_facts.captured_baseline : '' };
   const implementation_changed = changed_files.some(file => review_eligible(file, facts));
   if (implementation_changed || /^Review record:/imu.test(completion_metadata(current_round.reply_text || '', { project_root, notebook_path, workspace_dir, config_path, ask: current_round.id }).text) || independent_required || enforced_read_only_required || fresh_context_required) return { ...facts, status: 'required', reason: implementation_changed ? 'source, test, behavior-changing configuration, software instructions, or undeclared document effect detected from Git' : 'current review evidence or explicit review requirement needs validation' };
   return {

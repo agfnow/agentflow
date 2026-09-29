@@ -49,7 +49,7 @@ const fixture = (t, generated = false) => {
   return { root, tasks_dir, state_root, notebook, config, events, options: { root, tasks_dir, state_root, completion_path: notebook, host: 'portable', session: 'queue-fixture', worker_config: config, executable_available: () => false, log: () => {}, on_event: value => events.push(value) } }
 }
 
-test('standalone unavailable or forbidden external execution hands off before taking queue ownership', async t => {
+test('standalone unavailable or forbidden external execution hands off before taking queue ownership', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async t => {
   for (const allowed of [['host'], ['internal'], ['external']]) {
     const f = fixture(t)
     f.config.switches['allowed-worker'] = allowed
@@ -82,7 +82,7 @@ const execution = (claim, kind, state = 'completed') => ({
   transport: kind === 'internal' ? { thread_handle: 'fixture-thread', tool: 'fixture_spawn', worker_started: true, stop_verified: state === 'cancelled' } : { session_id: 'fixture-host' },
 })
 
-test('interactive native and host plans reuse frozen queue identity, exclusive ownership and archive proof', t => {
+test('interactive native and host plans reuse frozen queue identity, exclusive ownership and archive proof', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, t => {
   for (const kind of ['internal', 'host']) {
     const f = fixture(t, true)
     const plan_before = fs.readFileSync(path.join(f.tasks_dir, 'plan-001.md'))
@@ -101,7 +101,7 @@ test('interactive native and host plans reuse frozen queue identity, exclusive o
   }
 })
 
-test('interactive cancellation, failed acceptance and changed frozen plans remain pending', t => {
+test('interactive cancellation, failed acceptance and changed frozen plans remain pending', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, t => {
   for (const failure of ['cancelled', 'task-failed', 'changed-plan']) {
     const f = fixture(t, true)
     const claim = looper.claim_host_plan({ ...f.options, selection_facts: selection('internal') })
@@ -114,7 +114,7 @@ test('interactive cancellation, failed acceptance and changed frozen plans remai
   }
 })
 
-test('reset cannot forget an unresolved native writer after the claim helper exits', async t => {
+test('reset cannot forget an unresolved native writer after the claim helper exits', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async t => {
   const f = fixture(t, true)
   const claim = looper.claim_host_plan({ ...f.options, selection_facts: selection('internal') })
   const reset_options = { ...f.options, reset: true, process_is_alive: () => false }
@@ -127,7 +127,7 @@ test('reset cannot forget an unresolved native writer after the claim helper exi
   assert.equal(fs.existsSync(path.join(f.tasks_dir, 'plan-001.md')), true)
 })
 
-test('interactive completion preserves hard permission and context requirements from its claim', t => {
+test('interactive completion preserves hard permission and context requirements from its claim', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, t => {
   for (const control of ['enforced_read_only', 'fresh_context']) {
     const f = fixture(t, true)
     const facts = selection('internal')
@@ -144,7 +144,7 @@ test('interactive completion preserves hard permission and context requirements 
   }
 })
 
-test('interactive queue requests host choice before ownership and accepts either permitted kind', t => {
+test('interactive queue requests host choice before ownership and accepts either permitted kind', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, t => {
   for (const kind of ['internal', 'host']) {
     const f = fixture(t)
     const facts = selection('internal')

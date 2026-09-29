@@ -343,7 +343,7 @@ test('host templates provide the exact ordered codex and claude profiles', () =>
 				{ id: 'claude-default', command: ['claude', '-p'], priority: 3, family: 'claude' },
 				{ id: 'codex-default', command: ['codex', 'exec'], priority: 3, family: 'codex' },
 			])
-		assert.equal(config['external-workers'][0].tiers.best, host === 'codex' ? 'gpt-6-astra/xhigh' : 'claude-opus-5/high')
+		assert.equal(config['external-workers'][0].tiers.best, host === 'codex' ? 'gpt-6-astra/medium' : 'claude-opus-5-5/xhigh')
 	}
 })
 
@@ -351,7 +351,7 @@ test('profile public setting changes use ids and reject removed worker paths', (
 	const config = make_v5_fixture('codex')
 	const changed = settings.apply_changes(config, ['codex-default.best: gpt-5.6-terra/high'], { active_host: 'codex', ...all_executables })
 	assert.equal(changed.config['external-workers'][0].tiers.best, 'gpt-5.6-terra/high')
-	assert.deepEqual(changed.changes, ['codex-default.best: gpt-6-astra/xhigh → gpt-5.6-terra/high'])
+	assert.deepEqual(changed.changes, ['codex-default.best: gpt-6-astra/medium → gpt-5.6-terra/high'])
 	assert.throws(() => settings.parse_change_lines(['internal-worker.best: gpt-5.6-terra/high']), /unsupported setting change: internal-worker\.best/)
 	assert.throws(() => settings.parse_change_lines(['external-worker.best: claude-opus-5/high']), /unsupported setting change: external-worker\.best/)
 })
@@ -472,13 +472,13 @@ test('host templates are exact, valid, and use the owner-approved defaults', () 
 	const codex = settings.make_template('codex')
 	const claude = settings.make_template('claude')
 
-	assert.equal(codex['external-workers'][0].tiers.best, 'gpt-6-astra/xhigh')
-	assert.equal(codex['external-workers'][0].tiers.better, 'gpt-5.6-sol/low')
-	assert.equal(codex['external-workers'][0].tiers.basic, 'gpt-5.6-luna/xhigh')
-	assert.equal(codex['external-workers'][1].tiers.best, 'claude-opus-5/high')
-	assert.equal(claude['external-workers'][0].tiers.best, 'claude-opus-5/high')
-	assert.equal(claude['external-workers'][1].tiers.best, 'gpt-6-astra/xhigh')
-	assert.equal(claude['external-workers'][1].tiers.basic, 'gpt-5.6-luna/xhigh')
+	assert.equal(codex['external-workers'][0].tiers.best, 'gpt-6-astra/medium')
+	assert.equal(codex['external-workers'][0].tiers.better, 'gpt-6-sol/xhigh')
+	assert.equal(codex['external-workers'][0].tiers.basic, 'gpt-6-luna/max')
+	assert.equal(codex['external-workers'][1].tiers.best, 'claude-opus-5-5/xhigh')
+	assert.equal(claude['external-workers'][0].tiers.best, 'claude-opus-5-5/xhigh')
+	assert.equal(claude['external-workers'][1].tiers.best, 'gpt-6-astra/medium')
+	assert.equal(claude['external-workers'][1].tiers.basic, 'gpt-6-luna/max')
 	assert.deepEqual(settings.validate_config(codex, { active_host: 'codex', ...all_executables }).errors, [])
 	assert.deepEqual(settings.validate_config(claude, { active_host: 'claude', ...all_executables }).errors, [])
 })
@@ -589,8 +589,8 @@ test('public setting paths use kebab-case and address profile ids', () => {
 	assert.equal(changes.config['external-workers'][1].tiers.basic, 'claude-opus-5/high')
 	assert.deepEqual(changes.changes, [
 		'ask-names: on → off',
-		'codex-default.best: gpt-6-astra/xhigh → gpt-5.6-terra/high',
-		'claude-default.basic: claude-sonnet-5/high → claude-opus-5/high',
+		'codex-default.best: gpt-6-astra/medium → gpt-5.6-terra/high',
+		'claude-default.basic: claude-sonnet-5-5/high → claude-opus-5/high',
 	])
 
 	const display = settings.format_settings_display(config, { ...all_executables })
@@ -970,7 +970,7 @@ test('settings changes validate the complete batch before one atomic write', () 
 		assert.throws(() => settings.change_configuration(config_path, ['auto-reply: on', 'streams: invalid'], { repo_root: repo, active_host: 'codex', ...all_executables }), /streams/)
 		assert.equal(fs.readFileSync(config_path, 'utf8'), before)
 		const result = settings.change_configuration(config_path, ['auto-reply: on', 'codex-default.best: gpt-5.6-terra/high'], { repo_root: repo, active_host: 'codex', ...all_executables })
-		assert.deepEqual(result.changes, ['auto-reply: off → on', 'codex-default.best: gpt-6-astra/xhigh → gpt-5.6-terra/high'])
+		assert.deepEqual(result.changes, ['auto-reply: off → on', 'codex-default.best: gpt-6-astra/medium → gpt-5.6-terra/high'])
 	} finally {
 		drop(repo)
 	}
@@ -1103,8 +1103,8 @@ test('tier routing resolves roles through configured tiers and exposes ordered f
 	const config = settings.make_template('codex')
 	const acceptance = settings.resolve_worker_tier(config, { role: 'acceptance' }, { active_host: 'codex', ...all_executables })
 	assert.equal(acceptance.tier, 'better')
-	assert.equal(acceptance.model, 'gpt-5.6-sol')
-	assert.equal(acceptance.effort, 'low')
+	assert.equal(acceptance.model, 'gpt-6-sol')
+	assert.equal(acceptance.effort, 'xhigh')
 	const coding = settings.resolve_worker_tier(config, { role: 'coding' }, { active_host: 'codex', ...all_executables })
 	assert.equal(coding.tier, 'basic')
 	assert.deepEqual(settings.fallback_tiers('better'), ['basic', 'best', 'cheap'])
@@ -1115,7 +1115,7 @@ test('tier routing resolves roles through configured tiers and exposes ordered f
 
 test('templates expose cheap models and session exhaustion falls through to the next eligible profile', () => {
 	const config = settings.make_template('codex')
-	assert.equal(config['external-workers'].find(profile => profile.family === 'codex').tiers.cheap, 'gpt-5.6-luna/low')
+	assert.equal(config['external-workers'].find(profile => profile.family === 'codex').tiers.cheap, 'gpt-6-luna/low')
 	assert.equal(config['external-workers'].find(profile => profile.family === 'claude').tiers.cheap, 'haiku/high')
 	const first = settings.resolve_worker_tier(config, { role: 'acceptance' }, { active_host: 'codex', ...all_executables, cli_provider: 'on' })
 	const failure = settings.resolve_dispatch_failure(config, first, {
@@ -1547,7 +1547,7 @@ test('dispatch fallback skips failed duplicate values and renders the substituti
 	const codex = settings.make_template('codex')
 	const basic = settings.resolve_worker_tier(codex, { role: 'coding' }, { active_host: 'codex', ...all_executables })
 	assert.equal(settings.resolve_dispatch_failure(codex, basic).fallback.tier, 'cheap')
-	assert.throws(() => settings.resolve_dispatch_failure(claude, selection, { failed_values: ['claude-opus-5/high', 'claude-sonnet-5/high', 'haiku/high'] }), /no distinct configured worker value/)
+	assert.throws(() => settings.resolve_dispatch_failure(claude, selection, { failed_values: ['claude-opus-5-5/xhigh', 'claude-opus-5-5/high', 'claude-sonnet-5-5/high', 'haiku/high'] }), /no distinct configured worker value/)
 	assert.throws(() => settings.resolve_dispatch_failure(claude, selection, { owner_override: true }), /owner-selected model/)
 })
 
@@ -1616,6 +1616,7 @@ test('templates expose one canonical configurable pipeline role map', () => {
 		acceptance: 'better',
 		'cross-check': 'better',
 		learn: 'basic',
+		threeways: 'better',
 	})
 	assert.equal(settings.validate_config(config, { active_host: 'codex', ...all_executables }).valid, true)
 })
@@ -1827,4 +1828,32 @@ test('current configuration requires workspace-dir and never generates root fall
   assert.equal(settings.validate_config(config, { active_host: 'codex', ...all_executables }).valid, false)
   assert.throws(() => settings.workspace_paths(config), /workspace-dir/)
   assert.equal(settings.migrate_workspace, undefined)
+})
+
+test('threeways tier is optional, configurable, isolated and never silently downgraded', () => {
+	const legacy = settings.make_template('codex')
+	delete legacy['pipeline-roles'].threeways
+	const bytes = JSON.stringify(legacy)
+	assert.equal(settings.validate_config(legacy, all_executables).valid, true)
+	assert.match(settings.format_settings_display(legacy, all_executables), /pipeline-roles.threeways: better/)
+	assert.equal(settings.resolve_threeways_worker(legacy, { active_host: 'codex', ...all_executables }).tier, 'better')
+	assert.equal(JSON.stringify(legacy), bytes)
+	for (const tier of ['best', 'better', 'basic', 'cheap']) {
+		const { config } = settings.apply_changes(legacy, { 'pipeline-roles.threeways': tier }, all_executables)
+		assert.equal(config['pipeline-roles']['cross-check'], legacy['pipeline-roles']['cross-check'])
+		const worker = settings.resolve_threeways_worker(config, { active_host: 'codex', ...all_executables })
+		assert.equal(worker.tier, tier)
+		assert.equal(`${worker.model}/${worker.effort}`, worker.profile.tiers[tier])
+		assert.throws(() => settings.resolve_threeways_worker(config, { active_host: 'codex', ...all_executables, owner_exact_model: true }), /owner-selected exact model/)
+	}
+	for (const tier of ['off', 'Invalid Tier', null]) assert.throws(() => settings.apply_changes(legacy, { 'pipeline-roles.threeways': tier }, all_executables), /threeways/)
+	const config = structuredClone(legacy)
+	config['pipeline-roles'].threeways = 'best'
+	const diverse = settings.resolve_threeways_worker(config, { active_host: 'codex', ...all_executables })
+	assert.equal(diverse.family_diversity, 'different-family')
+	assert.equal(diverse.tier, 'best')
+	config.switches['cli-provider'] = 'off'
+	assert.equal(settings.resolve_threeways_worker(config, { active_host: 'codex', ...all_executables }).profile.family, 'codex')
+	config['pipeline-roles'].threeways = 'special-review'
+	assert.throws(() => settings.resolve_threeways_worker(config, { active_host: 'codex', ...all_executables }), error => error.code === 'AG_DISPATCH_TIER_UNAVAILABLE' && /special-review/.test(error.message))
 })

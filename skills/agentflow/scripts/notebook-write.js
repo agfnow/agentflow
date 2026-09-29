@@ -735,6 +735,13 @@ const scope_path_identity = (root, relative) => {
 const snapshot_scope_paths = (root, paths) => Object.fromEntries(paths.map(relative =>
   [relative, scope_path_identity(root, relative)]).filter(([, identity]) => identity !== null));
 
+const same_scope_repository = (left, right) => {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  if (process.platform !== 'win32') return left === right;
+  try { return node_fs.realpathSync.native(left).toLowerCase() === node_fs.realpathSync.native(right).toLowerCase(); }
+  catch { return false; }
+};
+
 const close_delivery_path = (root, notebook, host, ask, close_id) => `${input_receipt_path(root, notebook, host)}.${ask}.${close_id}.close.json`;
 
 const save_close_scope = (root, notebook, host, ask, commit, notebook_hash, paths, { ownership, session, close_id } = {}) => {
@@ -758,7 +765,7 @@ const save_close_scope = (root, notebook, host, ask, commit, notebook_hash, path
       version: 1, repository: root, notebook, host, ask, close_id, commit, notebook_hash, paths: retained,
     }) + '\n'), 0o600);
   }
-  if (!saved.scope || saved.repository !== root || saved.notebook !== notebook || saved.host !== host || saved.scope.close) return;
+  if (!saved.scope || !same_scope_repository(saved.repository, root) || saved.notebook !== notebook || saved.host !== host || saved.scope.close) return;
   saved.scope.close = { commit, notebook_hash, paths: retained };
   atomic_replace(receipt.file, Buffer.from(JSON.stringify(saved) + '\n'), 0o600);
 };
@@ -796,7 +803,7 @@ const read_input_scope = (root, notebook, host, ask) => {
   try {
     const file = input_receipt_path(root, notebook, host);
     const saved = read_input_receipt(root, notebook, host);
-    if (saved.ask !== ask || saved.repository !== root || saved.notebook !== notebook || saved.host !== host) return null;
+    if (saved.ask !== ask || !same_scope_repository(saved.repository, root) || saved.notebook !== notebook || saved.host !== host) return null;
     const head = saved.scope?.head;
     if (head !== null && (!/^[0-9a-f]{40}$/u.test(head) || scope_git(root, ['merge-base', '--is-ancestor', head, 'HEAD']) === null)) return null;
     const paths = saved.scope.paths;
@@ -832,7 +839,7 @@ const read_close_scope = (root, notebook, host, ask, close_id) => {
     try { saved = JSON.parse(node_fs.readFileSync(close_delivery_path(root, notebook, host, ask, close_id), 'utf8')); }
     catch { saved = read_input_receipt(root, notebook, host); }
     const closed = saved?.version === 1 && saved?.close_id === close_id ? saved : saved?.scope?.close;
-    if (saved?.repository !== root || saved?.notebook !== notebook || saved?.host !== host || saved?.ask !== ask) return null;
+    if (!same_scope_repository(saved?.repository, root) || saved?.notebook !== notebook || saved?.host !== host || saved?.ask !== ask) return null;
     if (!closed || !/^[0-9a-f]{40}$/u.test(closed.commit) || !/^[0-9a-f]{64}$/u.test(closed.notebook_hash)) return null;
     const message = scope_git(root, ['log', '-1', '--format=%B', closed.commit]);
     if (!message || !new RegExp(`^Agentflow-Close-Id: ${close_id}$`, 'mu').test(message)) return null;
@@ -846,12 +853,14 @@ const read_close_scope = (root, notebook, host, ask, close_id) => {
 const append_input = ({ root = process.cwd(), notebook: notebook_path, text, message_id, host, session } = {}) => {
   if (typeof text !== 'string' || !text.trim() || Buffer.byteLength(text) > 65536) fail('owner input must contain 1–65536 bytes');
   const repository_root = node_fs.realpathSync(root);
-  const file = resolve_path(repository_root, notebook_path, 'notebook');
+  let file = resolve_path(repository_root, notebook_path, 'notebook');
   const lock = acquire_close_round_lock(`${file}.close-round.lock`);
   try {
     let original = read_regular_file(file, 'notebook');
     const ownership = notebook_owner.guard({ root: repository_root, notebook: notebook_path, text: original.text, host, session });
     host = ownership.identity.host;
+    // Preserve the stored filename when an owner submits a case or short-name alias.
+    file = resolve_path(ownership.root, ownership.notebook, 'notebook');
     original = require('./notebook-compact').compact_locked({ root: repository_root, notebook: notebook_path, original, force: false }).snapshot;
     const round = parse_devlog(original.text).rounds.at(-1);
     if (!round || round.reply_text.trim()) fail('owner input requires a current open Ask');

@@ -98,6 +98,8 @@ const launch_threeways_debate = async (facts, dependencies = {}) => {
 		return { ...plan, valid: false, error: 'threeways launch requires frozen literal runner_arguments' }
 	}
 	if (Object.hasOwn(facts.runner_options, 'command') || Object.hasOwn(facts.runner_options, 'executable')) return { ...plan, valid: false, error: 'threeways runner command must be derived only from the shared selected action' }
+	const requested_tier = settings.threeways_tier(facts.config)
+	if (requested_tier === 'off' || settings.tier_name_error(requested_tier)) return { ...plan, valid: false, error: 'threeways requires a valid configured tier; off is not supported' }
 	const configured_switches = facts.config?.switches || {}
 	const policy_source = facts.policy || configured_switches
 	const configured_allowed = Object.hasOwn(policy_source, 'allowed_worker') ? policy_source.allowed_worker : policy_source['allowed-worker']
@@ -120,7 +122,7 @@ const launch_threeways_debate = async (facts, dependencies = {}) => {
 	const task = {
 		...(is_object(facts.task) ? facts.task : {}),
 		task_id: facts.task?.task_id || 'threeways-review',
-		role: 'cross-check', review: true, requested_tier: 'better', delegation_worthy: true,
+		role: 'cross-check', review: true, requested_tier, delegation_worthy: true,
 		interactive_host: facts.task?.interactive_host !== false,
 		work_boundary: facts.task?.work_boundary || [],
 	}
@@ -134,8 +136,8 @@ const launch_threeways_debate = async (facts, dependencies = {}) => {
 		}
 		if (unavailable) capabilities.external = [{ candidate_id: 'configured-external', available: false, reason: unavailable }]
 		else {
-		if (worker === null || typeof worker !== 'object' || worker.tier !== 'better') return { ...plan, valid: false, error: 'threeways launch requires a configured better-tier worker' }
-		if (!Array.isArray(worker.args) || typeof worker.executable !== 'string') return { ...plan, valid: false, error: 'threeways runner command must be derived only from the selected better-tier worker' }
+		if (worker === null || typeof worker !== 'object' || worker.tier !== requested_tier) return { ...plan, valid: false, error: `threeways launch requires a configured ${requested_tier}-tier worker` }
+		if (!Array.isArray(worker.args) || typeof worker.executable !== 'string') return { ...plan, valid: false, error: 'threeways runner command must be derived only from the selected worker' }
 		const worker_model = worker.model && worker.effort ? `${worker.model}/${worker.effort}` : undefined
 		const external = {
 			candidate_id: worker.profile?.id || worker.id || 'threeways-worker', id: worker.profile?.id || worker.id || 'threeways-worker',
@@ -151,7 +153,7 @@ const launch_threeways_debate = async (facts, dependencies = {}) => {
 	const selection = select_executor_action({ ...facts, host, policy, task, capabilities })
 	if (selection.status !== 'selected') return { ...plan, selection, consensus: 'UNRESOLVED', review: 'UNRESOLVED' }
 	if (selection.kind !== 'external') return { ...plan, selection, action: selection.action, review: 'UNRESOLVED', consensus: 'UNRESOLVED', limitation: 'standalone threeways runner cannot execute native or host handoff; coordinator review remains unresolved' }
-	const selected_worker = worker || { tier: 'better', executable: selection.action.command[0], args: selection.action.command.slice(1) }
+	const selected_worker = worker || { tier: requested_tier, executable: selection.action.command[0], args: selection.action.command.slice(1) }
 	const runner_options = { ...facts.runner_options, command: [...selection.action.command, ...facts.runner_arguments] }
 	const result = await run_external_command(runner_options)
 	return { ...plan, worker: selected_worker, selection, runner_id: 'external-runner-v1', runner: result }

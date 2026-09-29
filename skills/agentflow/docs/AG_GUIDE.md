@@ -114,7 +114,7 @@ You can normally describe the task and let the assistant choose. These controls 
 
 - **See a plan first:** “Make a plan and let me review it before implementation.” The assistant saves a plan and waits at that checkpoint.
 
-- **Challenge a plan:** `threeways` or `3ways` asks for one independent critique and the main assistant’s response. It does not approve implementation.
+- **Challenge a plan:** `threeways` or `3ways` asks for one independent critique and the main assistant’s response. It does not approve implementation. Set `pipeline-roles.threeways: best` to change this review alone; the optional setting defaults to `better`, rejects `off`, and reports unavailable capacity instead of silently lowering the tier.
 
 - **Review finished work:** Add `cross-check` to request a separate read-only reviewer. “Fix the settings validation, then cross-check the result” is an example.
 
@@ -122,7 +122,7 @@ You can normally describe the task and let the assistant choose. These controls 
 
 - **Keep execution with the main assistant:** Say `no delegation`. That choice does not cancel required checks or independent review.
 
-- **See exactly what changed:** Add `show-diff`. The answer gives a reason for each change and a readable diff: `-` lines were removed; `+` lines were added. This display request alone does not authorize edits.
+- **See exactly what changed:** Add `show-diff`. The answer gives a reason for each change and a readable diff: `-` lines were removed; `+` lines were added. This formatting request alone does not authorize edits.
 
 Agentflow should build only what you asked for and use existing solutions where they fit. Relevant checks come with the work; repeating a passing test needs a reason. Nearby improvement ideas stay proposals unless you choose them.
 

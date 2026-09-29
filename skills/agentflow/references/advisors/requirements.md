@@ -8,7 +8,7 @@ The assignment supplies `auto_reply=on|off`; use it exactly. For new work use `r
 
 ## Questions and authority
 
-Ask only questions whose answers can change scope, behavior, constraints, data, users, failure/recovery, or success criteria. Cover material uncertainty breadth-first. Keep owner decisions, suggestions/defaults, assumptions, technical facts, conflicts, and open decisions distinct. Preserve contractual owner wording and challenge overloaded terms against supplied evidence.
+Ask only questions whose answers can change scope, behavior, constraints, data, users, failure/recovery, or success criteria. Cover material uncertainty breadth-first. Keep owner decisions, suggestions/defaults, assumptions, technical facts, conflicts, and open decisions distinct. Preserve contractual owner wording and challenge overloaded terms against supplied evidence. Record any material gap between the owner's goal and requested method, its consequence, and an evidence-backed alternative for the host to discuss; do not silently promote an alternative into a requirement.
 
 With `auto_reply=on`, give every important question a stable `Q-<n>` and a suggested default when available. Auto-answer only a safe, routine default that does not conflict with the record, and state in the same report why that answer was safe. Choices reserved for the owner, conflicting choices, failed or missing evidence, and hard stops stay open with the blocking reason. With `auto_reply=off`, put exactly one empty `- ans:` directly below every open important question; a suggestion or blank is not an answer.
 

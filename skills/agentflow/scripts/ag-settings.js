@@ -14,7 +14,7 @@ const { format_local_timestamp } = require('./local-time.js')
 const schema_version = 8
 const git_timeout_default_ms = 30_000
 const tier_names = Object.freeze(['best', 'better', 'basic', 'cheap'])
-const pipeline_role_names = Object.freeze(['requirements', 'codewalk', 'explore', 'spike', 'spec', 'implementation', 'security-scan', 'acceptance', 'cross-check', 'learn'])
+const pipeline_role_names = Object.freeze(['requirements', 'codewalk', 'explore', 'spike', 'spec', 'implementation', 'security-scan', 'acceptance', 'cross-check', 'learn', 'threeways'])
 const mandatory_pipeline_roles = Object.freeze(['requirements', 'spec', 'implementation', 'acceptance'])
 const pipeline_role_defaults = Object.freeze({
 	requirements: 'better',
@@ -27,6 +27,7 @@ const pipeline_role_defaults = Object.freeze({
 	acceptance: 'better',
 	'cross-check': 'better',
 	learn: 'basic',
+	threeways: 'better',
 })
 const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days'])
 const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days', 'log-verbosity', 'inline-reply', 'git-timeout-ms'])
@@ -186,10 +187,10 @@ const host_template_values = {
         priority: 3,
         family: 'codex',
         tiers: {
-          best: 'gpt-6-astra/xhigh',
-          better: 'gpt-5.6-sol/low',
-          basic: 'gpt-5.6-luna/xhigh',
-          cheap: 'gpt-5.6-luna/low',
+          "best": "gpt-6-astra/medium",
+					"better": "gpt-6-sol/xhigh",
+					"basic": "gpt-6-luna/max",
+					"cheap": "gpt-6-luna/low"
         },
       },
       {
@@ -198,10 +199,10 @@ const host_template_values = {
         priority: 3,
         family: 'claude',
         tiers: {
-          best: 'claude-opus-5/high',
-          better: 'claude-opus-4-6/high',
-          basic: 'claude-sonnet-5/high',
-          cheap: 'haiku/high',
+          "best": "claude-opus-5-5/xhigh",
+					"better": "claude-opus-5-5/high",
+					"basic": "claude-sonnet-5-5/high",
+					"cheap": "haiku/high"
         },
       },
     ],
@@ -234,10 +235,10 @@ const host_template_values = {
         priority: 3,
         family: 'claude',
         tiers: {
-          best: 'claude-opus-5/high',
-          better: 'claude-opus-4-6/high',
-          basic: 'claude-sonnet-5/high',
-          cheap: 'haiku/high',
+          "best": "claude-opus-5-5/xhigh",
+					"better": "claude-opus-5-5/high",
+					"basic": "claude-sonnet-5-5/high",
+					"cheap": "haiku/high"
         },
       },
       {
@@ -246,10 +247,10 @@ const host_template_values = {
         priority: 3,
         family: 'codex',
         tiers: {
-          best: 'gpt-6-astra/xhigh',
-          better: 'gpt-5.6-sol/low',
-          basic: 'gpt-5.6-luna/xhigh',
-          cheap: 'gpt-5.6-luna/low',
+          "best": "gpt-6-astra/medium",
+					"better": "gpt-6-sol/xhigh",
+					"basic": "gpt-6-luna/max",
+					"cheap": "gpt-6-luna/low"
         },
       },
     ],
@@ -272,7 +273,7 @@ const normalise_initial_language = value => {
 	if (/^(?:C|POSIX)$/iu.test(tag)) return null
 	try {
 		const locale = new Intl.Locale(tag)
-		if (locale.language === 'und') return null
+		if (!locale.language || locale.language === 'und') return null
 		if (locale.language === 'zh') return locale.maximize().script === 'Hant' ? 'zh-tw' : 'zh-cn'
 		return locale.baseName.toLowerCase()
 	} catch { return null }
@@ -542,9 +543,10 @@ const pipeline_profile_eligible = (config, profile, active_host = '') => {
 }
 
 const validate_pipeline_roles = (config, warnings, errors, options = {}) => {
-	if (!check_exact_object(config['pipeline-roles'], pipeline_role_names, 'configuration.pipeline-roles', errors, warnings)) return
+	if (!check_exact_object(config['pipeline-roles'], pipeline_role_names.filter(role => role !== 'threeways'), 'configuration.pipeline-roles', errors, warnings, ['threeways'])) return
 	for (const role of pipeline_role_names) {
-		const tier = config['pipeline-roles'][role]
+		const tier = role === 'threeways' ? threeways_tier(config) : config['pipeline-roles'][role]
+		if (role === 'threeways' && tier === 'off') { errors.push('configuration.pipeline-roles.threeways: off is not supported'); continue }
 		if (tier === 'off') {
 			if (mandatory_pipeline_roles.includes(role)) warnings.push(`warning: pipeline-roles.${role}=off; the full pipeline is unavailable`)
 			continue
@@ -979,7 +981,7 @@ const canonical_config = config => ({
 		...(has_own(config.switches, 'completion-cleanup') ? { 'completion-cleanup': config.switches['completion-cleanup'] } : {}),
 		...(has_own(config.switches, 'completion-cleanup-interval-days') ? { 'completion-cleanup-interval-days': config.switches['completion-cleanup-interval-days'] } : {}),
 	},
-	'pipeline-roles': Object.fromEntries(pipeline_role_names.map(role => [role, config['pipeline-roles'][role]])),
+	'pipeline-roles': Object.fromEntries(pipeline_role_names.map(role => [role, role === 'threeways' ? threeways_tier(config) : config['pipeline-roles'][role]])),
 	'external-workers': config['external-workers'].map(profile => ({
 		id: profile.id,
 		command: [...profile.command],
@@ -1721,7 +1723,7 @@ const tier_for_role = role => {
 const configured_tier_for_role = (config, role) => {
 	const key = normalise_role(role)
 	if (!pipeline_role_names.includes(key)) return { role: key, tier: tier_for_role(role) }
-	const tier = config['pipeline-roles'][key]
+	const tier = key === 'threeways' ? threeways_tier(config) : config['pipeline-roles'][key]
 	if (tier === 'off') throw new SettingsError(`pipeline stage ${key} is disabled by pipeline-roles.${key}=off; the full pipeline is unavailable when this stage is required`, { code: 'AG_STAGE_DISABLED' })
 	return { role: key, tier }
 }
@@ -1782,18 +1784,21 @@ const resolve_worker_tier = (config, role_or_options, validation_options = {}) =
 
 const resolve_tier = (config, tier, options = {}) => resolve_worker_tier(config, { ...options, tier, role: options.role || tier }, options)
 
+const threeways_tier = config => has_own(config?.['pipeline-roles'] || {}, 'threeways') ? config['pipeline-roles'].threeways : 'better'
+
 const resolve_threeways_worker = (config, options = {}) => {
 	assert_valid_config(config, options)
 	if (options.owner_exact_model === true) throw new SettingsError('an unavailable owner-selected exact model needs an owner decision; threeways must not substitute it', { code: 'AG_THREEWAYS_EXACT_MODEL' })
+	const tier = threeways_tier(config)
 	const host_family = options.host_family || family_for_host(options.active_host || options.explicit_host || options.coordinator_host || '')
 	const available = typeof options.executable_available === 'function'
 		? options.executable_available
 		: command => executable_available(command, options)
 	const disabled = new Set(options.disabled_profile_ids instanceof Set ? options.disabled_profile_ids : Array.isArray(options.disabled_profile_ids) ? options.disabled_profile_ids : [])
 	const candidates = config['external-workers']
-		.filter(profile => profile && !disabled.has(profile.id) && profile_has_tier(profile, 'better') && available(profile.command[0]) === true)
+		.filter(profile => profile && !disabled.has(profile.id) && profile_has_tier(profile, tier) && available(profile.command[0]) === true)
 		.sort((left, right) => right.priority - left.priority)
-	if (candidates.length === 0) throw no_eligible_profile_error(config.switches['cli-provider'])
+	if (candidates.length === 0) throw new SettingsError(`No eligible external-worker profile provides threeways tier ${tier}`, { code: 'AG_DISPATCH_TIER_UNAVAILABLE' })
 	const same_family = host_family ? candidates.find(profile => profile_family(profile) === host_family) : undefined
 	const different_family = host_family && config.switches['cli-provider'] === 'on'
 		? candidates.find(profile => profile_family(profile) && profile_family(profile) !== host_family)
@@ -1802,10 +1807,10 @@ const resolve_threeways_worker = (config, options = {}) => {
 	if (!profile) throw no_eligible_profile_error(config.switches['cli-provider'])
 	const family_known = Boolean(host_family && profile_family(profile))
 	return {
-		...resolve_profile_tier(profile, 'better'),
+		...resolve_profile_tier(profile, tier),
 		stage_id: 'threeways',
 		family_diversity: !family_known ? 'unknown' : different_family ? 'different-family' : 'same-family-fallback',
-		limitation: !family_known ? 'host or worker family is unknown; family diversity cannot be established' : different_family ? undefined : 'different-family better worker unavailable or disallowed; same-family fallback recorded'
+		limitation: !family_known ? 'host or worker family is unknown; family diversity cannot be established' : different_family ? undefined : `different-family ${tier} worker unavailable or disallowed; same-family fallback recorded`
 	}
 }
 
@@ -1931,7 +1936,7 @@ const format_settings_display = (config, options = {}) => {
 		...switch_names.map(key => `- ${key}: ${switch_display_value(config, key)}`),
 		'',
 		'Pipeline roles:',
-		...pipeline_role_names.map(role => `- pipeline-roles.${role}: ${config['pipeline-roles'][role]}`),
+		...pipeline_role_names.map(role => `- pipeline-roles.${role}: ${role === 'threeways' ? threeways_tier(config) : config['pipeline-roles'][role]}`),
 		'',
 		'External worker profiles:',
 		...profiles.flatMap(profile => [
@@ -1959,6 +1964,7 @@ const format_settings_display = (config, options = {}) => {
 		'- completion-cleanup: off or on; use completion-cleanup: <value>',
 		'- completion-cleanup-interval-days: integer from 1 through 365; use completion-cleanup-interval-days: <value>',
 		'- pipeline roles: requirements, codewalk, explore, spike, spec, implementation, security-scan, acceptance, cross-check, or learn; use pipeline-roles.<stage>: off or <tier>',
+		'- pipeline-roles.threeways: optional review tier (default better); off is not supported; unavailable tiers never silently downgrade',
 		'- worker profiles: id, literal command array, priority 1 through 5, optional family, required best/better/basic/cheap tiers, and lowercase custom tiers; use <profile-id>.best: <value> or <profile-id>.<custom-tier>: <value>',
 		'- profile model/effort values: parser-valid <model>/<effort>; model family is selected separately by cli-provider',
 		'- target-doc: use the dedicated rename-target-document operation; it is not a generic atomic setting change',
@@ -2054,6 +2060,7 @@ module.exports = {
 	schema_version,
 	git_timeout_default_ms,
 	tier_names,
+	tier_name_error,
 	pipeline_role_names,
 	mandatory_pipeline_roles,
 	switch_names,
@@ -2126,6 +2133,7 @@ module.exports = {
 	resolve_worker_tier,
 	resolve_tier,
 	resolve_threeways_worker,
+	threeways_tier,
 	fallback_tiers,
 	resolve_dispatch_failure,
 	format_dispatch_substitution,

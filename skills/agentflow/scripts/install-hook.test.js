@@ -205,7 +205,7 @@ test('project install writes the pre-commit guard in a git repo, idempotently', 
 
   assert.match(written, /agentflow devlog-guard/);
   assert.match(written, /devlog-guard\.js/);
-  assert.ok(node_fs.statSync(pre_commit_path(dir)).mode & 0o100, 'the hook is executable');
+  if (process.platform !== 'win32') assert.ok(node_fs.statSync(pre_commit_path(dir)).mode & 0o100, 'the hook is executable');
 
   run(dir, ['--project', '--quiet']);
   assert.strictEqual(node_fs.readFileSync(pre_commit_path(dir), 'utf8'), written);
@@ -256,3 +256,18 @@ test('inspect lists only verified owned hooks and --off removes a stale project-
   run(dir, ['--project', '--host', 'codex', '--off', '--quiet']);
   assert.deepEqual(require('./install-hook.js').inspect({ cwd: dir, hosts: ['codex'] }), []);
 });
+
+for (const host of ['codex', 'claude']) {
+  test('equivalent double-quoted hooks preserve bytes without a backup for ' + host, () => {
+    const dir = fresh_dir();
+    const config_path = require('./install-hook.js').config_path_for(host, 'project', dir);
+    node_fs.mkdirSync(node_path.dirname(config_path), { recursive: true });
+    const command = 'node "' + node_path.join(__dirname, 'stop-hook.js') + '" --host ' + host;
+    const entry = { hooks: [{ type: 'command', command, timeout: 20 }] };
+    const bytes = JSON.stringify({ hooks: { Stop: [entry], UserPromptSubmit: [entry] }, keep: true }, null, 4) + '\n';
+    node_fs.writeFileSync(config_path, bytes);
+    require('./install-hook.js').install({ scope: 'project', hosts: [host], cwd: dir, quiet: true });
+    assert.equal(node_fs.readFileSync(config_path, 'utf8'), bytes);
+    assert.equal(node_fs.existsSync(config_path + '.agentflow-backup'), false);
+  });
+}

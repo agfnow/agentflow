@@ -91,7 +91,27 @@ test('an old empty Ask cannot be reused as proof of a newly completed round', as
   }
 })
 
-test('a completion signal cannot archive a plan without a new notebook round', async () => {
+test('Windows refuses looper state without POSIX privacy before launching a worker', { skip: process.platform !== 'win32' ? 'Windows security boundary' : false }, async () => {
+  const dir = make_temp_dir('agentflow-looper-windows-refusal')
+  const queue = path.join(dir, 'planned')
+  try {
+    fs.mkdirSync(queue)
+    fs.writeFileSync(path.join(dir, 'devlog.md'), '# → Ask / A-001\n\n+\n')
+    write_plan(queue, 'plan-001.md')
+    const fake_child = make_fake_child(dir)
+    let launched = false
+    const result = await run_looper(base_options(queue, fake_child, {}, {
+      root: dir,
+      spawn: () => { launched = true; throw Error('must not launch') },
+    }))
+    assert.notEqual(result.code, 0)
+    assert.match(result.message, /protected state directory.*permission bits/)
+    assert.equal(launched, false)
+    assert.equal(fs.existsSync(path.join(queue, 'plan-001.md')), true)
+  } finally { remove_temp_dir(dir) }
+})
+
+test('a completion signal cannot archive a plan without a new notebook round', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-notebook-proof')
   const queue = path.join(dir, 'planned')
   try {
@@ -571,7 +591,7 @@ test('queue view shows completed, active, failed, and pending plans with current
   }
 })
 
-test('visible mode stays quiet while it prints startup and plan progress', async () => {
+test('visible mode stays quiet while it prints startup and plan progress', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-visible')
   try {
     const queue = make_queue()
@@ -598,7 +618,7 @@ test('visible mode stays quiet while it prints startup and plan progress', async
   }
 })
 
-test('configured implementation model and effort are shown and passed to Codex', async (t) => {
+test('configured implementation model and effort are shown and passed to Codex', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   const dir = make_temp_dir('agentflow-looper-model')
   const queue = make_queue()
   t.after(() => { remove_temp_dir(dir); remove_temp_dir(queue) })
@@ -633,7 +653,7 @@ test('configured implementation model and effort are shown and passed to Codex',
   ])
 })
 
-test('a running plan periodically shows elapsed time and bounded latest worker detail, then stops its timer', async () => {
+test('a running plan periodically shows elapsed time and bounded latest worker detail, then stops its timer', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-milestone')
   try {
     const queue = make_queue()
@@ -662,7 +682,7 @@ test('a running plan periodically shows elapsed time and bounded latest worker d
   }
 })
 
-test('show-output pages bounded worker details without streaming them normally', async () => {
+test('show-output pages bounded worker details without streaming them normally', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-page-output')
   try {
     const queue = make_queue()
@@ -683,7 +703,7 @@ test('show-output pages bounded worker details without streaming them normally',
   }
 })
 
-test('dump saves complete stdout and stderr while default mode writes no dump', async () => {
+test('dump saves complete stdout and stderr while default mode writes no dump', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-dump')
   try {
     const root = fs.realpathSync(dir)
@@ -766,7 +786,7 @@ test('dump refuses an outside or symlinked directory before the worker starts', 
   }
 })
 
-test('failure result gives a concrete review checklist and paths', async () => {
+test('failure result gives a concrete review checklist and paths', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-recovery-message')
   try {
     const queue = make_queue()
@@ -783,7 +803,7 @@ test('failure result gives a concrete review checklist and paths', async () => {
   }
 })
 
-test('nested worker violations preserve the plan and produce a recovery warning', async () => {
+test('nested worker violations preserve the plan and produce a recovery warning', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-nested-worker')
   const queue = make_queue()
   const nested_executable = path.join(dir, 'codex')
@@ -806,7 +826,7 @@ test('nested worker violations preserve the plan and produce a recovery warning'
   }
 })
 
-test('default launch selects and preserves the literal external-workers command', async (t) => {
+test('default launch selects and preserves the literal external-workers command', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   const dir = make_temp_dir('agentflow-looper-worker-profile')
   const queue = make_queue()
   t.after(() => { remove_temp_dir(dir); remove_temp_dir(queue) })
@@ -860,7 +880,7 @@ const run_case = async (config = {}, overrides = {}) => {
   return { dir, queue, fake_child, launch_log, result }
 }
 
-test('queue discovery is exact, numeric, fresh, and ignores control files', async () => {
+test('queue discovery is exact, numeric, fresh, and ignores control files', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-order')
   try {
     const queue = make_queue()
@@ -885,7 +905,7 @@ test('queue discovery is exact, numeric, fresh, and ignores control files', asyn
   }
 })
 
-test('a generated queue derives completion and dependency authority from its frozen envelope', async () => {
+test('a generated queue derives completion and dependency authority from its frozen envelope', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-generated')
   try {
     const queue = make_queue()
@@ -913,7 +933,7 @@ test('a generated queue derives completion and dependency authority from its fro
   }
 })
 
-test('incomplete generated plans refuse the handwritten fallback before launch', async () => {
+test('incomplete generated plans refuse the handwritten fallback before launch', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-incomplete-generated')
   try {
     const queue = make_queue()
@@ -931,7 +951,7 @@ test('incomplete generated plans refuse the handwritten fallback before launch',
   }
 })
 
-test('a generated stream queue derives its worker configuration from the envelope completion path', async () => {
+test('a generated stream queue derives its worker configuration from the envelope completion path', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-generated-stream-config')
   try {
     const queue = path.join(dir, 'artifacts', 'stream', 'planned')
@@ -1004,7 +1024,7 @@ test('a generated queue refuses completion overrides and mutated or unbound plan
   }
 })
 
-test('a handwritten Codex queue binds completion to the final-message channel instead of its normal report', async () => {
+test('a handwritten Codex queue binds completion to the final-message channel instead of its normal report', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-handwritten-codex-final')
   try {
     const queue = make_queue()
@@ -1043,7 +1063,7 @@ test('a handwritten Codex queue binds completion to the final-message channel in
   }
 })
 
-test('a generated Codex queue binds completion to the final-message channel instead of streamed duplicates', async () => {
+test('a generated Codex queue binds completion to the final-message channel instead of streamed duplicates', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-generated-codex-final')
   try {
     const queue = make_queue()
@@ -1081,7 +1101,7 @@ test('a generated Codex queue binds completion to the final-message channel inst
   }
 })
 
-test('a generated Codex queue rejects invalid anonymous final-message bytes', async (t) => {
+test('a generated Codex queue rejects invalid anonymous final-message bytes', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const scenario of ['oversize', 'invalid-utf8', 'growth', 'truncation']) {
     await t.test(scenario, async () => {
       const dir = make_temp_dir(`agentflow-looper-generated-final-${scenario}`)
@@ -1145,7 +1165,7 @@ test('a generated Codex queue rejects invalid anonymous final-message bytes', as
   }
 })
 
-test('a generated Codex queue refuses reservation replacement before making the descriptor anonymous', async (t) => {
+test('a generated Codex queue refuses reservation replacement before making the descriptor anonymous', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const scenario of ['reservation replacement']) {
     await t.test(scenario, async () => {
       const dir = make_temp_dir(`agentflow-looper-generated-final-race-${scenario.replaceAll(' ', '-')}`)
@@ -1205,7 +1225,7 @@ test('a generated Codex queue refuses reservation replacement before making the 
   }
 })
 
-test('an empty queue completes without launching or moving a plan', async () => {
+test('an empty queue completes without launching or moving a plan', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-empty')
   try {
     const queue = make_queue()
@@ -1220,7 +1240,7 @@ test('an empty queue completes without launching or moving a plan', async () => 
   }
 })
 
-test('.break.txt is inert while the exact plan still completes', async () => {
+test('.break.txt is inert while the exact plan still completes', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-break-inert')
   try {
     const queue = make_queue()
@@ -1259,7 +1279,7 @@ test('a pre-existing stop blocks work', async () => {
   }
 })
 
-test('the queue rescans after each archive and accepts new lower-numbered plans', async () => {
+test('the queue rescans after each archive and accepts new lower-numbered plans', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-rescan')
   try {
     const queue = make_queue()
@@ -1279,7 +1299,7 @@ test('the queue rescans after each archive and accepts new lower-numbered plans'
   }
 })
 
-test('completion accepts chunk-split exact evidence from either stream', async (t) => {
+test('completion accepts chunk-split exact evidence from either stream', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const stream of ['stdout', 'stderr']) {
     await t.test(stream, async () => {
       const dir = make_temp_dir(`agentflow-looper-chunks-${stream}`)
@@ -1301,7 +1321,7 @@ test('completion accepts chunk-split exact evidence from either stream', async (
   }
 })
 
-test('completion failures are safe and do not start later plans', async (t) => {
+test('completion failures are safe and do not start later plans', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   const cases = [
     ['prefix and suffix', { mode: 'prefix-suffix' }, /exactly one|completion/i],
     ['line split across logical lines', { mode: 'logical-split' }, /exactly one|completion/i],
@@ -1334,7 +1354,7 @@ test('completion failures are safe and do not start later plans', async (t) => {
   }
 })
 
-test('one exact completion line copied to stdout and stderr counts as one worker completion', async () => {
+test('one exact completion line copied to stdout and stderr counts as one worker completion', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-duplicated-transport')
   try {
     const queue = make_queue()
@@ -1350,7 +1370,7 @@ test('one exact completion line copied to stdout and stderr counts as one worker
   }
 })
 
-test('a child-created stop prevents archive and all later launches without interrupting the child', async () => {
+test('a child-created stop prevents archive and all later launches without interrupting the child', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-stop-during')
   try {
     const queue = make_queue()
@@ -1369,7 +1389,7 @@ test('a child-created stop prevents archive and all later launches without inter
   }
 })
 
-test('large output retains only a bounded diagnostic tail', async () => {
+test('large output retains only a bounded diagnostic tail', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-large')
   try {
     const queue = make_queue()
@@ -1388,7 +1408,7 @@ test('large output retains only a bounded diagnostic tail', async () => {
   }
 })
 
-test('failed and uncertain output retains only the bounded diagnostic tail', async () => {
+test('failed and uncertain output retains only the bounded diagnostic tail', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-large-failure')
   try {
     const queue = make_queue()
@@ -1410,7 +1430,7 @@ test('failed and uncertain output retains only the bounded diagnostic tail', asy
   }
 })
 
-test('successful stdout and stderr are absent from the final completed record', async () => {
+test('successful stdout and stderr are absent from the final completed record', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-success-output')
   try {
     const queue = make_queue()
@@ -1429,7 +1449,7 @@ test('successful stdout and stderr are absent from the final completed record', 
   }
 })
 
-test('existing ownership is never stolen or changed', async () => {
+test('existing ownership is never stolen or changed', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-stale-lock')
   try {
     const queue = make_queue()
@@ -1449,7 +1469,7 @@ test('existing ownership is never stolen or changed', async () => {
   }
 })
 
-test('an incomplete attempt blocks recovery without launching a child', async () => {
+test('an incomplete attempt blocks recovery without launching a child', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-attempt-block')
   try {
     const queue = make_queue()
@@ -1468,7 +1488,7 @@ test('an incomplete attempt blocks recovery without launching a child', async ()
   }
 })
 
-test('--reset retires reviewed stale attempt, stop, and ownership records without running the queue', async () => {
+test('--reset retires reviewed stale attempt, stop, and ownership records without running the queue', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-reset')
   try {
     const queue = make_queue()
@@ -1505,7 +1525,7 @@ test('--reset retires reviewed stale attempt, stop, and ownership records withou
   }
 })
 
-test('--reset refuses live ownership without moving its evidence or launching work', async () => {
+test('--reset refuses live ownership without moving its evidence or launching work', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-reset-live')
   try {
     const queue = make_queue()
@@ -1529,7 +1549,7 @@ test('--reset refuses live ownership without moving its evidence or launching wo
   }
 })
 
-test('--reset keeps stop recovery inside the queue and does not inspect an unrelated done symlink', async () => {
+test('--reset keeps stop recovery inside the queue and does not inspect an unrelated done symlink', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-reset-symlink')
   try {
     const queue = make_queue()
@@ -1569,7 +1589,7 @@ test('--reset keeps stop recovery inside the queue and does not inspect an unrel
   }
 })
 
-test('a complete completed record permits only the later queued plan', async () => {
+test('a complete completed record permits only the later queued plan', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const fixture = write_completed_fixture()
   try {
     const launch_log = path.join(fixture.dir, 'launch.jsonl')
@@ -1584,7 +1604,7 @@ test('a complete completed record permits only the later queued plan', async () 
   }
 })
 
-test('attempt record pathname replacement is rejected before substituted completion can launch later work', async () => {
+test('attempt record pathname replacement is rejected before substituted completion can launch later work', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const fixture = write_attempt_replacement_fixture()
   try {
     const launch_log = path.join(fixture.dir, 'launch.jsonl')
@@ -1625,7 +1645,7 @@ test('attempt record pathname replacement is rejected before substituted complet
   }
 })
 
-test('attempt record one byte over 1 MiB stops before whole-file read or launch', async () => {
+test('attempt record one byte over 1 MiB stops before whole-file read or launch', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-attempt-over-ceiling')
   try {
     const queue = make_queue()
@@ -1682,7 +1702,7 @@ test('attempt record one byte over 1 MiB stops before whole-file read or launch'
   }
 })
 
-test('attempt record exactly 1 MiB reaches parsing without a size rejection', async () => {
+test('attempt record exactly 1 MiB reaches parsing without a size rejection', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-attempt-ceiling')
   try {
     const queue = make_queue()
@@ -1739,7 +1759,7 @@ test('attempt record exactly 1 MiB reaches parsing without a size rejection', as
   }
 })
 
-test('attempt record descriptor identity mismatch closes the descriptor and stops safely', async () => {
+test('attempt record descriptor identity mismatch closes the descriptor and stops safely', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const fixture = write_attempt_input_fixture()
   try {
     const attempt = attempt_path(fixture.queue)
@@ -1785,7 +1805,7 @@ test('attempt record descriptor identity mismatch closes the descriptor and stop
   }
 })
 
-test('attempt record growth after the descriptor read stops before parsing or launch', async () => {
+test('attempt record growth after the descriptor read stops before parsing or launch', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const fixture = write_attempt_input_fixture()
   try {
     const attempt = attempt_path(fixture.queue)
@@ -1834,7 +1854,7 @@ test('attempt record growth after the descriptor read stops before parsing or la
   }
 })
 
-test('attempt record short descriptor read stops safely and closes the descriptor', async () => {
+test('attempt record short descriptor read stops safely and closes the descriptor', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const fixture = write_attempt_input_fixture()
   try {
     const attempt = attempt_path(fixture.queue)
@@ -1875,7 +1895,7 @@ test('attempt record short descriptor read stops safely and closes the descripto
   }
 })
 
-test('attempt record close failure is conservative and does not launch work', async () => {
+test('attempt record close failure is conservative and does not launch work', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const fixture = write_attempt_input_fixture()
   try {
     const attempt = attempt_path(fixture.queue)
@@ -2033,7 +2053,7 @@ test('completed records reject noncanonical paths and every unsafe archive objec
   }
 })
 
-test('authoritative state is protected outside the repository and task tree', async (t) => {
+test('authoritative state is protected outside the repository and task tree', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const local_action of ['delete', 'replace']) {
     await t.test(local_action, async () => {
       const dir = make_temp_dir(`agentflow-looper-protected-state-${local_action}`)
@@ -2084,7 +2104,7 @@ test('unsafe authoritative state roots stop before child launch', async () => {
   }
 })
 
-test('canonical queue authority survives a task-directory symlink retarget', async () => {
+test('canonical queue authority survives a task-directory symlink retarget', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-canonical-queue')
   try {
     const root = path.join(dir, 'root')
@@ -2131,7 +2151,7 @@ test('canonical queue authority survives a task-directory symlink retarget', asy
   }
 })
 
-test('canonical queue replacement after acquisition stops before spawn', async () => {
+test('canonical queue replacement after acquisition stops before spawn', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-canonical-queue-replacement')
   try {
     const root = path.join(dir, 'root')
@@ -2162,7 +2182,7 @@ test('canonical queue replacement after acquisition stops before spawn', async (
   }
 })
 
-test('canonical root replacement after acquisition stops before spawn', async () => {
+test('canonical root replacement after acquisition stops before spawn', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-canonical-root-replacement')
   try {
     const root = path.join(dir, 'root')
@@ -2192,7 +2212,7 @@ test('canonical root replacement after acquisition stops before spawn', async ()
   }
 })
 
-test('canonical queue replacement before archive stops without moving either plan object', async () => {
+test('canonical queue replacement before archive stops without moving either plan object', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-canonical-archive-replacement')
   try {
     const queue = make_queue()
@@ -2289,7 +2309,7 @@ test('pre-existing protected state requires a real directory, matching owner, an
   })
 })
 
-test('replacing active authoritative lock or owner evidence stops without deleting the replacement', async (t) => {
+test('replacing active authoritative lock or owner evidence stops without deleting the replacement', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const target of ['owner', 'owner-token', 'lock']) {
     await t.test(target, async () => {
       const dir = make_temp_dir(`agentflow-looper-replaced-${target}`)
@@ -2329,7 +2349,7 @@ test('replacing active authoritative lock or owner evidence stops without deleti
   }
 })
 
-test('release verifies the acquiring owner and preserves a replacement', async () => {
+test('release verifies the acquiring owner and preserves a replacement', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-release-replacement')
   try {
     const queue = make_queue()
@@ -2356,7 +2376,7 @@ test('release verifies the acquiring owner and preserves a replacement', async (
   }
 })
 
-test('clean ownership release retains a verified retired owner directory', async () => {
+test('clean ownership release retains a verified retired owner directory', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-retired-owner')
   try {
     const queue = make_queue()
@@ -2377,7 +2397,7 @@ test('clean ownership release retains a verified retired owner directory', async
   }
 })
 
-test('owner release quarantines a replacement after the final verification and reports the retired path', async () => {
+test('owner release quarantines a replacement after the final verification and reports the retired path', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-retired-replacement')
   try {
     const queue = make_queue()
@@ -2405,7 +2425,7 @@ test('owner release quarantines a replacement after the final verification and r
   }
 })
 
-test('archive retains a hidden recovery hard link beside the final destination', async () => {
+test('archive retains a hidden recovery hard link beside the final destination', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-archive-recovery')
   try {
     const queue = make_queue()
@@ -2427,7 +2447,7 @@ test('archive retains a hidden recovery hard link beside the final destination',
   }
 })
 
-test('archive moves a source replacement to recovery and stops without discarding it', async () => {
+test('archive moves a source replacement to recovery and stops without discarding it', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-archive-source-replacement')
   try {
     const queue = make_queue()
@@ -2455,7 +2475,7 @@ test('archive moves a source replacement to recovery and stops without discardin
   }
 })
 
-test('archive preserves a destination replacement at the cleanup boundary', async () => {
+test('archive preserves a destination replacement at the cleanup boundary', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-archive-destination-replacement')
   try {
     const queue = make_queue()
@@ -2484,7 +2504,7 @@ test('archive preserves a destination replacement at the cleanup boundary', asyn
   }
 })
 
-test('two concurrent runners start at most one child', async () => {
+test('two concurrent runners start at most one child', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-race')
   try {
     const queue = make_queue()
@@ -2500,7 +2520,7 @@ test('two concurrent runners start at most one child', async () => {
   }
 })
 
-test('all nine lifecycle crash boundaries preserve conservative recovery', async () => {
+test('all nine lifecycle crash boundaries preserve conservative recovery', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const phases = [
     'ownership-acquired',
     'identity-recorded',
@@ -2541,7 +2561,7 @@ test('all nine lifecycle crash boundaries preserve conservative recovery', async
   }
 })
 
-test('selected plan edit, replacement, rename, and removal stop safely', async (t) => {
+test('selected plan edit, replacement, rename, and removal stop safely', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const mutation of ['edit', 'replace', 'rename', 'remove']) {
     await t.test(mutation, async () => {
       const dir = make_temp_dir(`agentflow-looper-mutation-${mutation}`)
@@ -2567,7 +2587,7 @@ test('selected plan edit, replacement, rename, and removal stop safely', async (
   }
 })
 
-test('selected plan same-content replacement and symlink substitution stop safely', async (t) => {
+test('selected plan same-content replacement and symlink substitution stop safely', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const mutation of ['same-content', 'symlink']) {
     await t.test(mutation, async () => {
       const dir = make_temp_dir(`agentflow-looper-object-${mutation}`)
@@ -2604,7 +2624,7 @@ test('selected plan same-content replacement and symlink substitution stop safel
   }
 })
 
-test('destination collision preserves both files and starts no later plan', async () => {
+test('destination collision preserves both files and starts no later plan', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-collision')
   try {
     const queue = make_queue()
@@ -2625,7 +2645,7 @@ test('destination collision preserves both files and starts no later plan', asyn
   }
 })
 
-test('injected move failure preserves the source and primary reason', async () => {
+test('injected move failure preserves the source and primary reason', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-move-failure')
   try {
     const queue = make_queue()
@@ -2647,7 +2667,7 @@ test('injected move failure preserves the source and primary reason', async () =
   }
 })
 
-test('primary failures remain visible when secondary evidence writing fails', async (t) => {
+test('primary failures remain visible when secondary evidence writing fails', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   await t.test('stop marker failure', async () => {
     const dir = make_temp_dir('agentflow-looper-secondary-stop')
     try {
@@ -2689,7 +2709,7 @@ test('primary failures remain visible when secondary evidence writing fails', as
   })
 })
 
-test('missing directories, non-directories, and unavailable executables fail concisely', async (t) => {
+test('missing directories, non-directories, and unavailable executables fail concisely', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   await t.test('missing directory', async () => {
     const dir = make_temp_dir('agentflow-looper-missing')
     try {
@@ -2794,7 +2814,7 @@ test('missing directories, non-directories, and unavailable executables fail con
   })
 })
 
-test('hostile data stays literal and does not create commands or files', async () => {
+test('hostile data stays literal and does not create commands or files', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-hostile')
   const hostile_dir = path.join(dir, 'queue ; $(touch injected)')
   try {
@@ -2832,7 +2852,7 @@ test('hostile data stays literal and does not create commands or files', async (
   }
 })
 
-test('the default child boundary is injected, ephemeral, shell-free, and fresh per plan', async () => {
+test('the default child boundary is injected, ephemeral, shell-free, and fresh per plan', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-default-spawn')
   try {
     const queue = make_queue()
@@ -2891,7 +2911,7 @@ test('the default child boundary is injected, ephemeral, shell-free, and fresh p
   }
 })
 
-test('plan hashing uses bounded descriptor reads and accepts exactly 1 MiB', async () => {
+test('plan hashing uses bounded descriptor reads and accepts exactly 1 MiB', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-plan-ceiling')
   try {
     const queue = make_queue()
@@ -2928,7 +2948,7 @@ test('plan hashing uses bounded descriptor reads and accepts exactly 1 MiB', asy
   }
 })
 
-test('a plan one byte over 1 MiB stops before spawn or whole-file read', async () => {
+test('a plan one byte over 1 MiB stops before spawn or whole-file read', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async () => {
   const dir = make_temp_dir('agentflow-looper-plan-over-ceiling')
   try {
     const queue = make_queue()
@@ -3004,7 +3024,7 @@ const wait_for_file = async (file, timeout = 5000) => {
   }
 }
 
-test('SIGINT and SIGTERM record interruption before forwarding and stop the detached fake group', async (t) => {
+test('SIGINT and SIGTERM record interruption before forwarding and stop the detached fake group', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, async (t) => {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     await t.test(signal, async () => {
       const dir = make_temp_dir(`agentflow-looper-${signal}`)

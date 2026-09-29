@@ -1,6 +1,34 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.3.3. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.3.4. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.3.4]
+
+### Fixed
+
+- Preserve equivalent installed hook commands without rewriting user settings or creating unnecessary backups (#14).
+
+- Run portable contributor tests on native Windows. Repair locale detection, physical path and notebook filename handling, provider executable recognition, shell-path matching, and CRLF release metadata validation. Keep exact published bytes and existing ownership protections (#15).
+
+- Allow historical RUN and WIP timestamps in long-running rounds while retaining fresh Reply, valid-date and future-date checks (#19).
+
+- Complete strictly scoped review-only work with truthful blocking findings. Preserve report integrity and source checks, reject unused dispatch evidence, and accept equivalent plain report stamps as a presentation variation (#20).
+
+### Changed
+
+- Include the owner's earlier review improvements: inspect the current decision with `agf review`, honor explicit self-review waivers while retaining host checks, and accept sound review records with equivalent source and verdict fields.
+
+- Clarify goal-based requirements, scope authorization and acceptance guidance, and preserve `inline-reply` behavior for `show-diff`.
+
+- Add optional `pipeline-roles.threeways` selection. Existing configurations keep `better`; `off` and unavailable requested capacity are rejected without silently lowering the tier (#18).
+
+- Update the Claude basic-tier templates to `claude-sonnet-5-5/high`, alongside Claude Opus 5.5 and the owner-selected GPT-6 template choices. Existing project profiles retain their explicit choices.
+
+- Clarify that regression tests are for contributors, not an installation requirement. Unix-only terminal and process tests skip on Windows; native Windows looper operation remains unsupported.
+
+### Verification limits
+
+- Native Windows checks verified the portability fixes. Stale model-default expectations were updated for the selected templates. Two pre-existing skill-size/wording assertions remain unresolved; this release does not claim an entirely passing regression suite or live provider verification.
 
 ## [8.3.3]
 

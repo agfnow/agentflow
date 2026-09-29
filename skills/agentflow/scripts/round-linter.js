@@ -347,7 +347,7 @@ const lint_executor_decision = (facts, options = {}) => {
 // old date must not fail a faithful reply as "too old".
 const stamp_line_pattern = /^\s*(?:\*\s*_|##\s+Progress checkpoint|##\s*\[(?:WIP|RUN)-\d+\]\s*(?:Checkpoint|Event))/;
 
-const extract_stamps = (round_text, record_text = '') => {
+const extract_stamps = (round_text, record_text = '', include_progress = true) => {
   const record_lines = new Set(record_text.split(/\r?\n/u).filter(line => /^## \[(?:WIP|RUN)-\d+\]/u.test(line)));
   const stamps = [];
   let fenced = false;
@@ -358,7 +358,7 @@ const extract_stamps = (round_text, record_text = '') => {
       continue;
     }
     const record_line = record_lines.has(line) || in_reply && /^## \[(?:WIP|RUN)-\d+\]/u.test(line);
-    if (!fenced && (record_line || /^\* _/u.test(line) || /^##\s+Progress checkpoint/u.test(line))) {
+    if (!fenced && (/^\* _/u.test(line) || include_progress && (record_line || /^##\s+Progress checkpoint/u.test(line)))) {
       stamps.push(...[...line.matchAll(stamp_pattern)].map(match => match[0]));
     }
     if (!fenced && /^(?:# ← Reply \/|## Reply \/)/u.test(line)) in_reply = true;
@@ -880,7 +880,11 @@ const lint_terminal_output = (terminal_output, inline_reply = 'off', devlog_text
 };
 
 const lint_timestamps = (devlog_text, now_ms, future_skew_min, max_age_hours) => {
-  const stamps = parse_devlog(devlog_text).stamps;
+  const parsed = parse_devlog(devlog_text);
+  const stamps = parsed.stamps;
+  // Progress is append-only history and can legitimately span several days.
+  // Reply stamps still need to be fresh; all stamps retain date/future checks.
+  const fresh_stamps = new Set(extract_stamps(parsed.last_round, '', false));
 
   if (stamps.length === 0) {
     return make_check('timestamps_sane', 'Timestamps are sane', 'pass', 'no timestamps found');
@@ -900,7 +904,7 @@ const lint_timestamps = (devlog_text, now_ms, future_skew_min, max_age_hours) =>
       reasons.push('future');
     }
 
-    if (stamp_ms < age_limit_ms) {
+    if (fresh_stamps.has(stamp) && stamp_ms < age_limit_ms) {
       reasons.push('too old');
     }
 
@@ -912,7 +916,7 @@ const lint_timestamps = (devlog_text, now_ms, future_skew_min, max_age_hours) =>
   }, []);
 
   return bad_stamps.length === 0
-    ? make_check('timestamps_sane', 'Timestamps are sane', 'pass', `${stamps.length} timestamp(s) are within the allowed window`)
+    ? make_check('timestamps_sane', 'Timestamps are sane', 'pass', `${stamps.length} timestamp(s) have valid dates and no future skew; Reply stamps are fresh`)
     : make_check('timestamps_sane', 'Timestamps are sane', 'fail', `bad timestamps: ${bad_stamps.join('; ')}`);
 };
 
@@ -1303,12 +1307,12 @@ const lint_pipeline_artifacts = pipeline => {
 
 const cross_check_review_pattern = /^Cross-check review:\s+`?([^`\r\n]+?)`?\s*$/imu;
 const cross_check_implementation_pattern = /^Cross-check implementation:\s+([0-9a-f]{40})\s*$/imu;
-const reviewed_commit_pattern = /^Reviewed implementation commit:\s+([0-9a-f]{40})\s*$/imu;
-const verdict_pattern = /^Verdict:\s+(PASS|BLOCKING)\s*$/gimu;
+const reviewed_commit_pattern = /^Reviewed (?:implementation )?commit:[ \t]*(.*?)[ \t]*$/gimu;
+const verdict_pattern = /^Verdict:[ \t]*(.*?)[ \t]*$/gimu;
 const cross_check_dimension_patterns = Object.freeze({
-  outcome: /^Outcome:\s+(PASS|BLOCKING)\s*$/gimu,
-  minimality: /^Minimality:\s+(PASS|BLOCKING)\s*$/gimu,
-  conformance: /^Conformance:\s+(PASS|BLOCKING)\s*$/gimu
+  outcome: /^Outcome:[ \t]*(.*?)[ \t]*$/gimu,
+  minimality: /^Minimality:[ \t]*(.*?)[ \t]*$/gimu,
+  conformance: /^Conformance:[ \t]*(.*?)[ \t]*$/gimu
 });
 
 const quality_gate_fields = Object.freeze([
@@ -1595,6 +1599,13 @@ const review_eligible = (file, facts = {}) => {
   return true;
 };
 
+// Deliberately bounded owner controls. Unknown prose cannot authorize this exception.
+const review_only_intent = owner_text => {
+  const lines = owner_text.split(/\r?\n/u).map(line => line.replace(/^\+ /u, '').trimEnd()).filter(line => line.trim() && line !== '---');
+  const control = /^(?:review-only|\/?3ways|\/?threeways)$/u;
+  return lines.some(line => control.test(line)) && lines.every(line => control.test(line) || /^[\t ]*target: \S[^\r\n]*$/u.test(line));
+};
+
 const lint_cross_check = (devlog_text, project_root, decision, metadata_context = {}) => {
   const last_round = parse_devlog(devlog_text).last_round;
   let presentation_warning = false;
@@ -1643,6 +1654,19 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
       review_record = JSON.parse(serialized);
       const error = require('./completion-record').validate_review_record(review_record, decision);
       if (error) throw Error(error);
+      if (review_record.purpose === 'review-only') {
+        if (!review_only_intent(round.owner_text || '')) throw Error('review-only requires unambiguous captured owner review-only intent');
+        if (!/^[a-f0-9]{40}$/u.test(decision.review_only_baseline || '') || !Array.isArray(decision.changed_files)) throw Error('review-only requires a captured Git scope baseline and collected changed paths');
+        const evidence = [review_record.report, review_record.transport?.dispatch_record].filter(Boolean);
+        if (evidence.some(file => !/\.(?:md|txt)$/u.test(file))) throw Error('review-only evidence must be a named text report or dispatch record');
+        const changed = decision.changed_files.filter(file => !(decision.record_files || []).includes(file) && !evidence.includes(file));
+        if (changed.length) throw Error(`review-only cannot deliver implementation or unrelated changes: ${changed.join(', ')}`);
+        for (const file of evidence.filter(file => decision.changed_files.includes(file))) {
+          const prior = node_child_process.spawnSync('git', ['cat-file', '-e', `${decision.review_only_baseline}:${file}`], { cwd: project_root, stdio: 'ignore', timeout: 10000 });
+          if (prior.status === 0) throw Error('review-only cannot replace an existing file with review evidence');
+          if (prior.error || prior.status === null) throw Error('review-only evidence baseline could not be checked');
+        }
+      }
       reply_fields = `Cross-check review: ${review_record.report}\nCross-check implementation: ${review_record.source.commit || '0'.repeat(40)}`;
     } catch (error) {
       return make_check('cross_check', 'Review evidence matches its policy', 'fail', error.message);
@@ -1691,31 +1715,44 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
     if (node_fs.realpathSync(report_path) !== report_path) {
       return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report resolved to a different path');
     }
-    const report = unfenced_text(node_fs.readFileSync(report_path, 'utf8'));
+    const report_bytes = node_fs.readFileSync(report_path);
+    if (review_record?.purpose === 'review-only' && require('node:crypto').createHash('sha256').update(report_bytes).digest('hex') !== review_record.report_sha256) {
+      return make_check('cross_check', 'Original review findings are preserved', 'fail', 'review-only report SHA-256 does not match its completion record');
+    }
+    const report = unfenced_text(report_bytes.toString('utf8'));
     const lines = split_artifact_lines(report);
     const self_checks = lines.filter(line => line.startsWith('Self-check:'));
-    const stamps = lines.filter(line => artifact_opening_stamp_pattern.test(line));
-    if (stamps.length !== 1 || self_checks.length !== 1 || !artifact_self_check_pattern.test(self_checks[0])) {
-      return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report does not have the required worker stamp and final Self-check boundary');
+    const stamp_match = line => artifact_opening_stamp_pattern.exec(line) || artifact_opening_stamp_pattern.exec(`* _${line}_`);
+    const stamps = lines.filter(line => stamp_match(line));
+    const stamp = stamps.length === 1 ? stamp_match(stamps[0]) : null;
+    if (!stamp || !Number.isFinite(parse_numeric_timestamp(stamp[1])) || validate_artifact_identity(stamp[2], stamp[3]).length) {
+      return make_check('cross_check', 'Review report identifies its worker', 'fail', 'external review report requires one valid timestamp and model/effort identity stamp');
     }
-    presentation_warning = lines[0] !== stamps[0] || lines[lines.length - 1] !== self_checks[0];
+    if (self_checks.length !== 1 || !artifact_self_check_pattern.test(self_checks[0])) {
+      return make_check('cross_check', 'Review report includes its self-check', 'fail', 'external review report requires exactly one nonempty Self-check boundary');
+    }
+    presentation_warning = !artifact_opening_stamp_pattern.test(stamps[0]) || lines[0] !== stamps[0] || lines[lines.length - 1] !== self_checks[0];
     const report_fields = plain_record_text(report);
-    const reviewed_matches = [...report_fields.matchAll(new RegExp(reviewed_commit_pattern.source, 'gimu'))];
+    const reviewed_matches = [...report_fields.matchAll(reviewed_commit_pattern)];
     const reviewed_match = reviewed_matches[0];
     const verdicts = [...report_fields.matchAll(verdict_pattern)].map(match => match[1].toUpperCase());
-    if (verdicts.length !== 1) {
-      return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report must contain exactly one verdict');
+    const review_only = review_record?.purpose === 'review-only';
+    if (review_only && reviewed_matches.length && review_record.transport?.dispatch_record) {
+      return make_check('cross_check', 'Review-only evidence has a verified purpose', 'fail', 'review-only cannot exempt an unused dispatch record when the report already identifies its source');
     }
-    const no_git = review_record?.source.kind === 'no-git';
-    if (verdicts[0] !== 'PASS' || (!no_git && reviewed_matches.length !== 1)) {
-      return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report must record Verdict: PASS and the reviewed 40-character implementation commit');
+    if (!review_only && (verdicts.length > 1 || (verdicts.length === 1 && verdicts[0] !== 'PASS'))) {
+      return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report has a conflicting or non-PASS overall verdict');
     }
-    for (const [dimension, pattern] of Object.entries(cross_check_dimension_patterns)) {
+    for (const [dimension, pattern] of Object.entries(review_only ? {} : cross_check_dimension_patterns)) {
       const dimension_verdicts = [...report_fields.matchAll(pattern)].map(match => match[1].toUpperCase());
       if (dimension_verdicts.length !== 1 || dimension_verdicts[0] !== 'PASS') {
         return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', `external review report must contain exactly one ${dimension[0].toUpperCase()}${dimension.slice(1)}: PASS verdict`);
       }
     }
+    if (review_only && !lines.some(line => line.trim() && !stamp_match(line) && !/^Self-check:|^Reviewed (?:implementation )?commit:|^Verdict:|^Consensus:|^Outcome:|^Minimality:|^Conformance:/u.test(line))) {
+      return make_check('cross_check', 'Review report has substantive content', 'fail', 'review-only report has no review findings or explanation');
+    }
+    const no_git = review_record?.source.kind === 'no-git';
     if (no_git) {
       if (require('./repository-state').detect(root).state !== 'plain') throw Error('no-Git review cannot replace Git source evidence');
       const identity = require('./completion-record').verify_review_files(root, review_record.source);
@@ -1723,7 +1760,34 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
       if (reviewed_matches.length || identities.length !== 1 || identities[0][1] !== identity) throw Error('review report does not match the declared no-Git source');
       return make_check('cross_check', 'Review evidence matches its policy', 'pass', `${review_record.kind === 'host-review' ? 'host review' : review_record.kind} passed for the current declared file digests; ${review_record.limitations.join('; ')}`);
     }
-    if (reviewed_match[1] !== implementation_match[1]) {
+    if (reviewed_matches.length > 1) {
+      return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report must name at most one reviewed implementation commit');
+    }
+    if (reviewed_match && !/^[0-9a-f]{40}$/iu.test(reviewed_match[1])) {
+      return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report has an invalid reviewed implementation commit');
+    }
+    let reviewed_commit = reviewed_match?.[1];
+    let dispatch_record;
+    if (!reviewed_commit) {
+      const relative_dispatch = review_record?.kind !== 'host-review' && review_record?.transport?.dispatch_record;
+      if (typeof relative_dispatch !== 'string' || !relative_dispatch.trim()) {
+        return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'report has no reviewed commit; a separate review dispatch record is required');
+      }
+      dispatch_record = node_path.resolve(root, relative_dispatch);
+      if (node_path.isAbsolute(relative_dispatch) || dispatch_record === root || !dispatch_record.startsWith(root + node_path.sep) || !relative_dispatch.split(/[\\/]/u).some(part => part.startsWith(ask_id + '-'))) {
+        return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'review dispatch record must belong to the current Ask inside the repository');
+      }
+      const dispatch_stat = node_fs.lstatSync(dispatch_record);
+      if (!dispatch_stat.isFile() || dispatch_stat.isSymbolicLink() || dispatch_stat.size === 0 || dispatch_stat.size > max_artifact_bytes || node_fs.realpathSync(dispatch_record) !== dispatch_record) {
+        return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'review dispatch record must be one bounded regular non-symlink file');
+      }
+      const targets = [...plain_record_text(node_fs.readFileSync(dispatch_record, 'utf8')).matchAll(/^Review target commit:[ \t]*(.*?)[ \t]*$/gimu)];
+      if (targets.length !== 1 || !/^[0-9a-f]{40}$/iu.test(targets[0][1])) {
+        return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'review dispatch record must name exactly one target commit');
+      }
+      reviewed_commit = targets[0][1];
+    }
+    if (reviewed_commit !== implementation_match[1]) {
       return make_check('cross_check', 'Requested implementation has an external cross-check', 'fail', 'external review report commit does not match the round\'s final implementation commit');
     }
     const git = args => node_child_process.execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000, maxBuffer: 4 * 1024 * 1024 });
@@ -1736,7 +1800,7 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
       const working = [...git(['diff', '--name-only', '-z', 'HEAD', '--']).split('\0'), ...git(['ls-files', '--others', '--exclude-standard', '-z']).split('\0')]
         .filter(file => !ignored_working.has(file));
       const changed = [...new Set([...committed, ...working])].filter(Boolean);
-      const stale = changed.filter(file => file !== relative_path && review_eligible(file, { ...decision, bootstrap_files: [] }));
+      const stale = changed.filter(file => file !== relative_path && (!dispatch_record || node_path.resolve(root, file) !== dispatch_record) && review_eligible(file, { ...decision, bootstrap_files: [] }));
       if (stale.length) return make_check('cross_check', 'Reviewed source is current', 'fail', `unreviewed changes after the review target: ${stale.join(', ')}`);
     } catch {
       return make_check('cross_check', 'Reviewed source is current', 'fail', 'review target must be an existing ancestor commit with available current Git evidence');
@@ -1745,7 +1809,7 @@ const lint_cross_check = (devlog_text, project_root, decision, metadata_context 
     return make_check('cross_check', 'Requested implementation has a review', 'fail', `review report or source is unavailable: ${error.message}`);
   }
 
-  if (review_record) return make_check('cross_check', 'Review evidence matches its policy', presentation_warning ? 'warn' : 'pass', `${review_record.kind === 'host-review' ? 'host review' : review_record.kind} passed for the current implementation; ${review_record.limitations.join('; ')}`);
+  if (review_record) return make_check('cross_check', 'Review evidence matches its policy', presentation_warning ? 'warn' : 'pass', `${review_record.purpose === 'review-only' ? 'review completed; product findings preserved without implementation acceptance' : `${review_record.kind === 'host-review' ? 'host review' : review_record.kind} passed for the current implementation`}; ${review_record.limitations.join('; ')}`);
   return make_check('cross_check', 'Requested implementation has an external cross-check', presentation_warning ? 'warn' : 'pass', `${relative_path} records a PASS verdict for a named implementation commit; ${presentation_warning ? 'stamp or Self-check placement is presentation only' : 'pipeline acceptance may supply this same report'}`);
 };
 

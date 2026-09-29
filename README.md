@@ -1,4 +1,4 @@
-# Agentflow v8.3.3
+# Agentflow v8.3.4
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -79,6 +79,12 @@ node "$HOME/.claude/skills/agentflow/scripts/setup.js"
 ```
 
 </details>
+
+## Windows and contributor tests
+
+- Installation does not require running the regression suite. Contributors can find the test commands in the [script reference](skills/agentflow/scripts/README.md).
+
+- Portable core tests are verified on native Windows with Node.js 24. Tests requiring Unix terminals or process controls are explicitly skipped. The background looper is not supported on native Windows.
 
 ## Read next
 

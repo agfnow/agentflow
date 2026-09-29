@@ -16,7 +16,7 @@ ownership_fixture.configure();
 
 const tracker_path = '.agentflow/artifacts/A-001-local/tracker.md';
 const fixture = t => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-git-optional-')));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-git-optional-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.dirname(path.join(root, tracker_path)), { recursive: true });
   const config = settings.make_template('codex');
@@ -82,6 +82,7 @@ test('plain-folder local closeout succeeds without invented commits and retries 
 const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const initialize_git = root => {
   git(root, ['init', '-q', '-b', 'main']);
+  for (const [key, value] of [['core.autocrlf', 'false'], ['core.safecrlf', 'false'], ['core.eol', 'lf']]) git(root, ['config', key, value]);
   git(root, ['config', 'user.name', 'Local Test']);
   git(root, ['config', 'user.email', 'local@example.invalid']);
 };
@@ -234,10 +235,7 @@ test('filesystem-native metadata lookup protects mixed-case Git directories and 
 
 test('unexpected Git failures and environment overrides cannot manufacture a plain folder', t => {
   const f = fixture(t);
-  const bin = path.join(f.root, 'bin');
-  fs.mkdirSync(bin);
-  fs.writeFileSync(path.join(bin, 'git'), `#!${process.execPath}\nprocess.stderr.write('fatal: unexpected failure'); process.exit(128);\n`, { mode: 0o755 });
-  for (const env of [{ ...process.env, PATH: bin }, { ...process.env, GIT_DIR: path.join(f.root, 'absent') }]) {
+  for (const env of [{ ...process.env, GIT_DIR: path.join(f.root, 'absent') }]) {
     const result = f.run('tracker-contract.js', ['validate', '--repo', f.root, '--tracker', tracker_path], undefined, env);
     assert.notEqual(result.status, 0);
     assert.match(result.stdout + result.stderr, /Cannot determine repository state/);
@@ -246,7 +244,22 @@ test('unexpected Git failures and environment overrides cannot manufacture a pla
   assert.equal(detect(f.root).state, 'error');
 });
 
-for (const mode of ['plain', 'git']) test(`${mode} tracked completion has a real PTY journey`, t => {
+test('unexpected Git failure from a Unix executable fixture cannot manufacture a plain folder', { skip: process.platform === 'win32' ? 'requires a Unix executable shebang fixture' : false }, t => {
+  const f = fixture(t);
+  const bin = path.join(f.root, 'bin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'git'), `#!${process.execPath}\nprocess.stderr.write('fatal: unexpected failure'); process.exit(128);\n`, { mode: 0o755 });
+  const result = f.run('tracker-contract.js', ['validate', '--repo', f.root, '--tracker', tracker_path], undefined, { ...process.env, PATH: bin });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Cannot determine repository state/);
+});
+
+const pty_skip = process.platform === 'win32' || !['/usr/bin/expect', '/bin/sh', 'tty', 'tee'].every(command => {
+  const files = command.includes('/') ? [command] : (process.env.PATH || '').split(path.delimiter).map(directory => path.join(directory, command));
+  return files.some(file => { try { fs.accessSync(file, fs.constants.X_OK); return fs.statSync(file).isFile(); } catch { return false; } });
+}) ? 'requires Unix Expect, /bin/sh, tty and tee for the PTY fixture' : false;
+
+for (const mode of ['plain', 'git']) test(`${mode} tracked completion has a real PTY journey`, { skip: pty_skip }, t => {
   const f = fixture(t);
   if (mode === 'git') {
     initialize_git(f.root);

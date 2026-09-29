@@ -660,7 +660,7 @@ node_test.test('stop-hook checkpoint recovery does not create a separate runlog'
 node_test.test('explicit natural review waivers pass the round linter and both stop hosts', () => {
   const { collect } = require('./completion-context.js');
   const { lint_round } = require('./round-linter.js');
-  for (const instruction of ['skip review', 'Please skip the final review.', 'no review', 'stop the reviewer and continue', 'cancel the background reviewer and finish', 'skip-review', 'skip ag pipeline, stream and cross-check', 'Implement the fix. **skip ag pipeline, stream and cross-check, never over-egnieering**']) {
+  for (const instruction of ['skip review', 'Please skip the final review.', 'no review', 'review it yourself,', 'stop the reviewer and review it yourself', 'stop the reviewer and continue', 'cancel the background reviewer and finish', 'skip-review', 'skip ag pipeline, stream and cross-check', 'Implement the fix. **skip ag pipeline, stream and cross-check, never over-egnieering**']) {
     const project = make_skip_review_project('app.js', 'module.exports = true;\n');
     const file = node_path.join(project, '.agentflow/devlog.md');
     const text = node_fs.readFileSync(file, 'utf8').replace('+ skip-review: owner accepts no independent review for this change', `+ ${instruction}`);
@@ -680,7 +680,7 @@ node_test.test('review discussion, negation, and quoted examples do not waive re
   const { collect } = require('./completion-context.js');
   const project = make_skip_review_project('app.js', 'module.exports = true;\n');
   const original = node_fs.readFileSync(node_path.join(project, '.agentflow/devlog.md'), 'utf8');
-  for (const instruction of ['do not skip review', 'should we skip review?', 'if user wants to skip review, let them', '> skip review', 'skip review if tests pass', 'override it']) {
+  for (const instruction of ['do not skip review', 'should we skip review?', 'if user wants to skip review, let them', '> skip review', 'skip review if tests pass', 'for example: review it yourself', 'should you review it yourself?', 'override it']) {
     const text = original.replace('+ skip-review: owner accepts no independent review for this change', `+ ${instruction}`);
     const facts = collect({ project_root: project, notebook_path: '.agentflow/devlog.md', devlog_text: text });
     node_assert.equal(facts.review_decision.status, 'required', instruction);

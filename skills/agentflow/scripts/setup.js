@@ -224,7 +224,7 @@ const function_blocks = (shell, content, name) => {
     if (close === null) continue
     const finish = start + close.index + close[0].length
     const text = content.slice(start, finish)
-    blocks.push({ start, finish, text, managed: /\/skills\/agentflow\/scripts\/(?:agf|looper)\.js/u.test(text) })
+    blocks.push({ start, finish, text, managed: /\/skills\/agentflow\/scripts\/(?:agf|looper)\.js/u.test(process.platform === 'win32' ? text.replaceAll('\\', '/') : text) })
   }
   return blocks
 }

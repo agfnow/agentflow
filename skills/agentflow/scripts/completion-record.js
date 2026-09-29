@@ -284,7 +284,13 @@ const validate_review_record = (record, policy = {}) => {
   if (!allowed.includes(kind)) return `review executor ${kind} is not permitted`
   if (!text(record.reviewer) || !text(record.host) || !text(record.report)) return 'review needs reviewer, host and report identities'
   if (!Array.isArray(record.limitations) || !record.limitations.every(text)) return 'review limitations must be an explicit list'
-  if (!object(record.verdicts) || !['outcome', 'minimality', 'conformance'].every(key => record.verdicts[key] === 'PASS')) return 'review requires Outcome, Minimality and Conformance PASS'
+  if (record.purpose !== undefined && !['implementation', 'review-only'].includes(record.purpose)) return 'review purpose must be implementation or review-only'
+  if (record.purpose === 'review-only') {
+    if (record.completion !== 'complete') return 'review-only requires completed review work'
+    if (!/^[a-f0-9]{64}$/u.test(record.report_sha256 || '')) return 'review-only requires the original report SHA-256'
+    if (record.verdicts !== undefined) return 'review-only preserves findings in the report, without implementation verdict summaries'
+    if (record.source?.kind !== 'git') return 'review-only requires a captured Git scope baseline'
+  } else if (!object(record.verdicts) || !['outcome', 'minimality', 'conformance'].every(key => record.verdicts[key] === 'PASS')) return 'review requires Outcome, Minimality and Conformance PASS'
   const independence = record.independence
   if (!object(independence) || typeof independence.separate_reviewer !== 'boolean'
       || !['shared', 'fresh', 'unknown'].includes(independence.context)

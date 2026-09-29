@@ -78,7 +78,7 @@ test('a watermark updated before lock acquisition suppresses a duplicate sweep',
   try {
     fs.openSync = (file, ...args) => {
       const fd = original(file, ...args)
-      if (String(file).endsWith('/completion-cleanup.lock')) fs.writeFileSync(state, JSON.stringify({ version: 1, notebooks: { [f.options.notebook_path]: now } }))
+      if (path.basename(String(file)) === 'completion-cleanup.lock') fs.writeFileSync(state, JSON.stringify({ version: 1, notebooks: { [f.options.notebook_path]: now } }))
       return fd
     }
     const result = sweep_completion_records({ ...f.options, trash: () => { throw Error('duplicate sweep') } })
@@ -86,7 +86,7 @@ test('a watermark updated before lock acquisition suppresses a duplicate sweep',
   } finally { fs.openSync = original }
 })
 
-test('ordinary Stop schedules cleanup, while prompt capture and corrective Stop preserve records', () => {
+test('ordinary Stop schedules cleanup, while prompt capture and corrective Stop preserve records', { skip: process.platform === 'win32' ? 'Requires an executable Unix trash shim' : false }, () => {
   const cp = require('node:child_process')
   for (const event of ['Stop', 'UserPromptSubmit', 'corrective']) {
     const f = fixture()

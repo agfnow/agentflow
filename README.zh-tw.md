@@ -1,4 +1,4 @@
-# Agentflow v8.3.3
+# Agentflow v8.3.4
 
 [English](README.md) · **繁體中文**
 
@@ -63,6 +63,12 @@ godev
 ## 檢查安裝
 
 請 agent 執行 `agf setup`；如果指令捷徑已可使用，也能直接在終端機執行。`agf setup --fix` 會先備份 shell 設定，再補上缺少的捷徑。選用的協作助理無法使用，不一定代表安裝失敗。安裝專案 hooks 後，若收到重新啟動提醒，照做即可。
+
+## Windows 與貢獻者測試
+
+- 安裝時不需要執行迴歸測試。貢獻者可在[腳本說明](skills/agentflow/scripts/README.md)查看測試指令。
+
+- 可跨平台的核心測試已在原生 Windows 搭配 Node.js 24 驗證。需要 Unix 終端或行程控制的測試會明確略過；背景 looper 尚不支援原生 Windows。
 
 ## 接著看
 

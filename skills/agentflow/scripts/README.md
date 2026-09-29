@@ -168,8 +168,14 @@ numbers, integers, strings, and arrays must retain their declared JSON types.
 
 ## Tests
 
+These tests are for contributors validating development changes. Installing or using Agentflow does not require running the developer test suite. Platform-independent tests run on native Windows. Tests that execute Unix shell/shebang fixtures, require FIFO or open-file replacement semantics, inspect Unix process tables, or use PTY tools skip with an explicit reason where those facilities are unavailable. The looper currently requires POSIX private file modes and process containment; its dependent integration tests skip on Windows, while a Windows test verifies refusal before launching a worker. These skips do not establish native Windows looper support. The private development checkout verifies Windows with Node 24 through `.github/workflows/windows-tests.yml`; its full result remains visible, including unrelated baseline failures.
+
 Run from `skills/agentflow/scripts`:
 
 ```text
 node --test *.test.js
 ```
+
+- **`threeways-tier-journey.js`** — run `node threeways-tier-journey.js` in a real terminal/PTY to verify the optional 3ways tier setting, legacy read compatibility, unchanged other roles, visible settings output, and rejection of `off`. Uses a temporary configuration and makes no model calls.
+
+- `node review-only-journey.js` in a real terminal verifies truthful review-only closeout and the stop hook using synthetic reviewer evidence, including rejection of a later product change. No model calls are made.

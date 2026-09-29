@@ -338,7 +338,7 @@ test('native notebook aliases select adjacent custom-workspace configuration bef
     fs.writeFileSync(path.join(root, 'records/ag.json'), JSON.stringify(config));
     const owner = require('./notebook-owner');
     const first = locked_notebook(root, target, current => current.guard({ root, notebook: target, host: 'portable', session: 'A' }));
-    assert.match(first.file, /\.runtime\/\.tmp\//u);
+    assert.match(first.file, /\.runtime[\\/]\.tmp[\\/]/u);
     assert.equal(owner.location({ root, notebook: alias }).file, first.file);
     const before = state(root);
     assert.throws(() => writer.append_input({ root, notebook: alias, host: 'portable', session: 'B', text: 'foreign custom alias' }), /belongs to portable session A/u);
@@ -425,7 +425,7 @@ test('same-owner rename migrates active ownership in a custom workspace and reje
   assert.deepEqual(state(root), before);
   settings.rename_target_document({ repo_root: root, old_notebook: from, new_notebook: to, active_host: 'portable', session: 'A' });
   assert.equal(owner.inspect({ root, notebook: to }).owner.session, 'A');
-  assert.match(owner.location({ root, notebook: to }).file, /\.runtime\/\.tmp/u);
+  assert.match(owner.location({ root, notebook: to }).file, /\.runtime[\\/]\.tmp/u);
   assert.equal(writer.append_input({ root, notebook: to, host: 'portable', session: 'A', text: 'continue after rename' }).inserted, true);
   assert.throws(() => writer.append_input({ root, notebook: to, host: 'portable', session: 'B', text: 'foreign after rename' }), /belongs to portable session A/u);
   assert.match(fs.readFileSync(path.join(root, from), 'utf8'), /^Moved to:/u);

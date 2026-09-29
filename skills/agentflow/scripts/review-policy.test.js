@@ -91,6 +91,51 @@ test('new review evidence retains exact current Git source and report checks', (
   assert.equal(lint_cross_check(f.round(), f.root, f.decision).status, 'fail');
 });
 
+test('review reports accept the equivalent commit label and an implied overall PASS', () => {
+  const f = fixture();
+  const report = `* _2026-09-19 15:30:00 +0800 (fixture/unknown)_\n\nReviewed commit: ${f.record.source.commit}\n\nOutcome: PASS\n\nMinimality: PASS\n\nConformance: PASS\n\nSelf-check: inspected the named commit.\n`;
+  f.write(f.record.report, report);
+  assert.equal(lint_cross_check(f.round(), f.root, f.decision).status, 'pass');
+  for (const invalid of [
+    report.replace('Conformance: PASS', 'Conformance: BLOCKING'),
+    report.replace('Conformance: PASS', 'Conformance: PASS\n\nConformance: PASS'),
+    report.replace('Self-check:', 'Verdict: BLOCKING\n\nSelf-check:'),
+    report.replace('Self-check:', 'Verdict:\n\nSelf-check:'),
+    report.replace('Outcome: PASS', 'Outcome: PASS\n\nOutcome: FAIL'),
+    report.replace('Reviewed commit:', `Reviewed implementation commit: ${'f'.repeat(40)}\n\nReviewed commit:`),
+    report.replace('Reviewed commit:', 'Reviewed commit: invalid\n\nReviewed commit:'),
+    report.replace(`Reviewed commit: ${f.record.source.commit}`, 'Reviewed commit:'),
+  ]) {
+    f.write(f.record.report, invalid);
+    assert.equal(lint_cross_check(f.round(), f.root, f.decision).status, 'fail', invalid);
+  }
+});
+
+test('a missing report commit needs a separate recorded dispatch target and a host-attributed review record', () => {
+  const f = fixture();
+  const dispatch = '.agentflow/artifacts/A-001-review/dispatch.md';
+  const native = {
+    ...f.record,
+    kind: 'native-review',
+    reviewer: 'native-thread-7',
+    transport: { tool: 'spawn_agent', handle: 'native-thread-7', dispatch_record: dispatch },
+    independence: { ...f.record.independence, separate_reviewer: true },
+  };
+  const report = `* _2026-09-19 15:30:00 +0800 (fixture/unknown)_\n\nOutcome: PASS\n\nMinimality: PASS\n\nConformance: PASS\n\nSelf-check: inspected the dispatched source.\n`;
+  f.write(f.record.report, report);
+  assert.equal(lint_cross_check(f.round(native), f.root, f.decision).status, 'fail');
+  f.write(dispatch, `Review target commit: ${f.record.source.commit}\n`);
+  assert.equal(lint_cross_check(f.round(native), f.root, f.decision).status, 'pass');
+  f.write(dispatch, `Review target commit: ${f.record.source.commit}\nReview target commit: ${'f'.repeat(40)}\n`);
+  assert.equal(lint_cross_check(f.round(native), f.root, f.decision).status, 'fail');
+  f.write(dispatch, `Review target commit: ${f.record.source.commit}\nReview target commit: invalid\n`);
+  assert.equal(lint_cross_check(f.round(native), f.root, f.decision).status, 'fail');
+  f.write(dispatch, `Review target commit: ${f.record.source.commit}\n`);
+  assert.equal(lint_cross_check(f.round({ ...native, transport: { tool: 'spawn_agent', handle: 'native-thread-7' } }), f.root, f.decision).status, 'fail');
+  assert.equal(lint_cross_check(f.round({ ...native, transport: { ...native.transport, dispatch_record: path.join(f.root, dispatch) } }), f.root, f.decision).status, 'fail');
+  assert.equal(lint_cross_check(f.round(), f.root, f.decision).status, 'fail');
+});
+
 test('no-Git review binds declared file digests and never invents a commit', () => {
   const f = fixture(false);
   assert.equal(lint_cross_check(f.round(), f.root, f.decision).status, 'pass');

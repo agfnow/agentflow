@@ -16,6 +16,9 @@ const fixture = () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agf-ask-names-'));
   execFileSync('git', ['init', '-q', root]);
   execFileSync('git', ['-C', root, 'config', 'user.name', 'Named Owner']);
+  execFileSync('git', ['-C', root, 'config', 'user.email', 'names@example.invalid']);
+  execFileSync('git', ['-C', root, 'config', 'core.autocrlf', 'false']);
+  fs.writeFileSync(path.join(root, '.git/info/attributes'), '.agentflow/devlog.md -text\n');
   const initialized = settings.initialize_project({ repo_root: root, active_host: 'codex' });
   return { root, ...initialized };
 };
