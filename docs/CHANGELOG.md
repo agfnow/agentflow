@@ -1,6 +1,18 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.1. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.2. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.2]
+
+### Changed
+
+- Update the Codex worker defaults in both host templates: `best` uses `gpt-6-astra/medium`, `better` uses `gpt-6.1-sol/high`, `basic` uses `gpt-6.1-sol/low`, and `cheap` uses `gpt-6-luna/high`. Existing project profiles remain unchanged.
+
+- Require sub-lists for details in the concise writing guidance, while retaining its clarity, evidence and document-format rules.
+
+### Verification
+
+- Align existing settings assertions with the owner-selected defaults. Separate review was explicitly waived for this release; retain host inspection, relevant settings/routing checks and release verification.
 
 ## [8.4.1]
 

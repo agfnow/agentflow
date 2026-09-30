@@ -6,7 +6,7 @@
 
 ## Concise list style
 
-- Keep the body list-based: one result, incident, reason, decision, evidence item, or next action per bullet; connected sentences may explain the same idea. Clarity and completeness outrank brevity.
+- Keep the body list-based: one result, incident, reason, decision, evidence item, or next action per bullet. Use sub-list NOT connected sentences to explain the same idea. Clarity and completeness outrank brevity.
 
 - Lead with the concrete result or action. Bold only short scan cues, never whole sentences. Number ordered steps, with necessary detail in nested bullets.
 

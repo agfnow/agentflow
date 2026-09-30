@@ -189,9 +189,9 @@ const host_template_values = {
         family: 'codex',
         tiers: {
           "best": "gpt-6-astra/medium",
-					"better": "gpt-6-sol/xhigh",
-					"basic": "gpt-6-luna/max",
-					"cheap": "gpt-6-luna/low"
+					"better": "gpt-6.1-sol/high",
+					"basic": "gpt-6.1-sol/low",
+					"cheap": "gpt-6-luna/high"
         },
       },
       {
@@ -249,9 +249,9 @@ const host_template_values = {
         family: 'codex',
         tiers: {
           "best": "gpt-6-astra/medium",
-					"better": "gpt-6-sol/xhigh",
-					"basic": "gpt-6-luna/max",
-					"cheap": "gpt-6-luna/low"
+					"better": "gpt-6.1-sol/high",
+					"basic": "gpt-6.1-sol/low",
+					"cheap": "gpt-6-luna/high"
         },
       },
     ],
