@@ -16,9 +16,9 @@ Agentflow gives your AI assistant a project notebook. It keeps what you asked fo
 
 You need a host with file and command tools, Node.js 18 or newer, and enough session state to retain the notebook round. Codex and Claude have verified integrations; other hosts use the portable core and are not automatically named as live integrations. Git is needed for version history, separate feature workspaces, and some installation methods. Your working folder can still use the notebook without being a Git repository; Agentflow will not create a repository for you.
 
-Each active notebook round belongs to one session. Another session stops before changing its prompts or progress, even when streams are off. Generic hosts must retain a unique `--session <id>` and pass it with their `--host <id>` to startup, capture, progress and closeout; a new independent session uses a new ID. Native hosts use their current session identity, or explicitly pass it when the shell does not provide it.
+`notebook-ownership: on` makes each active notebook round belong to one session. Another session stops before changing its prompts or progress, even when streams are off. This optional switch defaults to `off`, including when absent: sessions can then mix messages, decisions and replies in one round. File locks, safe paths, current-round checks and stream routing still apply, and existing ownership records are preserved. Use on when a notebook may be shared; no noticeable startup speed gain has been proven. Generic hosts must retain a unique `--session <id>` and pass it with their `--host <id>` to startup, capture, progress and closeout; a new independent session uses a new ID. Native hosts use their current session identity, or explicitly pass it when the shell does not provide it.
 
-If you fill in the next Ask after its predecessor completes, asking Agentflow to activate or resume claims it during startup when that immediate predecessor has released ownership. No extra confirmation is needed. An old unresolved notebook without that release record, or a handoff from an actively owned Ask, uses `agf owner inspect --notebook <path>`, then `agf owner adopt --notebook <path> --ask <A-NNN> --expect <token|unowned> --sha256 <hash> --host <host> --session <id>` with the inspected values and your takeover authorization. Agentflow does not automatically take ownership from an idle or stopped session.
+With ownership on, if you fill in the next Ask after its predecessor completes, asking Agentflow to activate or resume claims it during startup when that immediate predecessor has released ownership. No extra confirmation is needed. An old unresolved notebook without that release record, or a handoff from an actively owned Ask, uses `agf owner inspect --notebook <path>`, then `agf owner adopt --notebook <path> --ask <A-NNN> --expect <token|unowned> --sha256 <hash> --host <host> --session <id>` with the inspected values and your takeover authorization. Agentflow does not automatically take ownership from an idle or stopped session. Turning ownership back on can require this explicit recovery when retained records no longer match the open round.
 
 Install the skill from a terminal:
 
@@ -115,6 +115,8 @@ You can normally describe the task and let the assistant choose. These controls 
 - **See a plan first:** “Make a plan and let me review it before implementation.” The assistant saves a plan and waits at that checkpoint.
 
 - **Challenge a plan:** `threeways` or `3ways` asks for one independent critique and the main assistant’s response. It does not approve implementation. Set `pipeline-roles.threeways: best` to change this review alone; the optional setting defaults to `better`, rejects `off`, and reports unavailable capacity instead of silently lowering the tier.
+
+- **Review without changing the product:** Use `review-only, reviewer 用 codex` with a separate `godev` and `target: <commit or range>` if needed. Supported reviewer choices are codex or claude, using `reviewer: ...` or `reviewer 用 ...` on a separate line or after a comma. The exact continuation `authorize takeover and continue the review` (or `授權接管並繼續審查`) is also recognized. A finished review can close with BLOCKING or UNRESOLVED findings; that records the review as complete, without accepting the product. Unknown prose, quoted controls and mixed implementation requests do not qualify. Captured Git scope, source identity, report integrity and required reviewer independence remain checked.
 
 - **Review finished work:** Add `cross-check` to request a separate read-only reviewer. “Fix the settings validation, then cross-check the result” is an example.
 
@@ -213,6 +215,8 @@ Type `settings` to see the active values and available choices. To change one, s
 - **Routine answers:** `auto-reply: on|off` controls safe default answers.
 
 - **Progress records:** `log-verbosity: off|wip|all` defaults to `all`. For example, `log-verbosity: wip` keeps checkpoints while omitting future RUN entries.
+
+- **Notebook ownership:** `notebook-ownership: on|off` defaults to `off`. On protects a round from other sessions; off skips ownership checks and metadata changes but keeps physical file safety. Change it with `notebook-ownership: on` or `notebook-ownership: off`. A change during an in-flight write stops that write.
 
 - **Reply display:** `inline-reply: on|off` defaults to `off`. For example, `inline-reply: on` displays the saved normal Reply after successful closeout or delivery; `off` keeps the path-updated acknowledgement. This switch is independent of `log-verbosity`.
 

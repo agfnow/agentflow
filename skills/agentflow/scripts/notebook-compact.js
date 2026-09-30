@@ -55,7 +55,7 @@ const verify_archive = (file, original) => {
   if (!same(current, original)) throw Error('archive identity changed before publication');
 };
 
-const publish_archive = ({ file, original, additions, notebook_file, notebook }) => {
+const publish_archive = ({ file, original, additions, notebook_file, notebook, ownership }) => {
   const temporary = `${file}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`;
   let fd, renamed = false;
   const hash = crypto.createHash('sha256');
@@ -73,6 +73,7 @@ const publish_archive = ({ file, original, additions, notebook_file, notebook })
     if (writer.read_regular_file(temporary, 'archive', () => {}).hash !== expected) throw Error('archive copy verification failed');
     verify_archive(file, original);
     writer.verify_notebook_unchanged(notebook_file, notebook);
+    require('./notebook-owner').verify(ownership);
     fs.renameSync(temporary, file); renamed = true;
     const saved = archive_index(file);
     if (saved.hash !== expected) throw Error('published archive verification failed; live notebook retained');
@@ -84,7 +85,7 @@ const publish_archive = ({ file, original, additions, notebook_file, notebook })
 };
 
 // Caller holds the notebook lock and has checked session ownership.
-const compact_locked = ({ root, notebook, original, force = false, include_answered = false }) => {
+const compact_locked = ({ root, notebook, original, ownership, force = false, include_answered = false }) => {
   notebook = require('./notebook-owner').location({ root, notebook }).notebook;
   const result = { notebook, archive: archive_path_for_notebook(notebook), rounds: [], snapshot: original };
   if (!force && original.content.length < 768 * 1024 && (original.text.match(/\n/gu) || []).length <= 1000) return result;
@@ -135,7 +136,7 @@ const compact_locked = ({ root, notebook, original, force = false, include_answe
     result.rounds.push(proof);
   }
   if (additions.length && prior && !prior.ends_line) throw Error('archive does not end at a line boundary; live notebook retained');
-  const saved = additions.length ? publish_archive({ file: archive, original: prior, additions, notebook_file: file, notebook: original }) : prior;
+  const saved = additions.length ? publish_archive({ file: archive, original: prior, additions, notebook_file: file, notebook: original, ownership }) : prior;
   for (const proof of result.rounds) {
     const copy = saved.rounds.get(proof.id);
     if (!copy || copy.bytes !== proof.bytes || copy.sha256 !== proof.sha256) throw Error(`archive verification failed for ${proof.id}; live notebook retained`);
@@ -146,6 +147,7 @@ const compact_locked = ({ root, notebook, original, force = false, include_answe
   const candidate = Buffer.from(prefix + original.text.slice(selected.at(-1).end));
   writer.verify_notebook_unchanged(file, original);
   verify_archive(archive, saved);
+  require('./notebook-owner').verify(ownership);
   writer.atomic_replace(file, candidate, original.mode);
   result.snapshot = writer.read_regular_file(file, 'notebook');
   if (!result.snapshot.content.equals(candidate)) throw Error('compacted notebook verification failed');
@@ -159,8 +161,8 @@ const compact = ({ root = process.cwd(), notebook, host, session, include_answer
   const lock = writer.acquire_close_round_lock(`${file}.close-round.lock`);
   try {
     const original = writer.read_regular_file(file, 'notebook');
-    require('./notebook-owner').guard({ root, notebook, text: original.text, host, session });
-    const { snapshot, ...result } = compact_locked({ root, notebook, original, force: true, include_answered });
+    const ownership = require('./notebook-owner').guard({ root, notebook, text: original.text, host, session });
+    const { snapshot, ...result } = compact_locked({ root, notebook, original, ownership, force: true, include_answered });
     return { ...result, bytes_before: original.content.length, bytes_after: snapshot.content.length };
   } finally { writer.release_close_round_lock(lock); }
 };

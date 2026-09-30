@@ -135,7 +135,7 @@ const recorded_notebook = (root, workspace, notebook) => {
   return notebook;
 };
 
-const location = ({ root = process.cwd(), notebook, workspace: selected_workspace }) => {
+const location = ({ root = process.cwd(), notebook, workspace: selected_workspace, record_aware }) => {
   root = filesystem_spelling(fs.realpathSync(root));
   safe_path(root, notebook);
   notebook = canonical_relative(root, notebook);
@@ -148,9 +148,11 @@ const location = ({ root = process.cwd(), notebook, workspace: selected_workspac
   }
   if (typeof workspace !== 'string' || settings.workspace_dir_errors(workspace, root).length) fail('configured workspace is invalid');
   workspace = canonical_relative(root, workspace);
-  notebook = recorded_notebook(root, workspace, notebook);
+  const policy = settings.read_notebook_controls(root, notebook)['notebook-ownership'];
+  if (record_aware === true || (record_aware !== false && policy === 'on')) notebook = recorded_notebook(root, workspace, notebook);
+  if (record_aware !== true && policy === 'off') return { root, notebook, workspace, policy };
   const relative = path.posix.join(workspace, '.tmp', `agentflow-owner-${crypto.createHash('sha256').update(path_key(notebook)).digest('hex')}.json`);
-  return { root, notebook, workspace, relative, file: safe_path(root, relative) };
+  return { root, notebook, workspace, relative, file: safe_path(root, relative), policy };
 };
 
 const read = info => {
@@ -210,14 +212,21 @@ const guard = ({ root = process.cwd(), notebook, text, host, session, ask, works
   const parsed = rounds(text);
   const current = parsed.at(-1);
   if (!current || !/^A-\d{3}$/u.test(current.id)) fail('notebook has no unambiguous current Ask');
-  const record = read(info);
-  if (record?.state === 'moved') fail(`notebook moved to ${record.moved_to}; use its current notebook path`);
+  const policy = require('./ag-settings').read_notebook_controls(info.root, info.notebook)['notebook-ownership'];
+  if (policy !== info.policy) fail('ownership policy changed during the guard');
   const target = ask || current.id;
   const closed_target = allow_closed && parsed.some(round => round.id === target && round.reply_text.trim());
+  if (policy === 'off') {
+    if (target !== current.id && !closed_target) fail('requested Ask is no longer the current round');
+    if (current.reply_text.trim()) fail('completed current Ask is immutable');
+    return { root: info.root, notebook: info.notebook, workspace: info.workspace, policy, ask: target, identity: who, allow_missing, allow_closed };
+  }
+  const record = read(info);
+  if (record?.state === 'moved') fail(`notebook moved to ${record.moved_to}; use its current notebook path`);
   if (record && record.ask === target && (record.state === 'active' || closed_target)) {
     if (record.host !== who.host || record.session !== who.session) fail(`${notebook} ${record.ask} belongs to ${record.host} session ${record.session}; ${recovery(info, current, record, text)}`);
     if (target !== current.id && !closed_target) fail('requested Ask is no longer the current round');
-    return { ...info, record, identity: who };
+    return { ...info, record, identity: who, policy, ask: target };
   }
   if (record?.state === 'active') fail(`${notebook} ${record.ask} is still owned; ${recovery(info, current, record, text)}`);
   const predecessor = parsed.at(-2);
@@ -230,14 +239,27 @@ const guard = ({ root = process.cwd(), notebook, text, host, session, ask, works
   if (record && !parsed.some(round => round.id === record.ask && round.reply_text.trim())) fail('released owner does not match a completed notebook round');
   const claimed = { version: 1, root: info.root, notebook: info.notebook, ask: current.id, ...who, token: crypto.randomBytes(16).toString('hex'), state: 'active' };
   save(info, claimed);
-  return { ...info, record: claimed, identity: who };
+  return { ...info, record: claimed, identity: who, policy, ask: target };
 };
 
 const verify = (context, target = {}) => {
-  if (!context?.record) fail('guarded owner context is required');
+  if (!context || !['on', 'off'].includes(context.policy) || !context.identity || !/^A-\d{3}$/u.test(context.ask)) fail('guarded owner context is required');
+  if (require('./ag-settings').read_notebook_controls(context.root, context.notebook)['notebook-ownership'] !== context.policy) fail('ownership policy changed after the guard; retry from the current notebook');
   if (target.root !== undefined && path_key(filesystem_spelling(fs.realpathSync(target.root))) !== path_key(context.root)) fail('owner context belongs to another checkout, notebook or Ask');
   if (target.notebook !== undefined && !same_notebook(context.root, target.notebook, context.notebook)) fail('owner context belongs to another checkout, notebook or Ask');
-  if (target.ask !== undefined && target.ask !== context.record.ask) fail('owner context belongs to another checkout, notebook or Ask');
+  if (target.ask !== undefined && target.ask !== context.ask) fail('owner context belongs to another checkout, notebook or Ask');
+  if (context.policy === 'off') {
+    const file = safe_path(context.root, context.notebook);
+    if (fs.existsSync(file)) {
+      const parsed = rounds(writer().read_regular_file(file, 'notebook').text);
+      const current = parsed.at(-1);
+      const completed = parsed.at(-2);
+      if (current?.id !== context.ask && !((context.allow_closed || target.completed === true) && completed?.id === context.ask && completed.reply_text.trim() && current?.id === `A-${String(Number(context.ask.slice(2)) + 1).padStart(3, '0')}` && ['', '+'].includes(current.ask_text.trim()))) fail('current Ask changed after the guard');
+      if (target.active === true && current?.id === context.ask && current.reply_text.trim()) fail('completed Ask cannot authorize another mutation');
+    } else if (!context.allow_missing) fail('guarded notebook is missing');
+    return context;
+  }
+  if (!context.record) fail('guarded owner record is required');
   const current = read(context);
   if (!current || current.token !== context.record.token || current.host !== context.identity.host || current.session !== context.identity.session || current.ask !== context.record.ask || current.state !== context.record.state) fail('owner changed after the guard; retry from the current notebook');
   if (target.active === true && current.state !== 'active') fail('completed ownership cannot authorize another mutation');
@@ -245,34 +267,43 @@ const verify = (context, target = {}) => {
 };
 
 const release = (context, text) => {
-  const current = verify(context);
+  const current = verify(context, { completed: true });
   if (current.state === 'released') return;
   const parsed = rounds(text);
-  const index = parsed.findIndex(round => round.id === current.ask);
-  if (index < 0 || !parsed[index].reply_text.trim() || index !== parsed.length - 2 || parsed.at(-1).id !== `A-${String(Number(current.ask.slice(2)) + 1).padStart(3, '0')}` || parsed.at(-1).reply_text.trim() || !['', '+'].includes(parsed.at(-1).ask_text.trim())) fail('release requires the completed owned Ask and the next empty scaffold');
-  save(context, { ...current, state: 'released' });
+  const index = parsed.findIndex(round => round.id === context.ask);
+  if (index < 0 || !parsed[index].reply_text.trim() || index !== parsed.length - 2 || parsed.at(-1).id !== `A-${String(Number(context.ask.slice(2)) + 1).padStart(3, '0')}` || parsed.at(-1).reply_text.trim() || !['', '+'].includes(parsed.at(-1).ask_text.trim())) fail('release requires the completed owned Ask and the next empty scaffold');
+  if (context.policy === 'on') save(context, { ...current, state: 'released' });
 };
 
 // Both notebook path locks are held by the dedicated rename operation.
 const relocate = (context, notebook) => {
+  // The notebook move precedes the configuration move. Verify the source
+  // policy here; the rename caller verifies the destination after config moves.
+  if (context.policy === 'off') {
+    verify({ ...context, allow_missing: true });
+    const destination = location({ root: context.root, notebook, workspace: context.workspace, record_aware: false });
+    const current = rounds(writer().read_regular_file(safe_path(destination.root, destination.notebook), 'notebook').text).at(-1);
+    if (current?.id !== context.ask || current.reply_text.trim()) fail('current Ask changed during rename');
+    return { root: destination.root, notebook: destination.notebook, workspace: destination.workspace, policy: context.policy, ask: context.ask, identity: context.identity, allow_missing: false, allow_closed: context.allow_closed };
+  }
   const record = verify(context);
-  const destination = location({ root: context.root, notebook, workspace: context.workspace });
+  const destination = location({ root: context.root, notebook, workspace: context.workspace, record_aware: true });
   if (read(destination)) fail('rename destination already has ownership metadata; inspect it before recovery');
   const next = { ...record, notebook: destination.notebook, token: crypto.randomBytes(16).toString('hex') };
   save(destination, next);
   save(context, { ...record, state: 'moved', moved_to: destination.notebook });
-  return { ...destination, record: next, identity: context.identity };
+  return { ...destination, record: next, identity: context.identity, policy: context.policy, ask: context.ask };
 };
 
 const inspect = ({ root = process.cwd(), notebook }) => {
-  const info = location({ root, notebook });
+  const info = location({ root, notebook, record_aware: true });
   const snapshot = writer().read_regular_file(safe_path(info.root, info.notebook), 'notebook');
   return { notebook: info.notebook, ask: rounds(snapshot.text).at(-1)?.id, sha256: snapshot.hash, owner: read(info) };
 };
 
 const transfer = ({ root = process.cwd(), notebook, host, session, ask, expected, sha256 }) => {
   const who = identity({ host, session });
-  const info = location({ root, notebook });
+  const info = location({ root, notebook, record_aware: true });
   const snapshot = writer().read_regular_file(safe_path(info.root, info.notebook), 'notebook');
   const record = read(info);
   const current = rounds(snapshot.text).at(-1);

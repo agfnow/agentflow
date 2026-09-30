@@ -1,5 +1,7 @@
 'use strict'
 
+const on_template = host => { const config = require('./ag-settings').make_template(host); config.switches['notebook-ownership'] = 'on'; return config; };
+
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -18,6 +20,8 @@ const fixture = () => {
   const state_root = make_temp_directory('.agf-looper-owner-state-')
   const tasks_dir = path.join(root, 'planned')
   const notebook = 'devlog.md'
+  const config = on_template('portable'); config.switches['target-doc'] = notebook;
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
   fs.mkdirSync(tasks_dir)
   fs.writeFileSync(path.join(tasks_dir, 'plan-001.md'), '# Plan\n\nComplete one notebook round.\n')
   fs.writeFileSync(path.join(root, notebook), '# → Ask / A-001\n\n+\n')
@@ -39,7 +43,7 @@ const attempt = f => JSON.parse(fs.readFileSync(path.join(f.state, '.looper-atte
 
 test('standalone refuses a notebook owned by another session before launching or changing notebook evidence', async () => {
   const f = fixture()
-  const config = settings.make_template('codex')
+  const config = on_template('codex')
   config['schema-version'] = 7
   config.switches['target-doc'] = f.notebook
   const config_before = JSON.stringify(config)
@@ -133,7 +137,7 @@ const selection = {
   host: { id: 'portable' }, task: { role: 'implementation', interactive_host: true, executor_choice: { kind: 'host', reason: 'fixture' } },
   capabilities: { host: { candidate_id: 'host:fixture', available: true } },
 }
-const interactive_options = f => ({ ...f.options, host: 'portable', session: 'interactive', worker_config: settings.make_template('codex'), selection_facts: selection })
+const interactive_options = f => ({ ...f.options, host: 'portable', session: 'interactive', worker_config: on_template('codex'), selection_facts: selection })
 const execution = c => ({ record_version: 1, task_id: c.task.name, attempt_id: c.owner_token, candidate_id: c.selection.candidate_id,
   kind: 'host', role: 'implementation', source_identity: c.source_identity, requested: {}, actual: { model: 'unknown', effort: 'unknown' }, state: 'completed',
   outputs: { completion_line: 'devlog.md updated' }, changed_paths: ['devlog.md'],
@@ -157,7 +161,7 @@ test('interactive host uses its retained identity and accepts an already verifie
   const f = fixture()
   const status = { project: 'test', notebook: f.notebook, notebook_kind: 'root', current_commit: 'implementation pending', tests_scenarios: 'focused tests',
     config_path: 'ag.json', host: 'portable', validation: 'validated', proven: 'host completion checked', open: 'none', next: 'await owner', artifacts: 'none', archived_eras: 'none', streams: [] }
-  fs.writeFileSync(path.join(f.root, 'ag.json'), JSON.stringify(settings.make_template('portable')) + '\n')
+  fs.writeFileSync(path.join(f.root, 'ag.json'), JSON.stringify({ ...on_template('portable'), switches: { ...on_template('portable').switches, 'target-doc': f.notebook } }) + '\n')
   fs.writeFileSync(path.join(f.root, f.notebook), `${settings.format_status(status)}---\n\n# → Ask / A-001 (Jeremy Lu)\n\n+\n`)
   const c = looper.claim_host_plan(interactive_options(f))
   assert.equal(c.notebook_ownership.host, 'portable')
@@ -220,4 +224,21 @@ test('interactive named headings still require exactly one complete round', { sk
   assert.throws(() => looper.finish_host_plan(c, execution(c)), /exactly one/)
   assert.equal(inspect(f).owner.state, 'active')
   assert.equal(fs.existsSync(path.join(f.tasks_dir, 'done', 'plan-001.md')), false)
+})
+
+test('off interactive continuation completes its exact round and preserves retained foreign owner metadata', { skip: process.platform === 'win32' ? 'Requires POSIX private file modes and process containment; Windows looper support is not implemented' : false }, () => {
+  const f = fixture()
+  const previous = claim(f, 'previous')
+  const bytes = fs.readFileSync(previous.file)
+  const config = JSON.parse(fs.readFileSync(path.join(f.root, 'ag.json')))
+  config.switches['notebook-ownership'] = 'off'
+  fs.writeFileSync(path.join(f.root, 'ag.json'), JSON.stringify(config))
+  const c = looper.claim_host_plan(interactive_options(f))
+  assert.equal(c.notebook_ownership.policy, 'off')
+  assert.equal(c.notebook_ownership.record, undefined)
+  assert.equal(c.notebook_ownership.token, undefined)
+  complete(f)
+  assert.equal(looper.finish_host_plan(c, execution(c)).completed, true)
+  assert.deepEqual(fs.readFileSync(previous.file), bytes)
+  assert.equal(fs.existsSync(path.join(f.tasks_dir, 'done', 'plan-001.md')), true)
 })

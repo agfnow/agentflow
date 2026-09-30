@@ -21,6 +21,9 @@ const fixture = () => {
   git(root, ['init', '-q', '-b', 'main']);
   git(root, ['config', 'user.name', 'Fixture']);
   git(root, ['config', 'user.email', 'fixture@example.invalid']);
+  assert.equal(start(root, 'bootstrap').status, 0);
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'ag.json'))); config.switches['notebook-ownership'] = 'on';
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
   const initialized = start(root, 'bootstrap');
   assert.equal(initialized.status, 0, initialized.stderr);
   git(root, ['add', '.']);

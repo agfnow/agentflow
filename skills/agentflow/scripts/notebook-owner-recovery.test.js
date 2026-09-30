@@ -16,6 +16,9 @@ const locked = (root, action) => {
 };
 const fixture = () => {
   const root = temporary('agf-owner-resume-');
+  assert.equal(start(root, 'bootstrap').status, 0);
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'ag.json'))); config.switches['notebook-ownership'] = 'on';
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
   const result = start(root, 'previous', 'earlier request');
   assert.equal(result.status, 0, result.stderr);
   const file = path.join(root, notebook);

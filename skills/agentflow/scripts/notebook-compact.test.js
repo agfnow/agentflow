@@ -31,7 +31,7 @@ const fixture = (history = '', open = '+ current request\n') => {
 const closed = (id, text = 'finished') => `# → Ask / ${id}\n\n+ request\n\n# ← Reply / ${id}\n\n${text}\n\n## Questions\n\n- None.\n\n---\n\n`;
 const compact = (f, options = {}) => {
   const lock = writer.acquire_close_round_lock(f.file + '.close-round.lock');
-  try { return require('./notebook-compact').compact_locked({ root: f.root, notebook: f.notebook, original: writer.read_regular_file(f.file, 'notebook'), force: true, ...options }); }
+  try { return require('./notebook-compact').compact_locked({ root: f.root, notebook: f.notebook, original: writer.read_regular_file(f.file, 'notebook'), ownership: require('./notebook-owner').guard({ root: f.root, notebook: f.notebook, host: 'codex', session }), force: true, ...options }); }
   finally { writer.release_close_round_lock(lock); }
 };
 

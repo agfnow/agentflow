@@ -1,6 +1,24 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.3.4. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.0. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.0]
+
+### Added
+
+- Make notebook ownership optional with `notebook-ownership: on|off`, default off in new templates and when absent. On retains session protection; off preserves owner records and file safety but permits sessions to mix work. Enable it for shared notebooks; a noticeable startup speed improvement has not been proven.
+
+### Fixed
+
+- Recognize the supported review-only activation, reviewer selection and exact takeover continuations. Completed reviews retain truthful BLOCKING or UNRESOLVED findings while source, delivered-scope, report-integrity and independence checks remain enforced. Quoted, unknown and mixed implementation instructions remain rejected.
+
+- Refuse notebook rename publication when source or destination settings change during the operation, preserving the changed policy instead of overwriting it.
+
+### Documentation and verification
+
+- Update current settings, user guides, script reference, release pages and feature lessons for both changes. Configuration schema remains version 8; explicit project settings are preserved.
+
+- Reuse the accepted implementation's focused tests, real terminal journeys and independent defensive/acceptance review. Native Windows execution of these new changes and a noticeable startup speed gain remain unproven. The prior release's two pre-existing skill-size/wording assertions remain unresolved; no entirely passing full-suite claim is made.
 
 ## [8.3.4]
 

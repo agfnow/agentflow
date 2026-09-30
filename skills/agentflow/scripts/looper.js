@@ -420,7 +420,7 @@ const reserve_notebook_round = (context, identity) => {
       throw looper_error('notebook ownership: plan launch requires an empty current Ask; finish or explicitly recover the unresolved round first')
     const held = notebook_owner.guard({ root: location.root, notebook: location.notebook, text,
       ...(identity || { host: 'looper', session: context.owner_token }) })
-    context.notebook_ownership = held.record
+    context.notebook_ownership = held.policy === 'off' ? held : held.record
     return notebook_round_state(text)
   })
 }
@@ -428,8 +428,12 @@ const reserve_notebook_round = (context, identity) => {
 const verify_notebook_owner = (context, location, allow_released = false) => {
   const saved = context.notebook_ownership
   if (!saved) throw looper_error('notebook ownership reservation is missing from the attempt')
+  if (saved.policy === 'off') {
+    notebook_owner.verify(saved, { root: context.root, notebook: context.completion_path, active: !allow_released, completed: allow_released })
+    return saved
+  }
   const current = notebook_owner.read(location)
-  const held = { ...location, identity: { host: saved.host, session: saved.session },
+  const held = { ...location, policy: 'on', ask: saved.ask, identity: { host: saved.host, session: saved.session },
     record: { ...saved, state: allow_released && current?.state === 'released' ? 'released' : 'active' } }
   notebook_owner.verify(held, { root: context.root, notebook: context.completion_path, active: !allow_released })
   return held
@@ -1261,7 +1265,7 @@ const build_prompt = (context, task) => {
       root: context.root,
     }))
   const reservation = context.notebook_ownership
-  const ownership_note = reservation ? `\n\nThe controller reserved ${context.completion_path} ${reservation.ask} for host ${reservation.host}, session ${reservation.session}, token ${reservation.token}. Before editing that notebook, read its ownership record at ${notebook_owner.location({ root: context.root, notebook: context.completion_path }).relative} and confirm this exact active owner. Use this retained host/session for any notebook writer call. Leave ownership release to the controller; stop if the owner has changed.` : ''
+  const ownership_note = reservation?.policy === 'off' ? `\n\nNotebook session ownership is disabled. Use host ${reservation.identity.host}, session ${reservation.identity.session} when writing ${reservation.notebook} ${reservation.ask}. Stop if its notebook target, current Ask, or ownership policy changes. Leave completion checks to the controller.` : reservation ? `\n\nThe controller reserved ${context.completion_path} ${reservation.ask} for host ${reservation.host}, session ${reservation.session}, token ${reservation.token}. Before editing that notebook, read its ownership record at ${notebook_owner.location({ root: context.root, notebook: context.completion_path }).relative} and confirm this exact active owner. Use this retained host/session for any notebook writer call. Leave ownership release to the controller; stop if the owner has changed.` : ''
   const request = `Execute the frozen plan directly: ${relative_task}\n\nYou are the plan worker already launched by agf-looper. Execute the named plan directly and complete the product work yourself. Do not invoke agf-looper or start another plan worker. Do not invoke Agentflow, codex, claude, another model CLI, a subagent, a delegate, or an independent review process. Complete the Agentflow notebook record for this plan. A completed round must contain its exact \`# ← Reply / A-NNN\` heading and must end with the next sequential scaffold in exactly this form, including the bare plus line: \`# → Ask / A-NNN\n\n+\`. Do not treat a summary, final report, commit, or bare completion signal as a completed notebook round without the Reply heading and that full next-Ask scaffold. When the plan and its record are safely complete, your entire final response must be exactly: ${context.completion_line}${ownership_note}`
   if (!context.generated_queue_authority) return request
   return `${request}\n\nThis frozen plan is owned by looper. Execute the plan's product and record work only. Do not move, rename, delete, or archive the plan or any other file under ${context.tasks_dir}; do not create queue control markers. Leave queue transitions to looper after your exact final completion response.`

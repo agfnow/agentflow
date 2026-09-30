@@ -252,9 +252,11 @@ const publish_reply = (reply, options) => {
   if (bytes.length > MAX_BYTES) throw Error('completion record is oversized')
   if (!prior || prior.hash !== digest(bytes)) {
     if (options.read_only) throw Error('completion records unavailable for retry')
+    require('./notebook-owner').verify(options.ownership, { root: options.project_root, notebook: options.notebook_path, ask: options.ask, active: true });
     safe_path(info.root, info.relative, true)
     const ignore = safe_path(info.root, path.posix.join(info.workspace, '.tmp', '.gitignore'))
     if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, '*\n', { flag: 'wx', mode: 0o600 })
+    require('./notebook-owner').verify(options.ownership, { root: options.project_root, notebook: options.notebook_path, ask: options.ask, active: true });
     writer().atomic_replace(info.file, bytes, 0o600)
   }
   const hash = digest(bytes)
@@ -262,6 +264,7 @@ const publish_reply = (reply, options) => {
   const reference = { version: 1, sha256: hash, reply_sha256: reply_digest(published) }
   if (encode(reference) !== encode(prior_reference)) {
     if (options.read_only) throw Error('completion reference unavailable for retry')
+    require('./notebook-owner').verify(options.ownership, { root: options.project_root, notebook: options.notebook_path, ask: options.ask, active: true });
     writer().atomic_replace(info.reference_file, Buffer.from(encode(reference)), 0o600)
   }
   const verified_reference = read_reference(info)

@@ -36,7 +36,9 @@ const run = (file, args, input, expected = 0) => {
   assert.equal(child.status, expected, child.error?.message);
   return child;
 };
-run('notebook-write.js', ['append-input', '--host', 'codex', '--notebook', notebook, '--input-stdin'], '3ways');
+run('notebook-write.js', ['append-input', '--host', 'codex', '--notebook', notebook, '--input-stdin'], 'godev\nreview-only, reviewer 用 codex\ntarget: ' + target + ' ~ HEAD');
+run('notebook-write.js', ['append-input', '--host', 'codex', '--notebook', notebook, '--input-stdin'], '授權接管並繼續審查');
+assert.equal(git(['remote']), '', 'The review fixture must have no remote');
 const record = {
   version: 1, kind: 'native-review', purpose: 'review-only', completion: 'complete',
   reviewer: 'synthetic-reviewer', host: 'codex', source: { kind: 'git', commit: target }, report,
@@ -61,6 +63,9 @@ assert.match(saved, /product has a blocking defect/);
 assert.match(saved, /# → Ask \/ A-002/);
 assert.doesNotMatch(saved, /Review record:/);
 assert.equal(git(['status', '--porcelain']), '');
+assert.equal(git(['diff', target, 'HEAD', '--', 'product.js']), '');
+console.log('Git delivery commit: ' + git(['rev-parse', 'HEAD']));
+console.log('Git status after close: clean; product unchanged; no remote.');
 run('stop-hook.js', ['--host', 'codex'], JSON.stringify({ cwd: root, hook_event_name: 'Stop', stop_hook_active: false }));
 fs.writeFileSync(path.join(root, 'product.js'), 'module.exports = true;\n');
 const rejected = run('stop-hook.js', ['--host', 'codex'], JSON.stringify({ cwd: root, hook_event_name: 'Stop', stop_hook_active: false }), 2);
@@ -69,5 +74,8 @@ fs.writeFileSync(path.join(root, 'product.js'), 'module.exports = false;\n');
 fs.writeFileSync(path.join(root, report), report_text.replace('Verdict: BLOCKING', 'Verdict: PASS'));
 const tampered = run('stop-hook.js', ['--host', 'codex'], JSON.stringify({ cwd: root, hook_event_name: 'Stop', stop_hook_active: false }), 2);
 assert.match(tampered.stderr, /SHA-256/);
-console.log('PASS: truthful review closed and persisted, unchanged report, stop-hook agreed, later product change refused.');
+fs.writeFileSync(path.join(root, report), report_text);
+assert.equal(git(['status', '--porcelain']), '');
+assert.equal(fs.readFileSync(path.join(root, report), 'utf8'), report_text);
+console.log('PASS: reported review command and continuation closed truthful BLOCKING findings, unchanged report, stop-hook agreed, later product/report changes refused, final Git state clean.');
 console.log('Fixture retained: ' + root);

@@ -554,6 +554,7 @@ const close_round = ({ root = process.cwd(), notebook: notebook_path, input, hos
     });
     const blocking = candidate_result.checks.filter(check => check.status === 'fail');
     if (blocking.length > 0) fail(`candidate completion check failed: ${blocking.map(check => `${check.id}: ${check.detail}`).join('; ')}`);
+    notebook_owner.verify(ownership, { root: repository_root, notebook: notebook_path, ask: document.ask, active: true });
     atomic_replace(notebook_file, prepared.candidate, notebook.mode);
     notebook_owner.release(ownership, read_regular_file(notebook_file, 'notebook').text);
   } finally {
@@ -861,7 +862,7 @@ const append_input = ({ root = process.cwd(), notebook: notebook_path, text, mes
     host = ownership.identity.host;
     // Preserve the stored filename when an owner submits a case or short-name alias.
     file = resolve_path(ownership.root, ownership.notebook, 'notebook');
-    original = require('./notebook-compact').compact_locked({ root: repository_root, notebook: notebook_path, original, force: false }).snapshot;
+    original = require('./notebook-compact').compact_locked({ root: repository_root, notebook: notebook_path, original, ownership, force: false }).snapshot;
     const round = parse_devlog(original.text).rounds.at(-1);
     if (!round || round.reply_text.trim()) fail('owner input requires a current open Ask');
     if (/^\/?godev$/iu.test(text.trim())) return { notebook: notebook_path, ask: round.id, inserted: false, reason: 'activation_only' };
@@ -901,6 +902,7 @@ const append_input = ({ root = process.cwd(), notebook: notebook_path, text, mes
       receipts.data.entries[id] = { start: parse_devlog(candidate).rounds.at(-1).ask_text.lastIndexOf(listed), length: listed.length };
       atomic_replace(receipts.file, Buffer.from(JSON.stringify(receipts.data) + '\n'), 0o600);
     }
+    notebook_owner.verify(ownership, { root: repository_root, notebook: notebook_path, ask: round.id, active: true });
     atomic_replace(file, Buffer.from(candidate.endsWith('\n') ? candidate : candidate + '\n'), original.mode);
     return { notebook: notebook_path, ask: round.id, inserted: true, reason: 'owner_input_saved' };
   } finally { release_close_round_lock(lock); }
@@ -933,7 +935,8 @@ const append_wip = ({ root = process.cwd(), notebook: notebook_path, ask, input:
   try {
     lock_descriptor = acquire_lock(lock_path);
     verify_notebook_unchanged(notebook_file, notebook);
-    notebook_owner.guard({ root: repository_root, notebook: notebook_path, text: notebook.text, ask, host, session });
+    const ownership = notebook_owner.guard({ root: repository_root, notebook: notebook_path, text: notebook.text, ask, host, session });
+    notebook_owner.verify(ownership, { root: repository_root, notebook: notebook_path, ask, active: true });
     atomic_replace(notebook_file, candidate, notebook.mode);
     if (!input_stdin) consume_unchanged_draft(draft_file, draft);
   } finally {
@@ -969,7 +972,8 @@ const append_run = ({ root = process.cwd(), notebook: notebook_path, ask, input:
   try {
     lock_descriptor = acquire_lock(lock_path);
     verify_notebook_unchanged(notebook_file, notebook);
-    notebook_owner.guard({ root: repository_root, notebook: notebook_path, text: notebook.text, ask, host, session });
+    const ownership = notebook_owner.guard({ root: repository_root, notebook: notebook_path, text: notebook.text, ask, host, session });
+    notebook_owner.verify(ownership, { root: repository_root, notebook: notebook_path, ask, active: true });
     atomic_replace(notebook_file, candidate, notebook.mode);
     if (!input_stdin) consume_unchanged_draft(draft_file, draft);
   } finally {
@@ -1038,6 +1042,7 @@ const append_reply = ({ root = process.cwd(), notebook: notebook_path, ask, inpu
     });
     const blocking = candidate_result.checks.filter(check => check.status === 'fail');
     if (blocking.length > 0) fail(`candidate completion check failed: ${blocking.map(check => `${check.id}: ${check.detail}`).join('; ')}`);
+    notebook_owner.verify(ownership, { root: repository_root, notebook: notebook_path, ask, active: true });
     atomic_replace(notebook_file, candidate, notebook.mode);
     notebook_owner.release(ownership, read_regular_file(notebook_file, 'notebook').text);
     if (!input_stdin) consume_unchanged_draft(draft_file, draft);

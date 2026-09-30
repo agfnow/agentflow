@@ -16,9 +16,9 @@ Agentflow 幫你的 AI 助理準備一本專案筆記。你交代的事情、做
 
 你需要具備檔案、指令和狀態保存能力的助理，以及 Node.js 18 或更新版本。Codex 和 Claude 有已驗證的整合；其他助理使用 通用核心流程，不會自動宣稱是已驗證的產品整合。要保留 Git 版本紀錄、建立獨立的功能工作區，或使用某些安裝方式時，才需要 Git。一般資料夾即使還不是 Git 儲存庫，也能使用專案筆記；Agentflow 不會自行幫你建立儲存庫。
 
-每個進行中的筆記回合只由一個工作階段寫入。另一個工作階段會在修改需求或進度前停止，即使 streams 已關閉也一樣。通用助理必須保留唯一的 `--session <id>`，並在啟動、記錄輸入、寫入進度和完成回合時，與 `--host <id>` 一起傳入；新的獨立工作階段要使用新的 ID。原生助理使用目前工作階段的身分；指令環境沒有提供時，需明確傳入該身分。
+`notebook-ownership: on` 讓每個進行中的筆記回合只由一個工作階段寫入；另一個工作階段會在修改需求或進度前停止，即使 streams 已關閉也一樣。這個選用開關預設為 `off`，省略時也一樣：不同工作階段可能將訊息、決策和回覆混在同一回合。檔案鎖、安全路徑、目前回合檢查和功能工作區的筆記路由仍保留，既有所有權紀錄不會改動。若可能共用筆記，建議開啟；目前沒有證據顯示關閉後啟動會明顯加快。通用助理必須保留唯一的 `--session <id>`，並在啟動、記錄輸入、寫入進度和完成回合時，與 `--host <id>` 一起傳入；新的獨立工作階段要使用新的 ID。原生助理使用目前工作階段的身分；指令環境沒有提供時，需明確傳入該身分。
 
-若上一回合已完成並釋放所有權，你先填好下一個連號 Ask，再要求 Agentflow 啟動或繼續，啟動程序就會取得該 Ask 的所有權，不必再次確認。沒有這項釋放紀錄的舊版未完成筆記，或仍由其他工作階段持有的 Ask，則先執行 `agf owner inspect --notebook <path>`，再依你的接手授權執行 `agf owner adopt --notebook <path> --ask <A-NNN> --expect <token|unowned> --sha256 <hash> --host <host> --session <id>`，填入剛查到的值。既有授權即可，不必重問；Agentflow 不會因閒置時間或程序停止而自動接手。
+所有權檢查開啟時，若上一回合已完成並釋放所有權，你先填好下一個連號 Ask，再要求 Agentflow 啟動或繼續，啟動程序就會取得該 Ask 的所有權，不必再次確認。沒有這項釋放紀錄的舊版未完成筆記，或仍由其他工作階段持有的 Ask，則先執行 `agf owner inspect --notebook <path>`，再依你的接手授權執行 `agf owner adopt --notebook <path> --ask <A-NNN> --expect <token|unowned> --sha256 <hash> --host <host> --session <id>`，填入剛查到的值。既有授權即可，不必重問；Agentflow 不會因閒置時間或程序停止而自動接手。重新開啟檢查時，若保留的紀錄與目前回合不符，也可能需要這項明確的接手程序。
 
 在終端機輸入以下指令，安裝 skill：
 
@@ -98,6 +98,8 @@ godev
 - **先看計畫：** 「先做一份計畫，等我看過再開始實作。」助理會儲存計畫，停下來等你確認。
 
 - **請另一個角度看計畫：** `threeways` 或 `3ways` 會安排一次獨立評論，再由目前的助理回應。討論完不代表已核准實作。可用 `pipeline-roles.threeways: best` 單獨調整這次評論的模型等級；未設定時維持 `better`，不接受 `off`，找不到提供指定等級的可用 reviewer 時會明確回報，不會默默降級。
+
+- **只審查，不修改產品：** 可使用 `review-only, reviewer 用 codex`，並視需要另外加上 `godev` 與 `target: <提交或範圍>`。支援 codex 或 claude，可用 `reviewer: ...` 或 `reviewer 用 ...`，放在獨立一行或逗號後。也辨識完整的「授權接管並繼續審查」或 `authorize takeover and continue the review`。已完成的審查可保留 BLOCKING 或 UNRESOLVED 結果並結案；這表示審查完成，不表示產品通過。未知文字、引用的指令或混合實作要求不適用，仍會檢查已記錄的 Git 範圍、來源身分、報告完整性與必要的獨立審查條件。
 
 - **檢查完成的成果：** 在要求裡加上 `cross-check`，就會請另一位唯讀審查者（reviewer）檢查。例如：「修好設定驗證，再 cross-check 結果。」
 
@@ -194,6 +196,8 @@ away: gates
 - **例行回答：** `auto-reply: on|off` 控制是否自動採用安全的預設答案。
 
 - **進度紀錄：** `log-verbosity: off|wip|all` 預設為 `all`。例如 `log-verbosity: wip` 會保留檢查點，但省略之後的 RUN。
+
+- **筆記所有權：** `notebook-ownership: on|off` 預設為 `off`。開啟時防止其他工作階段寫入同一回合；關閉時略過所有權檢查且不改動紀錄，但保留檔案安全措施。用 `notebook-ownership: on` 或 `notebook-ownership: off` 修改。寫入途中若設定改變，該次寫入會停止。
 
 - **Reply 顯示：** `inline-reply: on|off` 預設為 `off`。例如 `inline-reply: on` 會在成功收尾或交付後顯示已保存的完整 Reply；`off` 會保留「路徑已更新」的確認訊息。這個開關獨立於 `log-verbosity`。
 

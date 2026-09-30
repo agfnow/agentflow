@@ -30,7 +30,7 @@ const fixture = (input = 'review-only') => {
   write(notebook, '# → Ask / A-001\n\n+\n');
   git(['add', '.']); git(['commit', '-qm', 'baseline']);
   const commit = git(['rev-parse', 'HEAD']);
-  writer.append_input({ root, notebook, text: input, host: 'codex', session: owner.session });
+  writer.append_input({ root, notebook, text: typeof input === 'function' ? input(commit) : input, host: 'codex', session: owner.session });
   const record = {
     version: 1, kind: 'native-review', purpose: 'review-only', completion: 'complete',
     reviewer: 'review-thread', host: 'codex', source: { kind: 'git', commit }, report,
@@ -68,6 +68,77 @@ test('review-only closes truthful blocking findings and unresolved consensus wit
     assert.match(f.check().detail, /review completed/i);
     assert.equal(fs.readFileSync(path.join(f.root, f.report), 'utf8'), f.report_text);
   }
+});
+
+for (const [name, input] of [
+  ['separate activation', 'godev\nreview-only'],
+  ['combined reviewer selection', 'review-only, reviewer 用 codex'],
+  ['reported initial command', commit => 'godev\nreview-only, reviewer 用 codex\ntarget: ' + commit + ' ~ HEAD'],
+  ['reported takeover continuation', 'godev\nreview-only, reviewer 用 codex\ntarget: HEAD\n\n授權接管並繼續審查'],
+]) test('review-only accepts ' + name + ' without changing BLOCKING findings', () => {
+  const f = fixture(input);
+  const result = f.check();
+  assert.equal(result.status, 'pass', result.detail);
+  assert.equal(fs.readFileSync(path.join(f.root, f.report), 'utf8'), f.report_text);
+});
+
+test('review-only accepts only enumerated controls, reviewers and continuation forms', () => {
+  for (const control of ['review-only', '3ways', '/3ways', 'threeways', '/threeways']) {
+    for (const reviewer of ['reviewer: codex', 'reviewer 用 codex', 'reviewer: claude', 'reviewer 用 claude']) {
+      for (const separator of ['\n', ', ']) {
+        const f = fixture('godev\n' + control + separator + reviewer + '\ntarget: HEAD');
+        const result = f.check();
+        assert.equal(result.status, 'pass', control + separator + reviewer + ': ' + result.detail);
+      }
+    }
+  }
+  for (const continuation of ['授權接管並繼續審查', 'authorize takeover and continue the review']) {
+    const f = fixture('review-only');
+    writer.append_input({ root: f.root, notebook: f.notebook, text: continuation, host: 'codex', session: owner.session });
+    assert.equal(f.check().status, 'pass', f.check().detail);
+    assert.equal(fs.readFileSync(path.join(f.root, f.report), 'utf8'), f.report_text);
+  }
+});
+
+test('review-only requires explicit intent and rejects quoted controls and unsafe suffixes', () => {
+  for (const input of [
+    'godev', 'reviewer: codex', '授權接管並繼續審查', 'authorize takeover and continue the review',
+    'godev\nreviewer 用 claude\ntarget: HEAD', 'review-only\ntarget:', 'review-only\ntarget:   ',
+    'review-only\nSuggested default: reviewer: codex', 'Suggested default: review-only',
+    'review-only, reviewer: unknown', 'review-only, reviewer: codex, fix the bug',
+    'review-only, fix the bug', 'review-only, reviewer 用 codex; deploy',
+    'review-only\nreviewer: codex implement', 'review-only\ngodev implement',
+    'review-only\nauthorize takeover and continue the review then fix it',
+    'review-only\n授權接管並繼續審查並修正', 'review-only\nWhy did closeout fail?',
+    '> review-only, reviewer: codex', '> > review-only', '```text\nreview-only\n```',
+    'review-only\n> review-only', 'review-only\n```\nreviewer: codex\n```',
+    '`review-only`', 'review-only`', '"review-only"', 'review-only\n~~~\nreview-only\n~~~',
+  ]) {
+    const f = fixture(input);
+    const result = f.check();
+    assert.equal(result.status, 'fail', input);
+    assert.match(result.detail, /unambiguous captured owner review-only intent/, input);
+  }
+});
+
+test('review-only unwraps only the capture wrapper and ignores authority in work records', () => {
+  const f = fixture('review-only');
+  const check = text => {
+    const facts = collect({ project_root: f.root, notebook_path: f.notebook, active_host: 'codex', devlog_text: text });
+    return lint_cross_check(text, f.root, facts.review_decision, { notebook_path: f.notebook, active_host: 'codex' });
+  };
+  for (const [quoted, expected] of [
+    ['> review-only, reviewer: codex\n', 'pass'],
+    ['> > review-only\n', 'fail'],
+    ['> ```\n> review-only\n> ```\n', 'fail'],
+    ['> Suggested default: review-only\n', 'fail'],
+  ]) {
+    const text = f.round().replace('+ review-only', '<!-- agentflow-input: ' + 'a'.repeat(64) + ' -->\n\n' + quoted);
+    const result = check(text);
+    assert.equal(result.status, expected, quoted + ': ' + result.detail);
+  }
+  const text = f.round().replace('+ review-only', '+ godev').replace('# ← Reply / A-001', '---\n\n# [RUN-001] Fixture\n\nreview-only\n\n# ← Reply / A-001');
+  assert.equal(check(text).status, 'fail');
 });
 
 test('review-only cannot be claimed by a metadata flag or ambiguous owner input', () => {

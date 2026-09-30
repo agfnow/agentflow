@@ -798,10 +798,11 @@ const close_manifest = (root, delivery = { mode: 'local' }) => {
 	}
 }
 
-const close_fixture = ({ remote = false } = {}) => {
+const close_fixture = ({ remote = false, notebook_ownership = 'off' } = {}) => {
 	const fixture = make_repo({ remote })
 	const config = ag_settings.make_template('codex')
 	config.switches['target-doc'] = 'devlog.md'
+	config.switches['notebook-ownership'] = notebook_ownership
 	fs.writeFileSync(path.join(fixture.dir, 'ag.json'), `${JSON.stringify(config, null, 2)}\n`)
 	fs.writeFileSync(path.join(fixture.dir, 'devlog.md'), `${ag_settings.format_status({
 		project: 'demo — a test',
@@ -3034,7 +3035,8 @@ test('cleanup still refuses to delete a branch whose work never made it in', () 
 })
 
 test('slow close push releases the notebook writer while retaining delivery ownership', { skip: unix_fixture_skip }, async t => {
-  const fixture = close_fixture({ remote: true })
+  const fixture = close_fixture({ remote: true, notebook_ownership: 'on' })
+  require('./notebook-write').capture_input_scope(fixture.dir, 'devlog.md', 'codex', 'A-001')
   const gate = fs.mkdtempSync(path.join(os.tmpdir(), 'agf-slow-push-'))
   const entered = path.join(gate, 'entered'), release = path.join(gate, 'release')
   const hook = path.join(fixture.dir, '.git', 'hooks', 'pre-push')
@@ -3202,7 +3204,15 @@ for (const kind of ['unknown', 'symlink', 'foreign-hooks', 'active-owner', 'note
 			const file = path.join(wt, '.codex/hooks.json'), config = JSON.parse(fs.readFileSync(file))
 			config.private_setting = 'preserve me'; fs.writeFileSync(file, JSON.stringify(config))
 		}
-		if (kind === 'active-owner') require('./notebook-owner').guard({ root: wt, notebook, host: 'codex' })
+		if (kind === 'active-owner') {
+			const config_path = path.join(wt, '.agentflow/features/guarded-records/ag.json')
+			const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+			config.switches['notebook-ownership'] = 'on'
+			fs.writeFileSync(config_path, JSON.stringify(config))
+			execFileSync('git', ['add', '.agentflow/features/guarded-records/ag.json'], { cwd: wt })
+			execFileSync('git', ['commit', '-qm', 'enable fixture ownership'], { cwd: wt })
+			require('./notebook-owner').guard({ root: wt, notebook, host: 'codex' })
+		}
 		if (kind === 'notebook-lock') fs.writeFileSync(path.join(wt, `${notebook}.close-round.lock`), 'busy')
 		if (kind === 'backup-symlink') fs.symlinkSync(tmp, path.join(dir, '.git/agentflow-cleanup'))
 		if (kind === 'backup-collision') fs.writeFileSync(path.join(dir, '.git/agentflow-cleanup'), 'do not overwrite')

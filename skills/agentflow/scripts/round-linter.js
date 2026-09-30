@@ -1601,9 +1601,11 @@ const review_eligible = (file, facts = {}) => {
 
 // Deliberately bounded owner controls. Unknown prose cannot authorize this exception.
 const review_only_intent = owner_text => {
-  const lines = owner_text.split(/\r?\n/u).map(line => line.replace(/^\+ /u, '').trimEnd()).filter(line => line.trim() && line !== '---');
-  const control = /^(?:review-only|\/?3ways|\/?threeways)$/u;
-  return lines.some(line => control.test(line)) && lines.every(line => control.test(line) || /^[\t ]*target: \S[^\r\n]*$/u.test(line));
+  const lines = owner_text.split(/\r?\n/u).map(line => line.replace(/^(?:\+ | {2})/u, '').trimEnd()).filter(line => line.trim() && line !== '---');
+  const reviewer = /^(?:reviewer: |reviewer 用 )(?:codex|claude)$/u;
+  const control = /^(?:review-only|\/?3ways|\/?threeways)(?:, (?:reviewer: |reviewer 用 )(?:codex|claude))?$/u;
+  const continuation = /^(?:授權接管並繼續審查|authorize takeover and continue the review)$/u;
+  return lines.some(line => control.test(line)) && lines.every(line => control.test(line) || reviewer.test(line) || line === 'godev' || continuation.test(line) || /^[\t ]*target: \S[^\r\n]*$/u.test(line));
 };
 
 const lint_cross_check = (devlog_text, project_root, decision, metadata_context = {}) => {

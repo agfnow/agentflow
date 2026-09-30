@@ -168,9 +168,10 @@ test('version-8 templates contain the exact switches and defaults', () => {
 		const config = settings.make_template(host)
 		assert.equal(config['schema-version'], 8)
 		assert.deepEqual(Object.keys(config.switches), [
-		'target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days',
+		'target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days',
 		])
 		assert.equal(config.switches['allow-ag'], 'on')
+		assert.equal(config.switches['notebook-ownership'], 'off')
 		assert.equal(config.switches['large-work-minutes'], 120)
 		assert.equal(config.switches['git-timeout-ms'], 30000)
 		assert.deepEqual(config.switches['allowed-worker'], ['external', 'internal', 'host'])
@@ -180,6 +181,26 @@ test('version-8 templates contain the exact switches and defaults', () => {
 		assert.equal(config['external-workers'].length, 2)
 		assert.equal(settings.validate_config(config, { active_host: host, ...all_executables }).valid, true)
 	}
+})
+
+test('optional notebook ownership validates, displays and changes one shared policy', () => {
+	const config = settings.make_template('codex')
+	delete config.switches['notebook-ownership']
+	assert.equal(settings.validate_config(config, all_executables).valid, true)
+	assert.equal(settings.notebook_controls(config)['notebook-ownership'], 'off')
+	assert.equal(settings.canonical_config(config).switches['notebook-ownership'], undefined)
+	assert.match(settings.format_settings_display(config, all_executables), /notebook-ownership: off/u)
+	for (const value of ['on', 'off']) {
+		const changed = settings.apply_changes(config, [`notebook-ownership: ${value}`], all_executables).config
+		assert.equal(settings.notebook_controls(changed)['notebook-ownership'], value)
+		assert.equal(settings.canonical_config(changed).switches['notebook-ownership'], value)
+	}
+	for (const value of ['yes', null, false, 0]) {
+		const invalid = { ...config, switches: { ...config.switches, 'notebook-ownership': value } }
+		expect_invalid(invalid, /notebook-ownership/u)
+		assert.throws(() => settings.notebook_controls(invalid), /notebook-ownership/u)
+	}
+	assert.throws(() => settings.apply_changes(config, ['notebook-ownership: yes'], all_executables), /notebook-ownership/u)
 })
 
 test('schema-8 configs may omit optional cleanup switches and changes/help expose them', () => {
@@ -1420,6 +1441,40 @@ test('dedicated rename preserves stream identity and refuses malformed STATUS be
 		}
 	} finally {
 		drop(repo)
+	}
+})
+
+test('dedicated rename preserves a policy changed between its commits', () => {
+	for (const initial of ['off', 'on']) for (const target of ['renamed.md', 'records/notes.md']) {
+		const repo = make_repo()
+		try {
+			const config_path = path.join(repo, 'ag.json')
+			const config = custom_notebook_config('codex')
+			config.switches['notebook-ownership'] = initial
+			const status = settings.format_status({ project: 'demo', notebook: 'devlog.md', notebook_kind: 'root', current_commit: 'initial', tests_scenarios: 'none', config_path: 'ag.json', host: 'codex', validation: 'validated', proven: 'none', open: 'none', next: 'await', artifacts: 'none', archived_eras: 'none' }) + '\n---\n\n# → Ask / A-001\n\n+\n'
+			fs.writeFileSync(path.join(repo, 'devlog.md'), status)
+			settings.write_config_atomic(config_path, config, { repo_root: repo, active_host: 'codex', ...all_executables })
+			git(repo, ['init', '-b', 'main'])
+			git(repo, ['config', 'user.email', 'test@example.com'])
+			git(repo, ['config', 'user.name', 'Test'])
+			git(repo, ['add', '-A'])
+			git(repo, ['commit', '-m', 'initial'])
+			let changed
+			const git_runner = args => {
+				const result = git(repo, args)
+				if (args[0] === 'commit' && args.includes('devlog: rename target notebook (moves only)')) {
+					config.switches['notebook-ownership'] = initial === 'off' ? 'on' : 'off'
+					changed = JSON.stringify(config)
+					fs.writeFileSync(config_path, changed)
+				}
+				return result
+			}
+			assert.throws(() => settings.rename_target_document({ repo_root: repo, old_notebook: 'devlog.md', new_notebook: target, active_host: 'codex', ...all_executables, git_runner }), /configuration changed/u)
+			assert.equal(fs.readFileSync(config_path, 'utf8'), changed)
+			assert.equal(fs.readFileSync(path.join(repo, target), 'utf8'), status)
+			assert.equal(fs.existsSync(path.join(repo, 'records/ag.json')), false)
+			assert.equal(git(repo, ['rev-list', '--count', 'HEAD']).trim(), '2')
+		} finally { drop(repo) }
 	}
 })
 

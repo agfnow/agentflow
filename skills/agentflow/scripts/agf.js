@@ -911,7 +911,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		try {
 			let original = notebook_writer.read_regular_file(notebook_file, 'notebook')
 			notebook_owner.verify(ownership)
-			original = require('./notebook-compact').compact_locked({ root: repo, notebook, original, force: false }).snapshot
+			original = require('./notebook-compact').compact_locked({ root: repo, notebook, original, ownership, force: false }).snapshot
 			const current = resume_intake.final_ask_span(original.text)
 			message_result = insert_start_message(original.text, current, message)
 			message_result.owner_message = message
@@ -919,6 +919,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 			if (populated && populated.text !== '+') notebook_writer.capture_input_scope(repo, notebook, args.host, populated.id, { ownership, session: args.session })
 			if (message_result.inserted) {
 				notebook_writer.verify_notebook_unchanged(notebook_file, original)
+				notebook_owner.verify(ownership)
 				notebook_writer.atomic_replace(notebook_file, Buffer.from(message_result.text), original.mode)
 			}
 		} finally { notebook_writer.release_close_round_lock(input_lock); input_lock = null }
@@ -1395,6 +1396,7 @@ const close_execute = ({ repo, manifest, close_id, notebook_file, allowed_files,
 			}
 			try {
 				notebook_writer.verify_notebook_unchanged(notebook_file, source)
+				notebook_owner.verify(ownership, { root: repo, notebook: notebook_path, ask: manifest.ask, active: true })
 				notebook_writer.atomic_replace(notebook_file, candidate.content, current.mode)
 			} catch (error) {
 				try {

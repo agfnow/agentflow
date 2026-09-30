@@ -1,5 +1,7 @@
 'use strict';
 
+const on_template = host => { const config = require('./ag-settings').make_template(host); config.switches['notebook-ownership'] = 'on'; return config; };
+
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -15,6 +17,9 @@ const start = (root, id, input = `request ${id}`) => command(root, 'agf.js', ['s
 const fixture = git => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-notebook-owner-')));
   if (git) assert.equal(spawnSync('git', ['init', '-q', '-b', 'main'], { cwd: root }).status, 0);
+  assert.equal(start(root, 'A', 'godev').status, 0);
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'ag.json'))); config.switches['notebook-ownership'] = 'on';
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
   const result = start(root, 'A');
   assert.equal(result.status, 0, result.stderr);
   return root;
@@ -69,12 +74,14 @@ test('foreign prompt reaches the agent without startup or receipt mutation', () 
 const raw_fixture = (body = '+\n') => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-owner-record-')));
   fs.mkdirSync(path.join(root, '.agentflow'));
+  fs.writeFileSync(path.join(root, '.agentflow/ag.json'), JSON.stringify({ switches: { 'notebook-ownership': 'on' } }));
   fs.writeFileSync(path.join(root, notebook), `# → Ask / A-001\n\n${body}`);
   return root;
 };
 const case_fixture = (target = notebook) => {
   const root = require('./fixtures/temp-directory')('agf-owner-case-');
   fs.mkdirSync(path.dirname(path.join(root, target)), { recursive: true });
+  fs.writeFileSync(path.join(root, path.dirname(target), 'ag.json'), JSON.stringify({ switches: { 'notebook-ownership': 'on' } }));
   fs.writeFileSync(path.join(root, target), '# → Ask / A-001\n\n+\n');
   return root;
 };
@@ -102,7 +109,7 @@ test('foreign or unknown startup cannot migrate configuration before ownership, 
   for (const owned of [false, true]) for (const startup_locked of [false, true]) {
     const root = owned ? fixture(false) : raw_fixture('+ legacy request\n');
     if (!owned) fs.writeFileSync(path.join(root, notebook), settings.format_status({ project: 'legacy ownership', notebook, notebook_kind: 'root', current_commit: 'fixture', tests_scenarios: 'none', config_path: 'ag.json', host: 'codex', validation: 'validated', proven: 'fixture', open: 'none', next: 'resume', artifacts: 'none', archived_eras: 'none', streams: [] }) + '\n---\n\n' + read(root));
-    const config = settings.make_template('codex');
+    const config = on_template('codex');
     config['schema-version'] = 7;
     fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
     if (startup_locked) fs.writeFileSync(path.join(root, '.agentflow-start.lock'), 'Agentflow startup lock\npid: 1\n');
@@ -332,7 +339,7 @@ test('native notebook aliases select adjacent custom-workspace configuration bef
   const root = case_fixture(target);
   try {
     if (!native_case_alias(root, target)) { t.skip('the fixture volume is case-sensitive'); return; }
-    const config = require('./ag-settings').make_template('portable');
+    const config = on_template('portable');
     config.switches['target-doc'] = target;
     config.switches['workspace-dir'] = '.runtime';
     fs.writeFileSync(path.join(root, 'records/ag.json'), JSON.stringify(config));
@@ -375,7 +382,7 @@ test('custom-workspace linked worktree hooks capture only their stream notebook'
   git(['config', 'user.name', 'Notebook Test']);
   git(['config', 'user.email', 'notebook@example.invalid']);
   const settings = require('./ag-settings');
-  const config = settings.make_template('codex');
+  const config = on_template('codex');
   config.switches['workspace-dir'] = '.runtime';
   config.switches['target-doc'] = '.runtime/devlog.md';
   fs.mkdirSync(path.join(root, '.runtime'));
@@ -409,7 +416,7 @@ test('same-owner rename migrates active ownership in a custom workspace and reje
   git(['config', 'user.email', 'notebook@example.invalid']);
   const settings = require('./ag-settings');
   const from = 'records/source.md', to = 'relocated/destination.md';
-  const config = settings.make_template('portable');
+  const config = on_template('portable');
   config.switches['workspace-dir'] = '.runtime'; config.switches['target-doc'] = from;
   fs.mkdirSync(path.join(root, 'records'));
   fs.writeFileSync(path.join(root, 'records/ag.json'), JSON.stringify(config));
@@ -437,6 +444,9 @@ test('a standalone repository with a separate Git directory keeps its root noteb
   const initialized = spawnSync('git', ['init', '-q', '-b', 'main', '--separate-git-dir', git_dir], { cwd: root, encoding: 'utf8' });
   assert.equal(initialized.status, 0, initialized.stderr);
   assert.equal(require('./notebook-owner').linked_worktree(root), false);
+  assert.equal(start(root, 'A', 'godev').status, 0);
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'ag.json'))); config.switches['notebook-ownership'] = 'on';
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
   const first = start(root, 'A');
   assert.equal(first.status, 0, first.stderr);
   const hook = command(root, 'stop-hook.js', ['--host', 'codex'], JSON.stringify({ cwd: root, hook_event_name: 'UserPromptSubmit', session_id: ids.A, turn_id: 'root', prompt: 'standalone follow-up' }));

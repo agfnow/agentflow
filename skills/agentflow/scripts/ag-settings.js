@@ -29,15 +29,16 @@ const pipeline_role_defaults = Object.freeze({
 	learn: 'basic',
 	threeways: 'better',
 })
-const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days'])
-const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days', 'log-verbosity', 'inline-reply', 'git-timeout-ms'])
+const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days'])
+const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'git-timeout-ms'])
 const legacy_switch_names = Object.freeze(['metrics'])
 const completion_cleanup_defaults = Object.freeze({ 'completion-cleanup': 'off', 'completion-cleanup-interval-days': 7 })
-const notebook_control_defaults = Object.freeze({ 'log-verbosity': 'all', 'inline-reply': 'off' })
+const notebook_control_defaults = Object.freeze({ 'log-verbosity': 'all', 'inline-reply': 'off', 'notebook-ownership': 'off' })
 const notebook_controls = (config = {}) => {
 	const controls = Object.fromEntries(Object.entries(notebook_control_defaults).map(([key, fallback]) => [key, has_own(config.switches || {}, key) ? config.switches[key] : fallback]))
 	if (!['off', 'wip', 'all'].includes(controls['log-verbosity'])) throw new SettingsError('log-verbosity must be off, wip, or all')
 	if (!['off', 'on'].includes(controls['inline-reply'])) throw new SettingsError('inline-reply must be off or on')
+	if (!['off', 'on'].includes(controls['notebook-ownership'])) throw new SettingsError('notebook-ownership must be off or on')
 	return controls
 }
 const read_notebook_controls = (repo_root, notebook_path) => {
@@ -664,6 +665,7 @@ const validate_switches = (config, options, expected_switches, provider_values, 
 		'auto-reply': ['on', 'off'],
 		'log-verbosity': ['off', 'wip', 'all'],
 		'inline-reply': ['on', 'off'],
+		'notebook-ownership': ['on', 'off'],
 		streams: ['ask', 'always', 'off'],
 		'ask-names': ['on', 'off'],
 		'allow-ag': ['on', 'off', 'ask'],
@@ -1224,7 +1226,8 @@ const carry_forward_card = ({ repo_root, old_notebook, new_notebook, fs_api = no
 	const owner = require('./notebook-owner')
 	const parser = require('./round-linter').parse_devlog
 	const incoming = parser(body).rounds.at(-1)
-	if (parser(current).rounds.length) owner.guard({ root: repo_root, notebook: new_notebook, text: current, host, session })
+	const ownership = parser(current).rounds.length ? owner.guard({ root: repo_root, notebook: new_notebook, text: current, host, session }) : null
+	if (ownership) owner.verify(ownership, { root: repo_root, notebook: new_notebook, active: true })
 	else if (incoming) owner.guard({ root: repo_root, notebook: new_notebook, text: `# → Ask / ${incoming.id}\n\n+\n`, host, session })
 	else owner.identity({ host, session })
 	const separator = current.endsWith('\n') ? '\n' : '\n\n'
@@ -1286,6 +1289,13 @@ const rename_target_document_locked = (options = {}) => {
 		throw new SettingsError(`configuration target-doc=${config.switches['target-doc']} does not match the target-document rename`, { code: 'AG_RENAME_SCOPE' })
 	}
 	const old_config_text = fs_api.readFileSync(source_config_path, 'utf8')
+	const destination_config_text = fs_api.existsSync(new_config_path) ? fs_api.readFileSync(new_config_path, 'utf8') : null
+	const verify_rename_configuration = () => {
+		for (const [file, expected] of [[source_config_path, old_config_text], [new_config_path, destination_config_text]]) {
+			const actual = fs_api.existsSync(file) ? fs_api.readFileSync(file, 'utf8') : null
+			if (actual !== expected) throw new SettingsError('target-document rename configuration changed between commits; retry with the current configuration', { code: 'AG_RENAME_CONFIG_CHANGED' })
+		}
+	}
 	const status_source_path = resuming ? new_abs : old_abs
 	const status_source = fs_api.readFileSync(status_source_path, 'utf8')
 	const source_status_validation = validate_status_projection(status_source)
@@ -1324,6 +1334,7 @@ const rename_target_document_locked = (options = {}) => {
 	if (!resuming) try {
 		fs_api.mkdirSync(node_path.dirname(new_abs), { recursive: true })
 		if (fs_api.existsSync(old_archive_abs)) fs_api.mkdirSync(node_path.dirname(new_archive_abs), { recursive: true })
+		if (options.ownership) require('./notebook-owner').verify(options.ownership, { root: repo_root, notebook: old_notebook, active: true })
 		git_run(['mv', '--', old_notebook, new_notebook])
 		if (options.ownership) options.ownership = require('./notebook-owner').relocate(options.ownership, new_notebook)
 		if (fs_api.existsSync(old_archive_abs)) git_run(['mv', '--', old_archive, new_archive])
@@ -1338,9 +1349,12 @@ const rename_target_document_locked = (options = {}) => {
 		const moved_status = update_renamed_status(fs_api.readFileSync(new_abs, 'utf8'), old_notebook, new_notebook, notebook_kind, new_config_rel, active_host, date)
 		const moved_status_validation = validate_status_projection(moved_status)
 		if (!moved_status_validation.valid) throw new SettingsError(`target-document rename produced an invalid STATUS: ${moved_status_validation.errors.join('; ')}`, { code: 'AG_RENAME_STATUS' })
+		verify_rename_configuration()
 		fs_api.writeFileSync(new_abs, moved_status, 'utf8')
 		moved_config = copy_for_notebook(config, new_notebook, { ...options, repo_root, active_host })
+		verify_rename_configuration()
 		write_config_atomic(new_config_path, moved_config, { ...options, repo_root, active_host })
+		if (options.ownership) require('./notebook-owner').verify(options.ownership, { root: repo_root, notebook: new_notebook, active: true })
 		if (old_config_path !== new_config_path && fs_api.existsSync(old_config_path)) fs_api.unlinkSync(old_config_path)
 		if (!fs_api.existsSync(old_abs)) fs_api.writeFileSync(old_abs, `Moved to: ${new_notebook} — write your asks there.\n`, 'utf8')
 		else if (forwarding_card_target(fs_api.readFileSync(old_abs, 'utf8')) !== new_notebook) throw new SettingsError('the old notebook path is not the expected forwarding card', { code: 'AG_RENAME_INCOMPLETE' })
@@ -1407,7 +1421,7 @@ const rename_target_document = (options = {}) => {
 		const workspace = node_fs.existsSync(old_config) ? JSON.parse(node_fs.readFileSync(old_config, 'utf8')).switches?.['workspace-dir'] : undefined
 		const source_text = node_fs.readFileSync(node_path.join(repo_root, source), 'utf8')
 		const source_rounds = require('./round-linter').parse_devlog(source_text).rounds
-		const source_owner = owner.read(owner.location({ root: repo_root, notebook: source, workspace }))
+		const source_owner = source_rounds.length ? null : owner.read(owner.location({ root: repo_root, notebook: source, workspace, record_aware: true }))
 		if (!source_rounds.length && source_owner) throw new SettingsError('notebook owner exists without its Ask; restore its notebook before rename', { code: 'AG_NOTEBOOK_OWNER' })
 		const ownership = source_rounds.length ? owner.guard({ root: repo_root, notebook: source, text: source_text, host, session: options.session, workspace }) : null
 		for (const notebook of options.backlink_paths || []) {
@@ -1953,6 +1967,7 @@ const format_settings_display = (config, options = {}) => {
 		'- auto-reply: on or off; use auto-reply: <value>',
 		'- log-verbosity: off, wip, or all (default all); controls RUN/WIP records, never Reply; use log-verbosity: <value>',
 		'- inline-reply: on or off (default off); also display the saved Reply; use inline-reply: <value>',
+		'- notebook-ownership: on or off (default off); on protects each Ask from other sessions; off retains file locks but allows mixed session work; use notebook-ownership: <value>',
 		'- lang: non-empty language tag or existing language name; use lang: <value>',
 		'- streams: ask, always, or off; use streams: <value>',
 		'- ask-names: on or off; use ask-names: <value>',
