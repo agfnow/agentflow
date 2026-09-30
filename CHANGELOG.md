@@ -1,6 +1,10 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.3. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.4. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.4]
+
+- Clarify that the saved devlog Reply should retain requested answers without repeating content already saved in a report. Keep report links, essential results, evidence, limits and next actions in the Reply.
 
 ## [8.4.3]
 

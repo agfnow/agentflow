@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.3"
+  version: "8.4.4"
 ---
 
-# Agentflow v8.4.3
+# Agentflow v8.4.4
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -160,9 +160,9 @@ Read `references/progress.md` before decomposing work, recording a material resu
 
 - In a Git repository, commit each meaningful unit and push when a remote exists. Before the first pushed commit, fetch and inspect `HEAD..origin/<branch>`. Never force-push. Preserve unrelated changes and never stash, clean, revert, or commit another session's work.
 
-- After successful Reply, closeout, and required push, use the successful close result’s `display.text`: with `inline-reply: off` (default), output only `<target-doc path relative to the main checkout root> updated`; with `on`, display the saved Reply. Always keep the substantive answer in the notebook. During work, output short status updates.
+- After successful Reply, closeout, and required push, use the successful close result’s `display.text`: with `inline-reply: off` (default), output only `<target-doc path relative to the main checkout root> updated`; with `on`, display the saved Reply. Always keep the substantive answer in the notebook but do not repeat same content if a report had been written. During work, output short status updates.
 
-- With `inline-reply: off`, the final chat message is a delivery receipt; the saved notebook Reply is the substantive answer. Do not duplicate that Reply merely because a general final-answer rule says replies should stand alone. If a higher-priority instruction specifically requires substantive content in chat, follow it and add only the shortest content needed.
+- With `inline-reply: off`, chat is a delivery receipt; the notebook Reply holds the answer. Do not repeat the Reply because a general rule asks for a standalone answer. If a higher-priority instruction specifically requires substantive content in chat, follow it and add only the shortest content needed.
 
 ## Settings
 
