@@ -713,12 +713,13 @@ const read_start_message = () => {
 const is_activation_only_message = message => ['godev', '/godev'].includes(String(message).trim().toLowerCase())
 
 const insert_start_message = (text, current_ask, message) => {
-	const { parse_fast_lane } = require('./fast-lane.js')
-	if (current_ask && !['', '+'].includes(current_ask.text.trim()) && parse_fast_lane(message) && !parse_fast_lane(current_ask.text)) {
+	const { parse_fast_lane, parse_skip_ag } = require('./fast-lane.js')
+	const selected = current_ask && [['fast_lane', parse_fast_lane], ['skip_ag', parse_skip_ag]].find(([, parse]) => parse(message) && !parse(current_ask.text))
+	if (selected && !['', '+'].includes(current_ask.text.trim())) {
 		const tail = text.slice(current_ask.body_start)
 		const record_start = tail.search(/^(?:---[ \t]*$|## \[(?:RUN|WIP)-\d+\])/mu)
 		const position = record_start < 0 ? text.length : current_ask.body_start + record_start
-		return { text: `${text.slice(0, position).trimEnd()}\n\n${notebook_writer.format_owner_input(message)}\n\n${text.slice(position)}`, inserted: true, reason: 'fast_lane_selected' }
+		return { text: `${text.slice(0, position).trimEnd()}\n\n${notebook_writer.format_owner_input(message)}\n\n${text.slice(position)}`, inserted: true, reason: `${selected[0]}_selected` }
 	}
 	if (current_ask === null || !['', '+'].includes(current_ask.text.trim())) return { text, inserted: false, reason: 'already_present' }
 	if (is_activation_only_message(message)) {
@@ -781,6 +782,7 @@ const start_result = ({ repo, host, host_family, notebook, notebook_text, intake
 	changed_paths: intake.changed_paths,
 	stream_decision: intake.stream_decision,
 	...(intake.fast_lane ? { fast_lane: intake.fast_lane } : {}),
+	...(intake.skip_ag ? { skip_ag: intake.skip_ag } : {}),
 	required_next_rulebook: intake.stream_decision.required_next_rulebook,
 })
 
@@ -802,6 +804,7 @@ const start_public_result = result => ({
 	changed_paths: result.changed_paths,
 	stream_decision: result.stream_decision,
 	...(result.fast_lane ? { fast_lane: result.fast_lane } : {}),
+	...(result.skip_ag ? { skip_ag: result.skip_ag } : {}),
 	required_next_rulebook: result.required_next_rulebook,
 })
 

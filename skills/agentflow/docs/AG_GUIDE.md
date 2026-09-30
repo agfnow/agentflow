@@ -1,4 +1,4 @@
-# Agentflow v8.3 — a guide for everyday use
+# Agentflow v8.4.3 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -28,9 +28,11 @@ npx skills add agfnow/agentflow
 
 Choose the assistant you use and whether to install for this project or all your projects. Then start a new assistant session so it can load the skill. Claude Code also has a plugin installation route; see the [public README](https://github.com/agfnow/agentflow#install).
 
-For Codex, the Agentflow maintainer recommends **`gpt-5.6-sol/low` as the most stable coordinator choice in their use**. This means model `gpt-5.6-sol` with reasoning effort `low`, running the main conversation and coordinating work. It is a project recommendation; your task and available models still matter. [OpenAI’s model documentation](https://developers.openai.com/api/docs/models/gpt-5.6-sol) confirms that this model supports `low` effort.
+For Codex, the Agentflow maintainer recommends **`gpt-6.1-sol/medium` as the most stable coordinator choice in their use**. This means model `gpt-6.1-sol` with reasoning effort `medium`, running the main conversation and coordinating work. It is a project recommendation; your task and available models still matter. [OpenAI’s model documentation](https://developers.openai.com/api/docs/models/gpt-6.1-sol) confirms that this model supports `medium` effort.
 
 If you want an installation check, ask your assistant to run `agf setup`. It reports what is available. `agf setup --fix` can add missing shell shortcuts after backing up the shell settings. An unavailable optional worker does not mean installation failed. If the assistant asks you to restart after installing hooks, restart once; hooks are the small integrations that record messages and check completion.
+
+Project hooks are installed for the assistant running `godev`. If Codex initialized the repository first, run `godev` in Claude Code too: startup adds `.claude/settings.json` hooks even when `ag.json` already exists, and keeps the Codex hooks. Opening Claude Code alone does not install Agentflow hooks.
 
 ### Pi and Oh My Pi: basic manual support
 
@@ -111,6 +113,8 @@ Input receipts now live under the configured workspace’s `.tmp/` for every hos
 You can normally describe the task and let the assistant choose. These controls are useful when you want a particular approach:
 
 - **Keep a small task light:** `fast-lane Fix the spelling in README.md.` The main assistant handles this task itself. It skips the larger pipeline, delegation, new feature workspaces, and separate review. Necessary checks, progress notes, and the assistant’s own review still happen. The mode ends with this task.
+
+- **Skip only the pipeline:** `skip-ag Fix the login bug.` Keeps the notebook and normal checks, review, delegation and delivery rules, while skipping the development pipeline and its advisors for this task. It survives follow-ups and resume, expires when the task closes, and does not change project settings. Bare `skip-ag` waits for a task. `no-ag` skips the entire host Agentflow protocol.
 
 - **See a plan first:** “Make a plan and let me review it before implementation.” The assistant saves a plan and waits at that checkpoint.
 
@@ -306,7 +310,7 @@ Open the same project and type `godev`. The assistant reads the current Ask, ans
 
 - WIP notes say **Finished**, **Running now**, **Still to do**, and **Next work action**. `Still to do: None.` means no work remains in that list. These notes describe progress; they do not certify success by themselves.
 
-- New Codex Reply stamps use the active session’s latest recorded model and effort. Missing or conflicting evidence is labeled `codex/unknown`; Claude currently has no verified effort extractor. Old replies are not relabeled.
+- New Codex and Claude Reply stamps use the exact active session’s latest recorded model and effort, with matching session and working-directory evidence. Missing or conflicting evidence is labeled `<host>/unknown`; settings and older turns are never used as a fallback. Old replies are not relabeled.
 
 - Completion checks keep supporting metadata under the workspace’s `.tmp/`, leaving new Replies free of generated evidence links and hashes. These local ignored files do not travel with a clone. Missing or damaged evidence cannot count as a pass; restore trashed records if they are needed again.
 

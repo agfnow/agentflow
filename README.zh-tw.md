@@ -1,4 +1,4 @@
-# Agentflow v8.4.2
+# Agentflow v8.4.3
 
 [English](README.md) · **繁體中文**
 
@@ -58,6 +58,8 @@ godev
 
 小事可以簡單處理。`fast-lane` 讓一項任務由目前的助理完成，略過 另一位助理審查，但保留必要檢查和自行審查。`cross-check` 要求 另一位助理審查；`review-policy: prefer-independent` 會在 另一位助理審查 確認無法使用後允許清楚標記的 目前助理自行審查，`require-independent` 則維持嚴格要求。`ag` 則在專案的 `allow-ag` 設定允許時，要求完整開發流程。
 
+`skip-ag [任務]` 或 `/skip-ag [任務]` 只略過目前 Ask 的開發流程及其顧問，保留 devlog、必要檢查、一般獨立審查、普通委派與 stream 規則。它不改變專案設定，Ask 結束後失效；只有指令而沒有任務時會等待任務。`no-ag` 略過整個 Agentflow 協定；`fast-lane` 還會略過委派、新 stream 與獨立審查。
+
 對話會留在筆記裡。換新對話後，輸入 `godev` 就能接續尚未完成的要求。有 Git 時，Agentflow 通常會提交完成的工作，並在設有遠端儲存庫時推送；如果只想在本機完成，請先說明。
 
 ## 共用筆記
@@ -80,7 +82,7 @@ godev
 
 - [English user guide](skills/agentflow/docs/AG_GUIDE.md)。
 
-- [版本更新紀錄](docs/CHANGELOG.md)，最新版本放在最上方。
+- [版本更新紀錄](CHANGELOG.md)，最新版本放在最上方。
 
 - [指令參考](skills/agentflow/scripts/README.md)，供進階設定與問題排除使用。
 

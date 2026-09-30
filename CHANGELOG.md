@@ -1,6 +1,30 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.2. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.3. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.3]
+
+### Added
+
+- Add `skip-ag` to skip the development pipeline for the current request while retaining the devlog, normal execution, review and closeout. Update both guides and related command references.
+
+### Fixed
+
+- Resolve Claude Reply model and effort from the matching main-session transcript.
+
+- Preserve older completed Reply bytes during retries and remove extra spacing from new inline replies.
+
+- Stabilize the evaluation fixture by copying its skill inputs before fingerprinting, and keep private documentation checks out of the shipped test package.
+
+### Documentation and verification
+
+- Move `CHANGELOG.md` to the root of both the development and public repositories, and update publishing instructions and README links.
+
+- Refine writing guidance to use short, clear bullets with enough explanation for readers without a technical background.
+
+- Bring both user guides and related current documentation up to date. The release procedure now defaults to increasing only the patch number; larger increases require explicit owner instruction.
+
+- Verify that Claude initialization in a Codex-first project installs Claude hooks while preserving Codex hooks. Retain the verified Claude/Codex terminal journeys and corrected affected tests from the preceding implementation work. Native Windows and case-sensitive-filesystem checks remain unavailable on the validation Mac; no universal host-parity claim is made.
 
 ## [8.4.2]
 

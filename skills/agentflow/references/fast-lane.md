@@ -1,5 +1,7 @@
 # Fast-lane command
 
+For a pipeline-only opt-out, use `skip-ag [task]` and read [skip-ag.md](skip-ag.md). It retains ordinary delegation, stream rules and normal independent review. `no-ag` skips the entire Agentflow protocol; these controls are not aliases.
+
 `fast-lane [task]` and `/fast-lane [task]` select direct host execution for one task. The task text is optional. A bare command applies to the current unfinished task; with no task yet, keep the Ask open and reply `Fast-lane ready. Send the task when ready.` Do not invent a task or write a closing Reply for activation alone.
 
 The command persists through follow-ups and resumed sessions in the current Ask, expires when that task closes, and leaves the next task using normal behavior. Do not change `ag.json` or add an on/off setting. Quoted examples, mentions, and `fast-lane: on` are not command invocations.

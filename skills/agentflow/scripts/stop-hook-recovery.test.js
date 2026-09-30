@@ -45,6 +45,9 @@ for (const host of ['codex', 'claude']) {
       const file = path.join(root, '.agentflow/devlog.md');
       fs.mkdirSync(path.dirname(file));
       fs.writeFileSync(file, '# → Ask / A-044\n\n+\n');
+      const config = require('./ag-settings').make_template(host);
+      config.switches['notebook-ownership'] = 'on';
+      fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config));
       if (owned) {
         const env = { ...process.env };
         for (const name of ['CODEX_THREAD_ID', 'CODEX_SESSION_ID', 'CLAUDE_SESSION_ID', 'AGENTFLOW_SESSION_ID']) delete env[name];

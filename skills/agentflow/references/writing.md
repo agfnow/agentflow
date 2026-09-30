@@ -6,7 +6,11 @@
 
 ## Concise list style
 
-- Keep the body list-based: one result, incident, reason, decision, evidence item, or next action per bullet. Use sub-list NOT connected sentences to explain the same idea. Clarity and completeness outrank brevity.
+- Prefer short bullets, each explaining one main point. Use sub-bullets only for distinct supporting points; keep closely related sentences together. Avoid prose-heavy blocks.
+
+- Write for a high school student with no background in the topic. Use everyday words, explain necessary technical terms, and add a concrete example when it helps.
+
+- Be concise but complete: answer every requested question and preserve essential reasons and limitations. Omit repetition, unrelated background, and optional detail. Keep most bullets to one or two short sentences, but do not sacrifice clarity to meet a length target.
 
 - Lead with the concrete result or action. Bold only short scan cues, never whole sentences. Number ordered steps, with necessary detail in nested bullets.
 

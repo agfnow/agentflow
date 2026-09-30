@@ -118,7 +118,8 @@ const main = () => {
     }
     const round = parse_devlog(node_fs.readFileSync(devlog_path, 'utf8')).rounds.at(-1);
     const fast_lane = require('./fast-lane.js').parse_fast_lane(round?.owner_text);
-    const route_notice = fast_lane ? ` Fast-lane ${fast_lane.state}: work directly without AG, delegation, new streams, external review, or pipeline approval/artifact requirements. Keep host self-review, necessary tests, trackers, timed WIP checkpoints, detailed reports, and integrity checks. ${fast_lane.state === 'pending' ? 'Wait for the task; leave this Ask open without a Reply or closeout.' : 'This applies through this task’s closeout, then expires.'}` : '';
+    const skip_ag = require('./fast-lane.js').parse_skip_ag(round?.owner_text);
+    const route_notice = fast_lane ? ` Fast-lane ${fast_lane.state}: work directly without AG, delegation, new streams, external review, or pipeline approval/artifact requirements. Keep host self-review, necessary tests, trackers, timed WIP checkpoints, detailed reports, and integrity checks. ${fast_lane.state === 'pending' ? 'Wait for the task; leave this Ask open without a Reply or closeout.' : 'This applies through this task’s closeout, then expires.'}` : skip_ag ? ` Skip-ag ${skip_ag.state}: skip the development pipeline and advisors for this Ask; retain normal logging, review, execution, integrity and closeout rules. ${skip_ag.state === 'pending' ? 'Wait for the task; leave this Ask open.' : 'This expires when the task closes.'}` : '';
     const capture_state = result.inserted ? 'was saved' : 'was already present; no duplicate was written'
     const session_notice = input.session_id ? ` Hook session: ${input.session_id}.` : ''
     process.stdout.write(JSON.stringify({ hookSpecificOutput: {

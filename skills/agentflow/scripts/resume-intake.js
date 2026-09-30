@@ -11,7 +11,7 @@ const { isDeepStrictEqual } = require('node:util')
 const { execFileSync } = require('node:child_process')
 const settings = require('./ag-settings.js')
 const { resolve_default_branch } = require('./default-branch.js')
-const { parse_fast_lane } = require('./fast-lane.js')
+const { parse_fast_lane, parse_skip_ag } = require('./fast-lane.js')
 
 const MAX_NOTEBOOK_BYTES = 64 * 1024
 const MAX_ASK_BYTES = 16 * 1024
@@ -244,6 +244,7 @@ const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host 
   const text = bounded.complete ? bounded.text : bounded.tail
   const current_ask = final_ask(text)
   const fast_lane = parse_fast_lane(current_ask?.text)
+  const skip_ag = parse_skip_ag(current_ask?.text)
   if (!bounded.complete && current_ask === null) throw new Error(`current round exceeds the ${MAX_CURRENT_ROUND_BYTES}-byte fast-intake limit or has no complete final Ask boundary`)
   if (bounded_git(root, ['rev-parse', '--show-toplevel']) === null) return {
     repository: root,
@@ -257,6 +258,7 @@ const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host 
     status: status_block(bounded.complete ? text : bounded.head),
     current_ask,
     ...(fast_lane ? { fast_lane } : {}),
+    ...(skip_ag ? { skip_ag } : {}),
   }
   const changed = changed_paths(root)
   const expected = bounded.complete
@@ -293,6 +295,7 @@ const collect_intake = ({ repo_root = process.cwd(), notebook_path, active_host 
     status,
     current_ask,
     ...(fast_lane ? { fast_lane } : {}),
+    ...(skip_ag ? { skip_ag } : {}),
   }
 }
 

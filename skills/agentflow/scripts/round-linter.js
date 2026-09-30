@@ -180,7 +180,7 @@ const route_stage_id = record => String(record?.stage_id ?? record?.stage ?? rec
 
 const codewalk_required = facts => queue_contract.codewalk_required(facts);
 
-const lint_route_decision = facts => {
+const lint_route_decision = (facts, { skip_pipeline = false } = {}) => {
   if (facts === undefined) {
     return make_check('route_decision', 'Route decision is explicit and safe', 'skip', 'route decision facts were not provided');
   }
@@ -204,12 +204,12 @@ const lint_route_decision = facts => {
   if (!nonempty_text(facts.reason)) return make_check('route_decision', 'Route decision is explicit and safe', 'fail', 'route reason must be a non-empty plain-language string');
 
   const operation = facts.operation.trim().toLowerCase();
-  const explicit_pipeline = explicit_pipeline_operations.has(operation);
+  const explicit_pipeline = !skip_pipeline && explicit_pipeline_operations.has(operation);
   const waiting_for_confirmation = facts.allow_ag === 'ask' && facts.route === 'blocked' && ['pending', 'rejected'].includes(facts.owner_confirmation);
   if (facts.route === 'selected_advisors' && facts.named_questions.length === 0) {
     return make_check('route_decision', 'Route decision is explicit and safe', 'fail', 'selected_advisors route requires at least one named material question');
   }
-  if (facts.route === 'direct' && facts.material_risks.length > 0) {
+  if (!skip_pipeline && facts.route === 'direct' && facts.material_risks.length > 0) {
     return make_check('route_decision', 'Route decision is explicit and safe', 'fail', 'direct route cannot leave named material risks without an advisor or full pipeline');
   }
   if (explicit_pipeline && facts.allow_ag !== 'off' && facts.route !== 'full_pipeline' && !waiting_for_confirmation) {
@@ -228,7 +228,7 @@ const lint_route_decision = facts => {
     return make_check('route_decision', 'Route decision is explicit and safe', 'fail', 'direct work must not ask for Agentflow confirmation');
   }
 
-  const pipeline_route = facts.route === 'full_pipeline' || operation === 'make-plans';
+  const pipeline_route = facts.route === 'full_pipeline' || (!skip_pipeline && operation === 'make-plans');
   if (pipeline_route) {
     if (typeof facts.brownfield !== 'boolean') return make_check('route_decision', 'Route decision is explicit and safe', 'fail', 'full-pipeline and make-plans decisions require a boolean brownfield field');
     if (!Array.isArray(facts.mandatory_stages) || !string_array(facts.mandatory_stages)) {
@@ -3440,8 +3440,12 @@ const lint_round = context => {
   const parsed = parse_devlog(devlog_text);
   const current_round = parsed.rounds.find(round => round.text === parsed.last_round);
   const fast_lane = require('./fast-lane.js').parse_fast_lane(current_round?.owner_text);
+  const skip_ag = require('./fast-lane.js').parse_skip_ag(current_round?.owner_text);
+  const pipeline_checks = ['large_work_route', 'queue_contract', 'security_disposition', 'acceptance_disposition', 'pipeline_artifacts', 'quality_gate'];
   const workflow_check = (id, check) => fast_lane
     ? make_check(id, 'Optional workflow requirement', 'skip', 'owner selected fast-lane; this workflow requirement is waived')
+    : skip_ag && pipeline_checks.includes(id)
+      ? make_check(id, 'Pipeline requirement', 'skip', 'owner selected skip-ag; pipeline and advisor requirements are waived')
     : check();
   const now_ms = context.now_ms === undefined ? Date.now() : context.now_ms;
   const future_skew_min = context.future_skew_min === undefined ? 5 : context.future_skew_min;
@@ -3465,6 +3469,9 @@ const lint_round = context => {
     ...(fast_lane?.state === 'pending' && current_round.reply_text.trim()
       ? [make_check('fast_lane_task', 'Fast-lane activation waits for a task', 'fail', 'bare fast-lane must remain open until a task arrives; do not close an activation-only round')]
       : []),
+    ...(skip_ag?.state === 'pending' && current_round.reply_text.trim()
+      ? [make_check('skip_ag_task', 'Skip-ag activation waits for a task', 'fail', 'bare skip-ag must remain open until a task arrives')]
+      : []),
     lint_terminal_output(context.terminal_output, context['inline-reply'], devlog_text),
     lint_timestamps(devlog_text, now_ms, future_skew_min, max_age_hours),
     lint_reply_structure(devlog_text, substantial),
@@ -3478,7 +3485,9 @@ const lint_round = context => {
     lint_evidence_classification(context.evidence_classification ?? context.defect_classes),
     lint_material_claims(material_claim_facts),
     lint_report_only_validation(context.report_only ?? context.report_only_validation),
-    workflow_check('route_decision', () => lint_route_decision(context.route_decision)),
+    workflow_check('route_decision', () => skip_ag && ['selected_advisors', 'full_pipeline'].includes(context.route_decision?.route)
+      ? make_check('route_decision', 'Skip-ag uses the direct route', 'fail', 'skip-ag forbids pipeline and advisor routes')
+      : lint_route_decision(context.route_decision, { skip_pipeline: Boolean(skip_ag) })),
     workflow_check('executor_decision', () => lint_executor_decision(context.executor_decision ?? context.executor_decisions)),
     workflow_check('large_work_route', () => lint_large_work_route(context.large_work)),
     workflow_check('queue_contract', () => lint_queue_contract(context.queue_contract ?? context.make_plans)),

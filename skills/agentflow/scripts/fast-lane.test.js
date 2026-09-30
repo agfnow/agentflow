@@ -41,6 +41,45 @@ const fixture = t => {
   return { root, write, facts, hook };
 };
 
+test('skip-ag survives capture and resume without changing settings or waiving review', t => {
+  const f = fixture(t);
+  const before = fs.readFileSync(path.join(f.root, 'ag.json'));
+  const capture = f.hook('claude', { hook_event_name: 'UserPromptSubmit', prompt: 'skip-ag', session_id: ownership_fixture.session, turn_id: 'skip-one' });
+  assert.equal(capture.status, 0, capture.stderr);
+  assert.match(capture.stdout, /skip-ag.*pending/i);
+  assert.equal(collect_intake({ repo_root: f.root }).skip_ag.state, 'pending');
+  f.hook('codex', { hook_event_name: 'UserPromptSubmit', prompt: 'fix the login bug', session_id: ownership_fixture.session, turn_id: 'skip-two' });
+  assert.equal(collect_intake({ repo_root: f.root }).skip_ag.state, 'active');
+  assert.deepEqual(fs.readFileSync(path.join(f.root, 'ag.json')), before);
+  fs.writeFileSync(path.join(f.root, 'task.js'), 'module.exports = true;\n');
+  assert.equal(f.facts(f.write('+ skip-ag fix the login bug', true)).review_decision.status, 'required');
+});
+
+test('skip-ag waives pipeline gates while retaining review, execution and notebook integrity', t => {
+  const f = fixture(t);
+  const text = f.write('+ skip-ag fix the login bug', true);
+  const facts = f.facts(text);
+  const result = lint_round({ ...facts, pipeline: {}, large_work: {}, queue_contract: {}, security: {}, acceptance: {}, quality_gate: {}, executor_decision: {} });
+  for (const id of ['pipeline_artifacts', 'large_work_route', 'queue_contract', 'security_disposition', 'acceptance_disposition', 'quality_gate']) assert.equal(result.checks.find(c => c.id === id).status, 'skip', id);
+  assert.equal(result.checks.find(c => c.id === 'cross_check').status, 'fail');
+  assert.equal(result.checks.find(c => c.id === 'executor_decision').status, 'fail');
+  const pending = lint_round(f.facts(f.write('+ skip-ag', true)));
+  assert.equal(pending.checks.find(c => c.id === 'skip_ag_task').status, 'fail');
+  const bad_route = lint_round({ ...facts, route_decision: { route: 'full_pipeline' } });
+  assert.equal(bad_route.checks.find(c => c.id === 'route_decision').status, 'fail');
+});
+
+test('skip-ag ignores explanatory examples and expires with its Ask', t => {
+  const f = fixture(t);
+  const { parse_skip_ag } = require('./fast-lane');
+  for (const text of ['+ explain skip-ag', '+ `skip-ag`', '+ > skip-ag', '+ skip-ag: on', '+ do not use skip-ag', '+ ```\n  skip-ag\n  ```']) assert.equal(parse_skip_ag(text), null, text);
+  const ended = f.write('+ skip-ag fix the login bug', true);
+  const next = ended + '\n+ normal task\n';
+  fs.writeFileSync(path.join(f.root, '.agentflow/devlog.md'), next);
+  assert.equal(collect_intake({ repo_root: f.root }).skip_ag, undefined);
+  assert.equal(f.facts(next).review_decision.status, 'required');
+});
+
 test('fast-lane survives prompt capture and resume without changing configuration or opening a stream', t => {
   const f = fixture(t);
   const before = fs.readFileSync(path.join(f.root, 'ag.json'), 'utf8');
@@ -147,4 +186,17 @@ test('fast-lane and standalone review skips still require host self-review befor
     assert.match(result.checks.find(check => check.id === 'cross_check').detail, /host.*review/i);
     for (const host of ['codex', 'claude']) assert.equal(f.hook(host).status, 2);
   }
+});
+
+
+test('skip-ag overrides pipeline trigger facts while retaining route integrity', t => {
+  const f = fixture(t);
+  const facts = f.facts(f.write('+ skip-ag implement the fix', true));
+  const route = { operation: 'ag', allow_ag: 'on', route: 'direct', material_risks: ['trust_boundary'], named_questions: [], owner_confirmation: 'not_required', reason: 'Owner skips pipeline; host verifies boundary and normal review remains.' };
+  const check = value => lint_round({ ...facts, route_decision: value }).checks.find(item => item.id === 'route_decision');
+  for (const operation of ['ag', 'all-in', 'make-plans']) assert.equal(check({ ...route, operation }).status, 'pass', operation);
+  assert.equal(check({ ...route, allow_ag: 'off' }).status, 'pass');
+  assert.equal(check({ ...route, reason: '' }).status, 'fail');
+  assert.equal(check({ ...route, owner_confirmation: 'approved' }).status, 'fail');
+  assert.equal(check({ ...route, route: 'full_pipeline' }).status, 'fail');
 });

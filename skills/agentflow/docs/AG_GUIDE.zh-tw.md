@@ -1,4 +1,4 @@
-# Agentflow v8.3 — 日常使用指南
+# Agentflow v8.4.3 — 日常使用指南
 
 [English](AG_GUIDE.md) · 繁體中文
 
@@ -28,9 +28,11 @@ npx skills add agfnow/agentflow
 
 依畫面選擇你使用的 AI 助理，以及只安裝在這個專案，還是供所有專案使用。安裝後開啟新的助理對話，讓它載入 skill。Claude Code 也能透過外掛安裝，方式請看[公開版 README](https://github.com/agfnow/agentflow#install)。
 
-如果你使用 Codex，Agentflow 維護者依自己的使用經驗，建議選擇 **`gpt-5.6-sol/low` 作為表現最穩定的控場模型**。也就是模型選 `gpt-5.6-sol`，推理程度選 `low`，由它負責和你對話、安排工作。這是本專案的使用建議，仍可依任務與帳號可用的模型調整。[OpenAI 官方模型文件](https://developers.openai.com/api/docs/models/gpt-5.6-sol)也確認這個模型支援 `low` 推理程度。
+如果你使用 Codex，Agentflow 維護者依自己的使用經驗，建議選擇 **`gpt-6.1-sol/medium` 作為表現最穩定的控場模型**。也就是模型選 `gpt-6.1-sol`，推理程度選 `medium`，由它負責和你對話、安排工作。這是本專案的使用建議，仍可依任務與帳號可用的模型調整。[OpenAI 官方模型文件](https://developers.openai.com/api/docs/models/gpt-6.1-sol)也確認這個模型支援 `medium` 推理程度。
 
 想確認安裝是否正常，可以請助理執行 `agf setup`。它會列出目前可用的工具；`agf setup --fix` 則會先備份 shell 設定，再補上缺少的指令捷徑。選用的協作助理無法使用，不一定代表安裝失敗。如果助理在安裝 hooks 後提醒你重新啟動，照做一次即可；hooks 是用來記錄訊息、檢查工作是否完成的小型整合程式。
+
+專案 hooks 會依執行 `godev` 的助理安裝。如果先用 Codex 初始化同一個 repo，換到 Claude Code 後也要執行 `godev`：即使已有 `ag.json`，啟動流程仍會補上 `.claude/settings.json` 的 hooks，並保留 Codex hooks。只開啟 Claude Code 不會自動安裝 Agentflow hooks。
 
 ### 定期更新 skill
 
@@ -94,6 +96,8 @@ godev
 通常只要說清楚任務，助理就會選擇合適的做法。想指定處理方式時，可以用以下指令：
 
 - **小事簡單做：** `fast-lane 修正 README.md 的錯字。` 這一件事由目前的助理自己處理，略過大型開發流程、委派、新功能工作區和 另一位助理審查。必要檢查、進度紀錄與自行審查仍會保留；任務完成後，這個模式就結束。
+
+- **只跳過開發流程：** `skip-ag 修正登入錯誤。` 保留筆記本、必要檢查，以及正常的審查、委派和交付規則，只在這件任務跳過開發流程與顧問階段。後續對話與恢復工作階段仍有效，任務結束後失效，不會改動專案設定。單獨輸入 `skip-ag` 會等待任務。`no-ag` 則跳過整個助理端 Agentflow 協定。
 
 - **先看計畫：** 「先做一份計畫，等我看過再開始實作。」助理會儲存計畫，停下來等你確認。
 
@@ -287,7 +291,7 @@ away: gates
 
 - WIP 會列出 **Finished**、**Running now**、**Still to do**、**Next work action**。`Still to do: None.` 表示該清單已沒有待辦事項。這些說明用來掌握進度，本身不代表成果已通過驗證。
 
-- 新的 Codex Reply 會使用目前對話最新記錄的模型與推理程度。證據缺少或衝突時，會標成 `codex/unknown`；Claude 目前還沒有可驗證的推理程度擷取方式。舊回覆不會被重新標記。
+- 新的 Codex 和 Claude Reply 會使用目前工作階段最新記錄的模型與推理程度，並核對工作階段及專案目錄。證據缺少或衝突時，會標成 `<host>/unknown`，不會改用設定值或舊回合。舊回覆不會被重新標記。
 
 - 完成檢查需要的輔助資料放在工作資料夾的 `.tmp/`，新的 Reply 不會再混入自動產生的證據連結與雜湊值。這些本機檔案不納入 Git，複製儲存庫時不會一起帶走。證據遺失或損壞不能算通過；需要重新查核時，請先還原已移到垃圾桶的紀錄。
 

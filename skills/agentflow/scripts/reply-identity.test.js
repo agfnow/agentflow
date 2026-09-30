@@ -46,3 +46,51 @@ test('absent, malformed, ambiguous and unsafe transcript evidence stays unknown'
     assert.equal(detect_reply_identity(f.options), 'codex/unknown');
   }
 });
+
+const claude_fixture = () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agf-claude-identity-'));
+  const home = path.join(root, 'claude');
+  const directory = path.join(home, 'projects', 'project');
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, `${id}.jsonl`);
+  const user = { type: 'user', sessionId: id, cwd: root, message: { content: 'owner request' } };
+  const turn = { type: 'assistant', sessionId: id, cwd: root, effort: 'medium', perTurnEffort: 'medium', message: { model: 'claude-sonnet-5-5', content: [] } };
+  const write = (...records) => fs.writeFileSync(file, records.map(JSON.stringify).join('\n') + '\n');
+  write(user, turn);
+  return { root, home, directory, file, user, turn, write, options: { root, host: 'claude', env: { CLAUDE_CODE_SESSION_ID: id, CLAUDE_CONFIG_DIR: home } } };
+};
+
+test('Claude uses the exact session transcript and rereads model and effort switches', () => {
+  const f = claude_fixture();
+  fs.writeFileSync(path.join(f.home, 'settings.json'), JSON.stringify({ model: 'wrong-default', effortLevel: 'low' }));
+  assert.equal(detect_reply_identity(f.options), 'claude-sonnet-5-5/medium');
+  const next = { ...f.turn, effort: 'high', perTurnEffort: 'high', message: { model: 'claude-opus-5-5', content: [] } };
+  f.write(f.user, f.turn, f.user, next);
+  assert.equal(detect_reply_identity(f.options), 'claude-opus-5-5/high');
+  assert.equal(detect_reply_identity({ ...f.options, session: id, env: { CLAUDE_CONFIG_DIR: f.home } }), 'claude-opus-5-5/high');
+});
+
+test('Claude never uses a previous turn, sidechain, other session or unverified defaults', () => {
+  for (const change of [
+    f => f.write(f.user, f.turn, f.user),
+    f => { delete f.turn.effort; f.write(f.user, f.turn); },
+    f => { f.turn.sessionId = 'other'; f.write(f.user, f.turn); },
+    f => { f.turn.session_id = 'other'; f.write(f.user, f.turn); },
+    f => { f.turn.cwd = os.tmpdir(); f.write(f.user, f.turn); },
+    f => { f.turn.perTurnEffort = 'high'; f.write(f.user, f.turn); },
+    f => { f.turn.message.model = 'unsafe)label'; f.write(f.user, f.turn); },
+    f => f.write(f.user, { ...f.turn, isSidechain: true }),
+    f => fs.appendFileSync(f.file, '{partial'),
+    f => { f.options.env.CLAUDE_SESSION_ID = 'other'; },
+    f => { fs.mkdirSync(path.join(f.home, 'projects', 'other')); fs.copyFileSync(f.file, path.join(f.home, 'projects', 'other', `${id}.jsonl`)); },
+  ]) {
+    const f = claude_fixture(); change(f);
+    assert.equal(detect_reply_identity(f.options), 'claude/unknown');
+  }
+});
+
+test('Claude tool results and sidechains do not overwrite current main-session attribution', () => {
+  const f = claude_fixture();
+  f.write(f.user, f.turn, { ...f.user, message: { content: [{ type: 'tool_result', content: 'done' }] } }, { ...f.turn, isSidechain: true, effort: 'high' });
+  assert.equal(detect_reply_identity(f.options), 'claude-sonnet-5-5/medium');
+});

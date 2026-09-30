@@ -6,6 +6,8 @@ Incident citations explain past failures. An approved redesign may replace their
 
 ## One route and profile selection
 
+Current-Ask `skip-ag` skips pipeline advisors only. Ordinary delegated execution and normal independent review remain governed by this reference; see [skip-ag.md](skip-ag.md).
+
 External delegated tasks use `external-runner-v1`: one literal executable plus argument array, an independent disposable Git clone with no remotes, closed stdin, bounded output, process cleanup, and coordinator-owned acceptance. Internal tasks use the host's exposed native tool; host tasks use the current session directly. Exit zero, a native completion message, or a host action is not acceptance.
 
 The host may implement, test, and run routine commands. Prefer it when the objective and boundary are clear, context is available, and straightforward verification makes a handoff unlikely to pay off. Delegate separable work when cost/time savings, parallel progress, or needed capability justify briefing, startup, repeated context, monitoring, integration, and verification. Longer serial work can justify a cheaper worker; small operational edits can favor the host. File type, line count, and delegation capability are not mandates.

@@ -52,6 +52,11 @@ test('real terminal verifies owner refusal, hash-checked handoff and oversized n
   };
   const notebook = '.agentflow/devlog.md';
   const file = path.join(root, notebook);
+  const settings = require('./ag-settings');
+  settings.initialize_project({ repo_root: root, active_host: 'codex' });
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'ag.json')));
+  config.switches['notebook-ownership'] = 'on';
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config, null, 2) + '\n');
   const start = run('owner-a', [agf, 'start', '--repo', root, '--host', 'codex', '--message-stdin', '--json'], 'terminal owner request\n');
   assert.equal(start.status, 0, start.output);
   assert.match(start.output, /terminal owner request/);

@@ -1,15 +1,15 @@
 ---
 name: "agentflow"
-description: "Fast file-logged work with Git evidence and on-demand development machinery. Triggered by godev/devlog/ag/agentflow/fast-lane."
+description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.2"
+  version: "8.4.3"
 ---
 
-# Agentflow v8.4.2
+# Agentflow v8.4.3
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
-`stream(branch/worktree)` is an owner/session feature workspace: normally a branch in a separate worktree with a notebook and adjacent configuration. Non-code notebook-only requests may create a stream file and root pointer without branching, even with Git. Ordinary notebook work also supports no-Git folders; `new-feature:` requires Git. External delegated workers use disposable no-remote clones; internal and host work use the actual host interface and recorded ownership facts.
+`stream(branch/worktree)` is an owner/session feature workspace, usually a branch/worktree with adjacent notebook and configuration. Non-code notebook-only requests may use a stream file and root pointer without branching, even with Git. Ordinary notebooks support no-Git folders; `new-feature:` requires Git. External workers use disposable no-remote clones; internal/host work uses actual tools and recorded ownership.
 
 For releases, update version and heading together: major/minor/patch for breaking changes/features/fixes. This file supplies the release version. Follow repository release instructions; task commits are not releases. For a correction to an already-published release, first fetch and inspect the public branch and treat its current version and files as authoritative; never infer them from a private development checkout. A same-version public correction must preserve newer public files and verify the exact remote commit after pushing.
 
@@ -27,9 +27,9 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    The portable core requires file and command tools plus enough session state to retain the notebook and resume a round. Generic hosts use a safe explicit host ID, a unique retained `--session <id>`, and optional known family, return `hooks: not_available`, and follow the manual capture and `agf close` instructions. Pass the same `--host <safe-id> --session <id>` to startup, capture, progress, compaction and close; `AGENTFLOW_SESSION_ID` is an equivalent command-scoped source. Independent sessions must use different IDs. Generic hosts never receive Codex or Claude hooks, transcript identity, model, effort, or permission claims by inference. Only real host tools establish native handles, result facts, and stop controls.
 
-   With `notebook-ownership: on`, startup and every notebook writer enforce one session owner for the active Ask. The optional setting defaults to `off`; off skips session owner checks and metadata changes while retaining caller identity, physical file locks, safe paths, current Ask checks, unchanged snapshots and stream routing. Two sessions can then mix messages, decisions and replies. Invalid values or a policy change during an operation stop the write. Codex uses agreeing `CODEX_THREAD_ID`/`CODEX_SESSION_ID` values; Claude uses its hook session or `CLAUDE_CODE_SESSION_ID` (with `CLAUDE_SESSION_ID` retained for compatibility). When the current native host supplies no shell identity, retain its actual session ID through `--session <id>`. Conflicting identity refuses before mutation. With ownership on, a foreign or unknown owner leaves the notebook unchanged even with `streams: off`; before a direct notebook edit, use `agf owner inspect --notebook <target-doc>` and confirm the recorded host/session and Ask match this session. With off, confirm the applicable policy and canonical notebook/current Ask; do not invent, replace or release an existing owner record. Generic host names and dirty files never establish ownership.
+   With `notebook-ownership: on`, startup and every notebook writer enforce one session owner for the active Ask, even with `streams: off`. The optional setting defaults to `off`: sessions may mix work; owner metadata stays unchanged. Both retain caller identity, locks, safe paths, current Ask, unchanged snapshots and stream routing. Invalid or mid-operation policy changes refuse writes. Codex uses agreeing `CODEX_THREAD_ID`/`CODEX_SESSION_ID`; Claude uses its hook session or `CLAUDE_CODE_SESSION_ID` (`CLAUDE_SESSION_ID` is compatible). If shell identity is missing, pass the actual session through `--session <id>`; conflicts refuse mutation. Before direct edits with ownership on, inspect the notebook and confirm this host/session and Ask. With off, confirm policy and canonical Ask without changing owner records. Dirty files and generic host names never establish ownership.
 
-   With ownership on, explicit startup in a linked stream worktree can claim a populated first Ask without confirmation when there is no owner record, no progress or Reply, and Git HEAD contains the same notebook with only its single A-001 Ask still empty. Startup verifies that everything through the Ask heading is unchanged. Other unowned populated notebooks still require adoption. Successful closeout releases the completed round; a fresh session can claim the next empty Ask. If the owner populated that next Ask before activation, their request to activate/resume authorizes startup to claim it when its immediate sequential predecessor has a valid released owner and completed Reply. Do not ask for a second confirmation. Ordinary hooks and writers do not infer this authorization. To recover a legacy populated Ask without that release proof or hand off an actively owned Ask, inspect with `agf owner inspect --notebook <target-doc>`, then use `agf owner adopt --notebook <target-doc> --ask <A-NNN> --expect <owner-token|unowned> --sha256 <notebook-hash> --host <host> --session <id>` after the owner authorized taking over that round. Existing authorization suffices; use the exact inspected token, Ask and hash, and refuse changed preconditions. Never expire an owner from its age or a helper PID.
+   With ownership on, successful closeout releases the completed round. Read `references/streams.md` before claiming a populated Ask, recovering an unknown owner, or handing off an actively owned Ask. It specifies committed first-Ask and released-predecessor claims, inspected-token/hash adoption, and existing owner authorization. Never infer a handoff from age, dirty files or a stopped helper.
 
 3. Run it once. Do not precede startup with `pwd`, file inventories, Git status/log, or instruction discovery; the host already supplied the repository and skill paths. Use the returned `local_timestamp`, `next_run_id`, configuration, Git, Ask, and changed paths; rediscover only on error. After startup, inspect only files needed for the current Ask; do not inventory directories, search parent directories, reread configuration, or probe runners for a standalone text-file request. Such a non-operational content artifact is direct host work: after the reference batch below, write the artifact, read the saved file once to verify it, inspect changed paths, then use the documented `agf close --manifest-stdin` example. A Write success/context hint does not replace the required saved-file read. Do not add a failing-test cycle, repeat content verification, or explore workflow source/tests to anticipate a closeout error. Diagnose an actual unresolved failure only after trying the documented close command.
 
@@ -47,7 +47,7 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    If `hooks_restart_required: true`, tell the owner once to restart the host; until then, use the per-message capture below.
 
-6. Startup and input capture automatically compact eligible completed rounds when the notebook exceeds 1,000 lines or reaches 768 KiB. After the first meaningful response, check its size; before closeout, use `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session when compaction is still needed. This command also recovers notebooks already over the former 1 MiB limit. It verifies each physical Ask span by identifier, byte length and SHA-256 in the adjacent archive before removing the same live bytes. It preserves the current round and conservatively retains rounds containing nonempty inline answers; the unselected suffix remains live and authoritative. Perform the answer-recovery gate before separately handling those retained rounds. If an answered round blocks compaction, verify that every nonempty answer selected for archival was carried forward and handled. Only then rerun compaction with `--include-answered true`; otherwise retain the live suffix and report the blocker. Stop on collisions, source replacement or uncertain boundaries. A single large open round remains readable and writable; never truncate or archive it to satisfy a size threshold. Individual input and draft limits still apply.
+6. Startup and input capture automatically compact eligible completed rounds when the notebook exceeds 1,000 lines or reaches 768 KiB. Check size after the first meaningful response; before closeout, if still needed, run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round and the suffix from any nonempty inline answer. Before `--include-answered true`, verify every selected answer was carried forward and handled; otherwise retain the suffix and report the blocker. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
 
    The notebook and its adjacent archive are the single authoritative conversation history. Completed Ask/RUN/WIP/Reply spans and archived bytes are immutable and append-only; do not rewrite, summarize in place, or reformat them without explicit owner permission. STATUS and live recovery records are mutable projections. Verified byte-preserving compaction is the permitted move, not permission to edit history.
 
@@ -69,6 +69,8 @@ Answer the entire current Ask in its saved Reply; question-only turns also close
 
 ## Load rules only when triggered
 
+- `skip-ag [task]` or `/skip-ag [task]` selects the direct route for this Ask only; keep devlog and normal review/closeout. Read `references/skip-ag.md` before routing. `no-ag` skips the entire host Agentflow protocol.
+
 - Read `references/skill-conflicts.md` only for an explicit skills audit (`agf skills audit`) or an observed conflict involving another loaded skill. Use its read-only audit prompt or once-per-conflict runtime warning as applicable; ordinary work does not scan installed skills.
 
 - For `fast-lane [task]` or `/fast-lane [task]`, read `references/fast-lane.md` before choosing a route. It overrides the listed workflow requirements for this Ask without changing settings. Startup and prompt hooks report `fast_lane.state`; `pending` means wait for a task without writing a Reply or closing the Ask.
@@ -84,13 +86,13 @@ Answer the entire current Ask in its saved Reply; question-only turns also close
 
 ## Task artifact locations
 
-- `<workspace-dir>` is the validated configured workspace (default `.agentflow`), relative to the active checkout or plain project folder. `<work-key>` starts with the creating Ask: `A-NNN-<name>`.
+- `<workspace-dir>` is the validated workspace (default `.agentflow`) relative to this checkout/folder. `<work-key>` starts with the Ask: `A-NNN-<name>`.
 
 - `<work-root>` is `<workspace-dir>/artifacts/<work-key>/`; in an active stream it is `<workspace-dir>/features/<taskkey>/artifacts/<work-key>/`, where `<taskkey>` is the stream identifier. No-Git work uses the ordinary root; notebook-only streams use the stream root.
 
-- In a stream worktree, resolve paths there; never write through to the main checkout or add branch-key directories. Follow `references/streams.md` for routing and ownership.
+- Resolve stream paths in their worktree; never write through to main or add branch-key directories. Routing/ownership follow `references/streams.md`.
 
-- Put required designs, trackers, briefs, reports, and checkpoints in `<work-root>`; task queues use `<work-root>/planned/`. Preserve existing allocations and create only needed records. Explicit owner destinations override defaults.
+- Required designs, trackers, briefs, reports and checkpoints use `<work-root>`; queues use `<work-root>/planned/`. Preserve allocations and explicit owner paths; create only needed records.
 
 - Bare `run-plans` keeps `<workspace-dir>/planned/`; select task or other queues with `--tasks-dir`. Reserve `plan-NNN.md` for executable plans.
 

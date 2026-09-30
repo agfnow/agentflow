@@ -71,6 +71,39 @@ const terminal = (command, args = [], options = {}) => {
 
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8' })
 
+test('skip-ag is visible through both hosts in a real PTY and retains review policy', { skip: !terminal_available }, t => {
+  const repo = fs.realpathSync(make_temp_directory('agentflow-terminal-skip-ag-'))
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  git(repo, ['init', '-q', '-b', 'main'])
+  git(repo, ['config', 'user.name', 'Skip AG terminal test'])
+  git(repo, ['config', 'user.email', 'skip-ag@example.invalid'])
+  settings.initialize_project({ repo_root: repo, active_host: 'codex' })
+  fs.mkdirSync(path.join(repo, '.agentflow'), { recursive: true })
+  fs.writeFileSync(path.join(repo, '.agentflow/devlog.md'), '# → Ask / A-001\n\n+\n')
+  git(repo, ['add', '.'])
+  git(repo, ['commit', '-qm', 'fixture'])
+  const before = fs.readFileSync(path.join(repo, 'ag.json'))
+  const result = terminal('/bin/sh', ['-c', `
+test -t 0 && test -t 1 && test -t 2 || exit 91
+printf 'PTY identity: stdin/stdout/stderr are terminals\\n'
+node "$1" --host claude <<'INPUT'
+{"hook_event_name":"UserPromptSubmit","prompt":"skip-ag","session_id":"skip-ag-pty","turn_id":"one"}
+INPUT
+node "$1" --host codex <<'INPUT'
+{"hook_event_name":"UserPromptSubmit","prompt":"fix the login bug","session_id":"skip-ag-pty","turn_id":"two"}
+INPUT
+printf 'module.exports = true;\\n' > app.js
+node "$2" review --notebook .agentflow/devlog.md --host codex
+`, 'skip-ag-pty', path.join(__dirname, 'stop-hook.js'), agf], { cwd: repo, columns: 110 })
+  assert.equal(result.status, 0, result.output)
+  assert.match(result.output, /PTY identity/)
+  assert.match(result.output, /Skip-ag pending/)
+  assert.match(result.output, /Skip-ag active/)
+  assert.match(result.output, /"status": "required"/)
+  assert.deepEqual(fs.readFileSync(path.join(repo, 'ag.json')), before)
+  assert.match(fs.readFileSync(path.join(repo, '.agentflow/devlog.md'), 'utf8'), /\+ skip-ag\n/)
+})
+
 const make_repo = (options = {}) => {
   const dir = fs.realpathSync(make_temp_directory(options.spaces ? 'agentflow terminal agf ' : 'agentflow-terminal-agf-'))
   git(dir, ['init', '-b', 'main'])
@@ -285,6 +318,10 @@ test('real terminal helper supplies a clean TTY, fixed width, input, output, and
 test('Claude Code native session starts and writes a notebook through a real terminal', { skip: !terminal_available }, t => {
   const repo = fs.realpathSync(make_temp_directory('agentflow-terminal-claude-session-'))
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  settings.initialize_project({ repo_root: repo, active_host: 'claude' })
+  const config = JSON.parse(fs.readFileSync(path.join(repo, 'ag.json')))
+  config.switches['notebook-ownership'] = 'on'
+  fs.writeFileSync(path.join(repo, 'ag.json'), JSON.stringify(config))
   const command = `test -t 0 && test -t 1 && test -t 2 || exit 9
 print 'terminal identity: stdin/stdout/stderr are TTYs'
 node "$1" start --repo "$2" --host claude --message-stdin --json <<'CLAUDE_INPUT'

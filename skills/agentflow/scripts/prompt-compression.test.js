@@ -48,7 +48,7 @@ test('the always-loaded skill routes advanced machinery on demand', () => {
 test('the slim front door retains the owner, scope, evidence, and Git boundaries', () => {
 	const skill = read('skills/agentflow/SKILL.md') + '\n' + read('skills/agentflow/references/closeout.md')
 	assert.match(skill, /exact owner message.*standard input/i)
-	assert.match(skill, /Scope discipline — implement exactly the ask/i)
+	assert.match(skill, /Scope discipline — implement the authorized outcome and constraints/i)
 	assert.match(skill, /Worker findings never expand scope/i)
 	assert.match(skill, /Facts require direct command output or file inspection/i)
 	assert.match(skill, /failing test.*smallest green change.*complete relevant suite/i)

@@ -377,7 +377,7 @@ const replace_status = (notebook_text, status_text) => {
   return `${notebook_text.slice(0, heading.index)}${status_text}${notebook_text.slice(region.body_end)}`;
 };
 
-const parse_close_document = (document, notebook_text, ask, root, host) => {
+const parse_close_document = (document, notebook_text, ask, root, host, session) => {
   if (document === null || typeof document !== 'object' || Array.isArray(document)) fail('close-round input must be a JSON object');
   for (const field of ['ask_id', 'runs', 'status_fields']) if (Object.hasOwn(document, field)) fail(`close-round unsupported field: ${field}`);
   const document_ask = document.ask;
@@ -387,7 +387,7 @@ const parse_close_document = (document, notebook_text, ask, root, host) => {
   if (typeof document.reply !== 'string') fail('close-round reply must be complete text');
   return {
     runs,
-    reply: render_reply(document.reply, ask, root, host || document.host || document.status?.host),
+    reply: render_reply(document.reply, ask, root, host || document.host || document.status?.host, session),
     status: close_status_text(document.status, notebook_text),
   };
 };
@@ -397,9 +397,9 @@ const render_record = (text, ask, kind, number) => {
   return `## [${kind}-${String(number).padStart(3, '0')}] ${kind === 'RUN' ? 'Event' : 'Checkpoint'} — ${format_local_timestamp()} (${ask})\n\n${text.trim()}\n`;
 };
 
-const render_reply = (text, ask, root = process.cwd(), host) => {
+const render_reply = (text, ask, root = process.cwd(), host, session) => {
   if (!text.trim()) return text;
-  const identity = require('./reply-identity').detect_reply_identity({ root, ...(host ? { host } : {}) });
+  const identity = require('./reply-identity').detect_reply_identity({ root, ...(host ? { host } : {}), session });
   if (/^[ \t]*(?:# ← Reply \/|## Reply \/)/mu.test(text)) {
     return text.replace(/^(#{1,2} (?:← )?Reply \/[^\n]+\r?\n)(?:\s*\* _[^\n]+_\r?\n)?/u, `$1\n* _${format_local_timestamp()} (${identity})_\n`);
   }
@@ -426,7 +426,7 @@ const prepare_close_candidate = ({ notebook, input, root = process.cwd(), notebo
   notebook_owner.verify(ownership, { root, notebook: notebook_path, ask, active: true });
 
   const inspected = inspect_notebook(notebook.text, ask);
-  const parsed = parse_close_document(document, notebook.text, ask, root, host);
+  const parsed = parse_close_document(document, notebook.text, ask, root, host, session);
   if (root && notebook_path) parsed.reply = require('./completion-record').publish_reply(parsed.reply, { project_root: root, notebook_path, ask, ownership });
   const runs = [];
   const run_texts = new Set();
@@ -998,7 +998,7 @@ const append_reply = ({ root = process.cwd(), notebook: notebook_path, ask, inpu
 
   inspect_notebook(notebook.text, ask);
   parse_reply_draft(draft.text, ask);
-  draft.text = render_reply(draft.text, ask, repository_root, host);
+  draft.text = render_reply(draft.text, ask, repository_root, host, session);
   draft.content = Buffer.from(draft.text);
   parse_reply_draft(draft.text, ask);
   const newline = line_ending_for(notebook.content);

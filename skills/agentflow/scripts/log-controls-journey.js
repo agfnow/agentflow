@@ -15,9 +15,13 @@ console.log('PTY_OK: stdin/stdout are terminals');
 const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-log-controls-pty-')));
 const notebook = '.agentflow/devlog.md';
 const run = (cwd, script, args, input, status = 0) => {
+  if (script === 'notebook-write.js' || (script === 'agf.js' && args[0] === 'close')) {
+    if (!args.includes('--host')) args = [...args, '--host', 'test-host'];
+    args = [...args, '--session', 'log-controls-journey'];
+  }
   console.log(`$ node ${script} ${args.join(' ')}`);
   if (input !== undefined) console.log(`stdin: ${input}`);
-  const child = spawnSync(process.execPath, [path.join(__dirname, script), ...args], { cwd, input, encoding: 'utf8', timeout: 30000 });
+  const child = spawnSync(process.execPath, [path.join(__dirname, script), ...args], { cwd, input, env: { ...process.env, AGENTFLOW_SESSION_ID: 'log-controls-journey' }, encoding: 'utf8', timeout: 30000 });
   process.stdout.write(child.stdout || '');
   process.stderr.write(child.stderr || '');
   console.log(`exit: ${child.status}`);

@@ -65,7 +65,8 @@ test('active owner-facing Markdown uses the accepted configuration contract', ()
 	assert.match(chinese, /每個對話都先核對位元組與雜湊，再移除原本的副本/)
 	assert.doesNotMatch(chinese, /最後核實日期|十六題|十四題|gemma4:e4b-mlx/)
 	for (const guide of [english, chinese]) {
-		assert.match(guide, /gpt-5\.6-sol\/low/)
+		const recommendation = read('README.md').match(/`(gpt-[^`]+\/[^`]+)`/u)[1]
+		assert.ok(guide.includes(`\`${recommendation}\``))
 		assert.match(guide, /youtu\.be\/0dp_HnqX0ms/)
 		assert.match(guide, /npx skills update agentflow/)
 		assert.match(guide, /crontab/)
@@ -279,3 +280,11 @@ test('named-advisor guidance states the complete parser and route contract', () 
 	assert.doesNotMatch(english, /advisors?:.*best effort|advisor selection is only a hint/i)
 	assert.doesNotMatch(chinese, /advisor.*只是建議|選擇.*僅供參考/i)
 })
+
+
+test('skip-ag is documented across shipped guides, routing rules and current owner references', () => {
+  const shipped = ['skills/agentflow/SKILL.md', 'skills/agentflow/docs/AG_GUIDE.md', 'skills/agentflow/docs/AG_GUIDE.zh-tw.md', 'skills/agentflow/scripts/README.md', 'skills/agentflow/references/ag.md', 'skills/agentflow/references/closeout.md', 'skills/agentflow/references/delegation.md', 'skills/agentflow/references/fast-lane.md', 'skills/agentflow/references/skip-ag.md'];
+  for (const file of [...shipped, ...(public_package ? ['README.md', 'README.zh-tw.md'] : [])]) assert.match(read(file), /skip-ag/, file);
+  assert.match(read('skills/agentflow/references/skip-ag.md'), /does not.*waive independent review/);
+  assert.match(read('skills/agentflow/references/skip-ag.md'), /next Ask uses normal routing/);
+});
