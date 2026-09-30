@@ -1,4 +1,4 @@
-# Agentflow v8.4.0
+# Agentflow v8.4.1
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -32,7 +32,7 @@ Then install the `agentflow` plugin from that marketplace. Plugin updates follow
 
 ## Choose the main model
 
-For Codex, we recommends **`gpt-5.6-sol/low` as the most stable coordinator choice in their use**: model `gpt-5.6-sol`, reasoning effort `low`. The coordinator is the assistant you talk to; it organizes the task and checks the result. This recommendation does not change your model settings automatically. [Official model reference](https://developers.openai.com/api/docs/models/gpt-5.6-sol).
+For Codex, we recommend **`gpt-6.1-sol/medium` as the most stable coordinator choice in their use**: model `gpt-6.1-sol`, reasoning effort `medium`. The coordinator is the assistant you talk to; it organizes the task and checks the result. This recommendation does not change your model settings automatically. [Official model reference](https://developers.openai.com/api/docs/models/gpt-6.1-sol).
 
 ## Keep it updated
 

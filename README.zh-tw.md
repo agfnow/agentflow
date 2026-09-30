@@ -1,4 +1,4 @@
-# Agentflow v8.4.0
+# Agentflow v8.4.1
 
 [English](README.md) · **繁體中文**
 
@@ -32,7 +32,7 @@ npx skills add agfnow/agentflow
 
 ## 控場模型怎麼選
 
-使用 Codex 時，我們建議以 **`gpt-5.6-sol/low` 作為表現最穩定的控場模型**：模型選 `gpt-5.6-sol`，推理程度選 `low`。控場就是負責和你對話、安排工作、檢查成果的主要助理。這項建議不會自動更動你的模型設定。另見[官方模型說明](https://developers.openai.com/api/docs/models/gpt-5.6-sol)。
+使用 Codex 時，我們建議以 **`gpt-6.1-sol/medium` 作為表現最穩定的控場模型**：模型選 `gpt-6.1-sol`，推理程度選 `medium`。控場就是負責和你對話、安排工作、檢查成果的主要助理。這項建議不會自動更動你的模型設定。另見[官方模型說明](https://developers.openai.com/api/docs/models/gpt-6.1-sol)。
 
 ## 記得更新
 

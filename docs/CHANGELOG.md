@@ -1,6 +1,14 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.0. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.1. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.1]
+
+### Documentation
+
+- Update the recommended Codex coordinator to `gpt-6.1-sol/medium` in the project README and both public README languages, including the model name, reasoning effort and official reference link. This does not change user settings.
+
+- Add a release reminder to compare both rendered READMEs with their templates and check model recommendations, links, versions and installation/update commands before publication.
 
 ## [8.4.0]
 
