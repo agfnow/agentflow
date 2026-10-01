@@ -203,6 +203,18 @@ test('optional notebook ownership validates, displays and changes one shared pol
 	assert.throws(() => settings.apply_changes(config, ['notebook-ownership: yes'], all_executables), /notebook-ownership/u)
 })
 
+test('away-gates is optional, defaults off, validates and survives a settings change', () => {
+	const config = settings.make_template('codex')
+	assert.equal(settings.validate_config(config, { active_host: 'codex', ...all_executables }).valid, true)
+	assert.match(settings.format_settings_display(config, all_executables), /away-gates: off/u)
+	const changed = settings.apply_changes(config, ['away-gates: on'], { active_host: 'codex', ...all_executables }).config
+	assert.equal(changed.switches['away-gates'], 'on')
+	assert.equal(settings.canonical_config(changed).switches['away-gates'], 'on')
+	assert.equal(settings.validate_config(changed, { active_host: 'codex', ...all_executables }).valid, true)
+	changed.switches['away-gates'] = 'yes'
+	assert.equal(settings.validate_config(changed, { active_host: 'codex', ...all_executables }).valid, false)
+})
+
 test('schema-8 configs may omit optional cleanup switches and changes/help expose them', () => {
 	const config = settings.make_template('codex')
 	delete config.switches['completion-cleanup']

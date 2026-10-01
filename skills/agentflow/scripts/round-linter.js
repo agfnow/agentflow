@@ -1459,6 +1459,7 @@ const lint_quality_gate = (facts, devlog_text, project_root, metadata_context = 
     if (quality_has(journey, 'path') && !quality_safe_relative_path(journey.path)) errors.push('journey.path must be a repository-relative path');
     for (const name of ['red_proven', 'green_proven']) {
       if (quality_has(journey, name) && typeof journey[name] !== 'boolean') errors.push(`journey.${name} must be an actual boolean`);
+      else if (journey[name] === false) errors.push(`journey.${name} must be true before gate approval`);
     }
     if (quality_has(journey, 'implementation_commit') && !quality_valid_commit(journey.implementation_commit)) {
       errors.push('journey.implementation_commit must be a 40-character lowercase Git commit');
@@ -1498,8 +1499,9 @@ const lint_quality_gate = (facts, devlog_text, project_root, metadata_context = 
   const rounds = parsed.rounds ?? [];
   if (typeof devlog_text !== 'string') errors.push('devlog text is required for owner decision validation');
   const current_round = quality_latest_nonempty_round(rounds);
-  const away_authorized = facts.away_gates === true && (current_round?.owner_text ?? current_round?.ask_text)?.split(/\r?\n/u).includes('away: gates');
-  if (facts.away_gates === true && !away_authorized) errors.push('away_gates requires exact current owner Ask input away: gates');
+  const current_away = (current_round?.owner_text ?? current_round?.ask_text)?.split(/\r?\n/u).includes('away: gates');
+  const away_authorized = metadata_context['away-gates'] === 'on' || (facts.away_gates === true && current_away);
+  if (facts.away_gates === true && !away_authorized) errors.push('away_gates requires exact current owner Ask input away: gates or configured away-gates: on');
   const plan_replies = quality_reply_decisions(rounds, 'Design').map(decision => resolve_quality_decision(decision, project_root));
   const result_replies = quality_reply_decisions(rounds, 'Result').map(decision => resolve_quality_decision(decision, project_root));
   const design_decisions = quality_owner_decisions(rounds, 'Design').map(decision => resolve_quality_decision(decision, project_root));
@@ -1574,7 +1576,7 @@ const lint_quality_gate = (facts, devlog_text, project_root, metadata_context = 
       const replacement_reply = plan_replies.find(reply => reply.round_index >= second_block.round_index && quality_decision_commit(reply) === plan_commit);
       if (replacement_reply === undefined) {
         errors.push('repeated concept requires a later plan-only Reply for the new plan commit');
-      } else if (!design_decisions.some(decision => decision.decision === 'go' && quality_decision_commit(decision) === plan_commit && decision.round_index > replacement_reply.round_index)) {
+      } else if (!away_authorized && !design_decisions.some(decision => decision.decision === 'go' && quality_decision_commit(decision) === plan_commit && decision.round_index > replacement_reply.round_index)) {
         errors.push('repeated concept requires a still-later owner Ask containing Design Go for the new plan commit');
       }
     }

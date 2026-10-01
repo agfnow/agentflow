@@ -29,8 +29,8 @@ const pipeline_role_defaults = Object.freeze({
 	learn: 'basic',
 	threeways: 'better',
 })
-const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days'])
-const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'git-timeout-ms'])
+const switch_names = Object.freeze(['target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'away-gates', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days'])
+const optional_switch_names = Object.freeze(['completion-cleanup', 'completion-cleanup-interval-days', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'git-timeout-ms', 'away-gates'])
 const legacy_switch_names = Object.freeze(['metrics'])
 const completion_cleanup_defaults = Object.freeze({ 'completion-cleanup': 'off', 'completion-cleanup-interval-days': 7 })
 const notebook_control_defaults = Object.freeze({ 'log-verbosity': 'all', 'inline-reply': 'off', 'notebook-ownership': 'off' })
@@ -663,6 +663,7 @@ const validate_switches = (config, options, expected_switches, provider_values, 
 	const legal_switches = {
 		'cli-provider': provider_values,
 		'auto-reply': ['on', 'off'],
+		'away-gates': ['on', 'off'],
 		'log-verbosity': ['off', 'wip', 'all'],
 		'inline-reply': ['on', 'off'],
 		'notebook-ownership': ['on', 'off'],
@@ -971,6 +972,7 @@ const canonical_config = config => ({
 		...(has_own(config.switches, 'workspace-dir') ? { 'workspace-dir': config.switches['workspace-dir'] } : {}),
 		'cli-provider': config.switches['cli-provider'],
 		'auto-reply': config.switches['auto-reply'],
+		...(has_own(config.switches, 'away-gates') ? { 'away-gates': config.switches['away-gates'] } : {}),
 		...Object.fromEntries(Object.keys(notebook_control_defaults).filter(key => has_own(config.switches, key)).map(key => [key, config.switches[key]])),
 		lang: config.switches.lang,
 		streams: config.switches.streams,
@@ -1933,7 +1935,7 @@ const render_dispatch_substitution = format_dispatch_substitution
 const switch_display_value = (config, key) => {
 	if (Array.isArray(config.switches[key])) return JSON.stringify(config.switches[key])
 	if (has_own(config.switches, key)) return config.switches[key]
-	return completion_cleanup_defaults[key] ?? notebook_control_defaults[key] ?? (key === 'git-timeout-ms' ? git_timeout_default_ms : config.switches[key])
+	return completion_cleanup_defaults[key] ?? notebook_control_defaults[key] ?? (key === 'away-gates' ? 'off' : key === 'git-timeout-ms' ? git_timeout_default_ms : config.switches[key])
 }
 
 const format_settings_display = (config, options = {}) => {
@@ -1965,6 +1967,7 @@ const format_settings_display = (config, options = {}) => {
 		'- target-doc: repository-relative path ending in .md; use target-doc: <path>',
 		'- cli-provider: off or on; use cli-provider: <value>',
 		'- auto-reply: on or off; use auto-reply: <value>',
+		'- away-gates: on or off (default off); supplies Design Go and Result Go only after required evidence passes; use away-gates: <value>',
 		'- log-verbosity: off, wip, or all (default all); controls RUN/WIP records, never Reply; use log-verbosity: <value>',
 		'- inline-reply: on or off (default off); also display the saved Reply; use inline-reply: <value>',
 		'- notebook-ownership: on or off (default off); on protects each Ask from other sessions; off retains file locks but allows mixed session work; use notebook-ownership: <value>',

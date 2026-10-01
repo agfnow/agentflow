@@ -459,8 +459,11 @@ const collect = ({
   const { parsed, current_round, ask_id } = current_round_info(devlog_text ?? '');
   const config_file = config_path === undefined ? node_path.join(root, 'ag.json') : config_path;
   let workspace_dir;
+  let away_gates = 'off';
   try {
-    workspace_dir = JSON.parse(node_fs.readFileSync(config_file, 'utf8'))?.switches?.['workspace-dir'];
+    const switches = JSON.parse(node_fs.readFileSync(config_file, 'utf8'))?.switches;
+    workspace_dir = switches?.['workspace-dir'];
+    away_gates = switches?.['away-gates'] === 'on' ? 'on' : 'off';
   } catch (error) {
     workspace_dir = undefined;
   }
@@ -524,6 +527,7 @@ const collect = ({
     repository_state,
     terminal_output: status_output,
     ...ag_settings.read_notebook_controls(root, notebook_path),
+    'away-gates': away_gates,
     tracker: record.tracker,
     checkpoint_verification: gather_checkpoint_verification(root, devlog_text ?? '', record.work, notebook_path),
     review_decision: decision,

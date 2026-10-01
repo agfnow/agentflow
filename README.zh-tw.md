@@ -1,4 +1,4 @@
-# Agentflow v8.4.4
+# Agentflow v8.4.5
 
 [English](README.md) · **繁體中文**
 
@@ -81,6 +81,8 @@ godev
 - [日常使用指南](skills/agentflow/docs/AG_GUIDE.zh-tw.md)，最上方保留 YouTube 介紹影片。
 
 - [English user guide](skills/agentflow/docs/AG_GUIDE.md)。
+
+- [給新助理的簡介](skills/agentflow/docs/agent-brief.md)，先了解流程，再依已安裝的 skill 執行。
 
 - [版本更新紀錄](CHANGELOG.md)，最新版本放在最上方。
 

@@ -1,4 +1,4 @@
-# Agentflow v8.4.4
+# Agentflow v8.4.5
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -97,6 +97,8 @@ node "$HOME/.claude/skills/agentflow/scripts/setup.js"
 - [Everyday user guide](skills/agentflow/docs/AG_GUIDE.md), with the YouTube introduction.
 
 - [繁體中文使用指南](skills/agentflow/docs/AG_GUIDE.zh-tw.md).
+
+- [Brief for a new assistant](skills/agentflow/docs/agent-brief.md), for orientation before using the installed skill.
 
 - [Changelog](CHANGELOG.md), newest version first.
 

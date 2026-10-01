@@ -783,6 +783,23 @@ test('linked completion closeout and cleanup settings work through a real PTY', 
   assert.equal(git(repo, ['status', '--porcelain']), '')
 })
 
+test('away-gates setting changes and displays through a real PTY', { skip: !terminal_available }, t => {
+  const repo = make_repo()
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  const result = terminal('/bin/sh', ['-c', `
+test -t 0 && test -t 1 && test -t 2 || exit 91
+printf 'PTY identity: stdin/stdout/stderr are terminals\n'
+node "$1" settings change --set 'away-gates: on' --host codex || exit
+node "$1" settings validate --host codex || exit
+node "$1" settings show --host codex
+`, 'away-gates-pty', agf], { cwd: repo, columns: 110 })
+  assert.equal(result.status, 0, result.output)
+  assert.match(result.output, /PTY identity: stdin\/stdout\/stderr are terminals/)
+  assert.match(result.output, /valid ag\.json for codex/)
+  assert.match(result.output, /away-gates: on/)
+  assert.equal(JSON.parse(fs.readFileSync(path.join(repo, 'ag.json'), 'utf8')).switches['away-gates'], 'on')
+})
+
 test('configured custom default works through a real terminal stream journey', { skip: !terminal_available }, t => {
   const repo = make_repo()
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }))

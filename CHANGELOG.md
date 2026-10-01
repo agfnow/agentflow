@@ -1,6 +1,14 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.4. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.5. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.5]
+
+- Add persistent `away-gates: on|off`, defaulting to off when absent. When on, Agentflow can supply Design Go and Result Go after their evidence passes; owner-only choices, Stop decisions, and failed checks still require the owner. Existing project settings are unchanged unless explicitly set.
+
+- Add the updated assistant brief to the public skill at `skills/agentflow/docs/agent-brief.md` and link it from both public READMEs. The release procedure now requires refreshing the brief and checking its exact published bytes.
+
+- Document the current `auto-reply` and completion-cleanup boundaries in the brief. Their runtime behavior is unchanged.
 
 ## [8.4.4]
 

@@ -4127,6 +4127,18 @@ node_test.test('quality_gate accepts exact current-Ask away authority only after
   node_assert.strictEqual(result.status, 'pass', result.detail);
 });
 
+node_test.test('quality_gate accepts configured away-gates on and preserves off and blocking boundaries', () => {
+  const text = quality_devlog({ design_ask: 'continue the approved task', result_ask: 'finish the approved task' });
+  const on = status_for(lint_round({ devlog_text: text, quality_gate: quality_gate_facts(), 'away-gates': 'on' }), 'quality_gate');
+  const off = status_for(lint_round({ devlog_text: text, quality_gate: quality_gate_facts(), 'away-gates': 'off' }), 'quality_gate');
+  const blocking = status_for(lint_round({ devlog_text: text, quality_gate: quality_gate_facts({ host_gate: 'blocking' }), 'away-gates': 'on' }), 'quality_gate');
+  const missing_journey = status_for(lint_round({ devlog_text: text, quality_gate: quality_gate_facts({ journey: { ...quality_gate_facts().journey, red_proven: false, green_proven: false } }), 'away-gates': 'on' }), 'quality_gate');
+  node_assert.equal(on.status, 'pass', on.detail);
+  node_assert.equal(off.status, 'fail');
+  node_assert.equal(blocking.status, 'fail');
+  node_assert.equal(missing_journey.status, 'fail');
+});
+
 node_test.test('quality_gate rejects vague away prose and cannot override a blocking review', () => {
   const vague = quality_result(quality_gate_facts({ away_gates: true }), quality_devlog({ design_ask: 'I am away', result_ask: '' }));
   const blocking = quality_result(quality_gate_facts({
@@ -4270,6 +4282,15 @@ node_test.test('quality_gate requires a repeated concept to return through a new
 
   node_assert.strictEqual(result.status, 'fail');
   node_assert.match(result.detail, /repeated concept|new plan|second.*Blocked concept|Design Go/i);
+});
+
+node_test.test('configured away-gates supplies the renewed Design Go after a repeated concept', () => {
+  const text = quality_devlog({
+    extra: `\n## [WIP-001] Checkpoint — 2026-08-15 12:00:00 +0800 (during round A-003)\n\n- Blocked concept: exact-shape-object\n\n# ← Reply / A-003\n\n## Questions (batched — each with a suggested default)\n\n- None.\n\n# → Ask / A-004\n\nContinue after the block.\n\n## [WIP-001] Checkpoint — 2026-08-15 12:01:00 +0800 (during round A-004)\n\n- Blocked concept: exact-shape-object\n\n# ← Reply / A-004\n\n## Questions (batched — each with a suggested default)\n\n- Design Go: ${quality_commits.replacement_plan}\n\n# → Ask / A-005\n\nContinue with the revised plan.\n`
+  });
+  const facts = quality_gate_facts({ plan_commit: quality_commits.replacement_plan, repeated_concept_block: true });
+  const result = status_for(lint_round({ devlog_text: text, quality_gate: facts, 'away-gates': 'on' }), 'quality_gate');
+  node_assert.equal(result.status, 'pass', result.detail);
 });
 
 node_test.test('cosmetic checkpoint labels do not substitute for factual scope evidence', () => {

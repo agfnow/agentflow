@@ -1,4 +1,4 @@
-# Agentflow v8.4.4 — a guide for everyday use
+# Agentflow v8.4.5 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -150,7 +150,7 @@ Changes that are hard to undo need clearer checkpoints. The plan describes the n
 
 To reduce interruptions over routine choices, use `auto-reply: on`. If you normally keep it off, `keep-going` enables safe default answers for the current approved batch, then turns it off. State your desired final setting if you combine those controls.
 
-Neither control supplies Design Go or Result Go. For an agreed task you want completed while you are away, `away: gates` authorizes those approvals after the required evidence passes. It does not expand the task, accept failed checks, or authorize new irreversible actions or external messages.
+Neither control supplies Design Go or Result Go. For one agreed task, put `away: gates` in its Ask. To make those two gates automatic by default in this project, set `away-gates: on` in `ag.json`; it defaults to `off`. Either form applies only after the required evidence passes. Neither expands the task, accepts failed checks, overrides Stop or an open owner-only choice, or authorizes new irreversible actions or external messages.
 
 For example, for work whose scope you have already agreed:
 
@@ -217,6 +217,8 @@ Type `settings` to see the active values and available choices. To change one, s
 - **Language:** `lang: en` or `lang: zh-tw` controls AI-written replies, records, documents, comments, and commits. Your original messages stay as written. You can request another language for one deliverable.
 
 - **Routine answers:** `auto-reply: on|off` controls safe default answers.
+
+- **Plan and result gates:** `away-gates: on|off` defaults to `off`; `on` supplies Design Go and Result Go after their normal evidence passes. Use `away: gates` in one Ask instead when you want only that task covered.
 
 - **Progress records:** `log-verbosity: off|wip|all` defaults to `all`. For example, `log-verbosity: wip` keeps checkpoints while omitting future RUN entries.
 

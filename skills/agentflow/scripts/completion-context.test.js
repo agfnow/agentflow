@@ -331,6 +331,17 @@ const scope_fixture = () => {
   return { root, notebook_path };
 };
 
+test('completion checks read away-gates from the active configuration', () => {
+  const fixture = scope_fixture();
+  const config_path = path.join(fixture.root, 'ag.json');
+  const config = JSON.parse(fs.readFileSync(config_path, 'utf8'));
+  const devlog_text = fs.readFileSync(path.join(fixture.root, fixture.notebook_path), 'utf8');
+  assert.equal(collect({ project_root: fixture.root, notebook_path: fixture.notebook_path, active_host: 'codex', devlog_text })['away-gates'], 'off');
+  config.switches['away-gates'] = 'on';
+  fs.writeFileSync(config_path, `${JSON.stringify(config, null, 2)}\n`);
+  assert.equal(collect({ project_root: fixture.root, notebook_path: fixture.notebook_path, active_host: 'codex', devlog_text })['away-gates'], 'on');
+});
+
 test('post-merge cleanup does not request a second review of delivered stream changes', () => {
 	const root = cleanup_fixture();
 	const devlog_text = fs.readFileSync(path.join(root, '.agentflow/devlog.md'), 'utf8');

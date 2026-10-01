@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.4"
+  version: "8.4.5"
 ---
 
-# Agentflow v8.4.4
+# Agentflow v8.4.5
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -130,7 +130,7 @@ Answer the entire current Ask in its saved Reply; question-only turns also close
 
 - A looper worker runs its named plan directly: no Agentflow, model CLI, subagent, delegate, or independent review. Standalone looper has only checked external capability; if none is permitted or available, leave the queue pending and hand it to an interactive host. If its process tree shows a nested worker, contain descendants, preserve parent output, plan source, and authorized source changes, quarantine nested evidence, require a fresh coordinator review, and record host-limited visibility. — I-075.
 
-- Consequential work records the original Ask, normal journey, `Minimality check`, and exact plan commit. Source starts only after `Design Go: <7-hex-commit-prefix>` uniquely resolves to that commit. Current-Ask `away: gates` may supply Design Go and Result Go after evidence passes. — I-067.
+- Consequential work records the Ask, normal journey, `Minimality check`, and plan commit. Source starts after Design Go resolves to that commit. Current-Ask `away: gates` or configured `away-gates: on` (default off) supplies both gates after evidence passes; Stop and owner-only choices still bind. — I-067.
 
 - Save consequential designs and owner-requested implementation plans as `<work-root>/design.md`; preserve existing allocated paths and explicit owner destinations. Reserve `plan-NNN.md` for executable looper queue items.
 
@@ -166,7 +166,7 @@ Read `references/progress.md` before decomposing work, recording a material resu
 
 ## Settings
 
-- Valid controls are `workspace-dir`, `allowed-worker`, `review-policy`, `cli-provider`, `auto-reply`, `ask-names`, `streams`, `lang`, `target-doc`, `allow-ag`, `git-timeout-ms`, `log-verbosity`, `inline-reply`, `notebook-ownership`, `large-work-minutes`, `completion-cleanup`, and `completion-cleanup-interval-days`. `allowed-worker` is a nonempty JSON permission array of unique `external`, `internal`, and `host` values; its order has no execution meaning. For each task, the host chooses an eligible permitted kind and records a brief reason. `review-policy` is `prefer-independent` or `require-independent`; it controls review fallback, not execution permission. Legal stream values are `streams: ask|always|off`. With streams, `off` reports the signal but neither asks to open a stream nor opens one. Explicit `new-feature:` still opens its requested stream. Validate changes and write adjacent `ag.json` atomically. New projects default to all three worker kinds and `prefer-independent`; v7 migration preserves the conservative JSON value `["external", "host"]` and `require-independent` posture until explicitly opted in. Never rebuild established settings from STATUS.
+- Controls: `workspace-dir`, `allowed-worker`, `review-policy`, `cli-provider`, `auto-reply`, `away-gates`, `ask-names`, `streams`, `lang`, `target-doc`, `allow-ag`, `git-timeout-ms`, `log-verbosity`, `inline-reply`, `notebook-ownership`, `large-work-minutes`, `completion-cleanup`, and `completion-cleanup-interval-days`. `allowed-worker` is a nonempty JSON permission array of unique `external`, `internal`, and `host` values; its order has no execution meaning. For each task, the host chooses an eligible permitted kind and records a brief reason. `review-policy` is `prefer-independent` or `require-independent`; it governs review fallback only. Legal stream values are `streams: ask|always|off`. With streams, `off` reports the signal but neither asks to open a stream nor opens one. Explicit `new-feature:` still opens its requested stream. Validate changes and write adjacent `ag.json` atomically. New projects default to all three worker kinds and `prefer-independent`; v7 migration preserves the conservative JSON value `["external", "host"]` and `require-independent` posture until explicitly opted in. Never rebuild established settings from STATUS.
 
 - Change a setting with `<key>: <value>`, not an internal `$variable` name. Use hyphens between words in setting names.
 
