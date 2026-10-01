@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.5"
+  version: "8.4.6"
 ---
 
-# Agentflow v8.4.5
+# Agentflow v8.4.6
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 

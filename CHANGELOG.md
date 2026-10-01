@@ -1,6 +1,10 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.5. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.6. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.6]
+
+- Make the devlog `[SUMMARY]` contain one concise bullet for each numbered `[FINAL REPORT]` item, in the same order. This clarifies the answer format; runtime behavior is unchanged.
 
 ## [8.4.5]
 

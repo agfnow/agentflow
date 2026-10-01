@@ -1,4 +1,4 @@
-# Agentflow v8.4.5 — a guide for everyday use
+# Agentflow v8.4.6 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -98,7 +98,7 @@ Think of each **Ask** as one conversation about a task. Its matching **Reply** c
 
 - **RUN** entries are short numbered progress notes. A **WIP** checkpoint, added during longer work after ten active minutes, tells you what is finished, happening now, and still to do. `log-verbosity: off` omits future RUN and WIP records, `wip` keeps WIP but omits RUN, and `all` preserves the default behavior. Every level still captures the Ask and complete Reply and keeps tracker, review, test, and other evidence checks; the checkpoint cadence and footer describe only records that were allowed and written.
 
-- **[SUMMARY]** gives the result quickly. **[FINAL REPORT]** answers multiple requests in your original order and says which succeeded, failed, or remain limited, with the relevant checks.
+- **[SUMMARY]** gives one short answer for each numbered **[FINAL REPORT]** item, in the same order. **[FINAL REPORT]** answers multiple requests in your original order and says which succeeded, failed, or remain limited, with the relevant checks.
 
 - **Questions** contain an empty `- ans:` line when a decision is needed. Reply in chat or fill in that line, save, and ask the assistant to continue. If the notebook links to questions in a plan, answer in that linked file.
 
