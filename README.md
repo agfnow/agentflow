@@ -1,4 +1,4 @@
-# Agentflow v8.4.6
+# Agentflow v8.4.7
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -104,4 +104,4 @@ node "$HOME/.claude/skills/agentflow/scripts/setup.js"
 
 - [Script reference](skills/agentflow/scripts/README.md), for technical setup and recovery.
 
-Project settings live in `ag.json`, using the version-8 configuration format. Type `settings` to inspect them. Existing v7 files migrate conservatively when opened. `allowed-worker` is an unordered permission list of external, internal, and host routes; its order has no execution meaning. `cli-provider` filters only external profiles. Model profiles live under `external-workers`, and advisor choices under `pipeline-roles`.
+Project settings live in `ag.json`, using the version-8 configuration format. Type `settings` to inspect them. Startup fills properties missing from the latest template and reports invalid saved values with suggestions; it asks before changing any wrong value. Unsafe invalid settings still stop startup. Existing v7 files migrate conservatively when opened. `allowed-worker` is an unordered permission list of external, internal, and host routes; its order has no execution meaning. `cli-provider` filters only external profiles. Model profiles live under `external-workers`, and advisor choices under `pipeline-roles`.

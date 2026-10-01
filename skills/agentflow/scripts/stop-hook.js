@@ -132,6 +132,7 @@ const main = () => {
   const devlog_text = node_fs.readFileSync(devlog_path, 'utf8');
   const rounds = parse_devlog(devlog_text).rounds;
   if (rounds.length === 1 && ['', '+'].includes(rounds[0].ask_text.trim()) && !rounds[0].reply_text.trim() && !rounds[0].wip_text.trim()) return 0;
+  if (require('./closed-round').verified_closed_round(project_dir, notebook_path, active_host, devlog_text)) return 0;
   const context = collect({
     project_root: project_dir,
     notebook_path,

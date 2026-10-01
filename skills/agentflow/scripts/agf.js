@@ -756,7 +756,7 @@ const hook_result_for = (host, result) => result || (['codex', 'claude'].include
 	? { status: 'available', host }
 	: { status: 'not_available', host, reason: 'no_host_hook_integration', instructions: manual_hook_instructions(host) })
 
-const start_result = ({ repo, host, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result }) => ({
+const start_result = ({ repo, host, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result, config_audit }) => ({
 	repository: repo,
 	notebook,
 	active_host: host,
@@ -764,6 +764,7 @@ const start_result = ({ repo, host, host_family, notebook, notebook_text, intake
 	git: git_identity,
 	next_run_id: next_run_id(notebook_text, intake.current_ask),
 	configuration: intake.configuration,
+	...(config_audit ? { config_audit } : {}),
 	setup_created: setup_result.created,
 	setup_created_files: setup_result.created_files,
 	hooks_restart_required: setup_result.changed_files.includes(host === 'codex' ? '.codex/hooks.json' : '.claude/settings.json'),
@@ -793,6 +794,7 @@ const start_public_result = result => ({
 	...(result.host_family ? { host_family: result.host_family } : {}),
 	local_timestamp: format_local_timestamp(),
 	configuration: result.configuration,
+	...(result.config_audit ? { config_audit: result.config_audit } : {}),
 	git: result.git,
 	next_run_id: result.next_run_id,
 	setup_created: result.setup_created,
@@ -817,6 +819,7 @@ const emit_start_result = (result, args, repo, log) => {
 			active_host: result.active_host,
 			...(result.host_family ? { host_family: result.host_family } : {}),
 			configuration: result.configuration,
+			...(result.config_audit ? { config_audit: result.config_audit } : {}),
 			git: result.git,
 			setup_created: result.setup_created,
 			setup_created_files: result.setup_created_files,
@@ -836,6 +839,8 @@ const emit_start_result = (result, args, repo, log) => {
 		log(`manual closeout: ${result.hooks.instructions.closeout}`)
 	}
 	log(`current Ask: ${result.current_ask_identifier || 'none'}`)
+	if (result.config_audit?.added?.length) log(`configuration added: ${result.config_audit.added.join(', ')}`)
+	for (const item of result.config_audit?.invalid || []) log(`configuration value needs approval: ${item.path}=${JSON.stringify(item.value)}; template suggests ${JSON.stringify(item.suggested)}`)
 	log(`stream decision: ${result.stream_decision.reason}`)
 	if (result.required_next_rulebook) log(`next rulebook: ${result.required_next_rulebook}`)
 	return { dir: repo }
@@ -856,20 +861,49 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 	const message = read_start_message()
 	const git_identity = top.ok ? repository_identity(repo) : { branch: null, head: null, state: 'unavailable' }
 	if (git_identity.error) throw new Error(git_identity.error)
+	let lock = acquire_start_lock(repo)
 	let configured_target = '.agentflow/devlog.md'
 	let config_file = path.join(repo, 'ag.json')
-	if (fs.existsSync(config_file)) {
-		const existing_config = ag_settings.load_config(config_file, { repo_root: repo, active_host: args.host, persist_migration: false, ...(args.host_family ? { host_family: args.host_family } : {}) })
-		configured_target = existing_config.switches['target-doc'] || configured_target
+	const audit_start_file = file => {
+		if (!fs.existsSync(file)) return null
+		const original = fs.readFileSync(file, 'utf8')
+		if (ag_settings.duplicate_json_key(original) !== null) return null
+		let parsed
+		try { parsed = JSON.parse(original) } catch { return null }
+		if (parsed?.['schema-version'] === 7) return null
+		const audit = ag_settings.audit_template(parsed, { repo_root: repo, active_host: args.host })
+		if (audit.added.length) {
+			if (fs.readFileSync(file, 'utf8') !== original) throw new Error('ag.json changed during startup audit; retry from the current file')
+			if (audit.config.switches && typeof audit.config.switches === 'object' && !Array.isArray(audit.config.switches)) audit.config.switches = Object.fromEntries(Object.entries(audit.config.switches).sort(([left], [right]) => left.localeCompare(right, 'en')))
+			ag_settings.write_text_atomic(file, `${JSON.stringify(audit.config, null, 2)}\n`)
+		}
+		return audit.added.length || audit.invalid.length ? { added: audit.added, invalid: audit.invalid } : null
 	}
-	if (top.ok && notebook_owner.linked_worktree(repo)) {
-		configured_target = stream_doc(repo, git_identity.branch)
-		if (!configured_target) throw new Error('stream notebook is missing for this worktree; restore its canonical notebook before intake')
-		config_file = ag_settings.resolve_config_path(repo, configured_target)
-		if (!fs.existsSync(config_file)) throw new Error('stream configuration is missing; restore its notebook/configuration pair before intake')
+	let config_audit = null
+	try {
+		const linked_stream = top.ok && notebook_owner.linked_worktree(repo)
+		config_audit = linked_stream || lock.existing ? null : audit_start_file(config_file)
+		if (fs.existsSync(config_file)) {
+			let existing_config
+			try { existing_config = ag_settings.load_config(config_file, { repo_root: repo, active_host: args.host, persist_migration: false, ...(args.host_family ? { host_family: args.host_family } : {}) }) }
+			catch (error) {
+				if (config_audit?.invalid?.length) error.message += `; template suggestions (change only with owner permission): ${config_audit.invalid.map(item => `${item.path}=${JSON.stringify(item.suggested)}`).join(', ')}`
+				throw error
+			}
+			configured_target = existing_config.switches['target-doc'] || configured_target
+		}
+		if (linked_stream) {
+			configured_target = stream_doc(repo, git_identity.branch)
+			if (!configured_target) throw new Error('stream notebook is missing for this worktree; restore its canonical notebook before intake')
+			config_file = ag_settings.resolve_config_path(repo, configured_target)
+			if (!fs.existsSync(config_file)) throw new Error('stream configuration is missing; restore its notebook/configuration pair before intake')
+			if (!lock.existing) config_audit = audit_start_file(config_file)
+		}
+		if (fs.existsSync(config_file) && !fs.existsSync(path.join(repo, configured_target))) throw new Error(`configured notebook ${configured_target} is missing; restore it or repair the pair explicitly`)
+	} catch (error) {
+		if (!lock.existing) release_start_lock(lock)
+		throw error
 	}
-	if (fs.existsSync(config_file) && !fs.existsSync(path.join(repo, configured_target))) throw new Error(`configured notebook ${configured_target} is missing; restore it or repair the pair explicitly`)
-	let lock = acquire_start_lock(repo)
 	if (lock.existing) {
 		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: configured_target, active_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}), interrupted_start: true })
 		const result = start_result({
@@ -903,6 +937,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 				...(args.host_family ? { host_family: args.host_family } : {}),
 			})
 			: ag_settings.initialize_project({ repo_root: repo, explicit_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}) })
+		if (!config_audit) config_audit = audit_start_file(config_file)
 		const notebook = start_relative(repo, initialized.notebook_path || path.join(repo, initialized.config.switches['target-doc']))
 		const paths = start_snapshot_paths(repo, args.host, notebook)
 		const notebook_file = path.join(repo, notebook)
@@ -937,7 +972,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		release_start_lock(lock)
 		lock = null
 		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: notebook, active_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}), bootstrap_provenance: provenance })
-		return emit_start_result(start_result({ repo, host: args.host, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
+		return emit_start_result(start_result({ repo, host: args.host, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, config_audit, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
 	} finally {
 		if (input_lock !== null) notebook_writer.release_close_round_lock(input_lock)
 		if (lock !== null) release_start_lock(lock)

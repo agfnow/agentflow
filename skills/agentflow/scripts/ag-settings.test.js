@@ -168,8 +168,9 @@ test('version-8 templates contain the exact switches and defaults', () => {
 		const config = settings.make_template(host)
 		assert.equal(config['schema-version'], 8)
 		assert.deepEqual(Object.keys(config.switches), [
-		'target-doc', 'workspace-dir', 'cli-provider', 'auto-reply', 'log-verbosity', 'inline-reply', 'notebook-ownership', 'lang', 'streams', 'ask-names', 'allow-ag', 'large-work-minutes', 'git-timeout-ms', 'allowed-worker', 'review-policy', 'completion-cleanup', 'completion-cleanup-interval-days',
+		'allow-ag', 'allowed-worker', 'ask-names', 'auto-reply', 'away-gates', 'cli-provider', 'completion-cleanup', 'completion-cleanup-interval-days', 'git-timeout-ms', 'inline-reply', 'lang', 'large-work-minutes', 'log-verbosity', 'notebook-ownership', 'review-policy', 'streams', 'target-doc', 'workspace-dir',
 		])
+		assert.equal(config.switches['away-gates'], 'off')
 		assert.equal(config.switches['allow-ag'], 'on')
 		assert.equal(config.switches['notebook-ownership'], 'off')
 		assert.equal(config.switches['large-work-minutes'], 120)
@@ -181,6 +182,27 @@ test('version-8 templates contain the exact switches and defaults', () => {
 		assert.equal(config['external-workers'].length, 2)
 		assert.equal(settings.validate_config(config, { active_host: host, ...all_executables }).valid, true)
 	}
+})
+
+test('template audit fills absent properties and reports invalid existing values without replacing them', () => {
+	const config = settings.make_template('codex')
+	delete config.switches['away-gates']
+	delete config.switches['notebook-ownership']
+	config.switches['log-verbosity'] = 'maybe'
+	config['pipeline-roles'].codewalk = 123
+	config['external-workers'][0].priority = 0
+	const audit = settings.audit_template(config, { active_host: 'codex' })
+	assert.deepEqual(audit.added, ['switches.away-gates', 'switches.notebook-ownership'])
+	assert.equal(audit.config.switches['away-gates'], 'off')
+	assert.equal(audit.config.switches['notebook-ownership'], 'off')
+	assert.equal(audit.config.switches['log-verbosity'], 'maybe')
+	assert.deepEqual(audit.invalid, [
+		{ path: 'switches.log-verbosity', value: 'maybe', suggested: 'all' },
+		{ path: 'pipeline-roles.codewalk', value: 123, suggested: 'better' },
+		{ path: 'external-workers[0].priority', value: 0, suggested: 3 },
+	])
+	assert.equal(audit.runtime.switches['log-verbosity'], 'all')
+	assert.equal(config.switches['away-gates'], undefined)
 })
 
 test('optional notebook ownership validates, displays and changes one shared policy', () => {

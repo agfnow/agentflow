@@ -1,4 +1,4 @@
-# Agentflow v8.4.6 — a guide for everyday use
+# Agentflow v8.4.7 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -298,7 +298,7 @@ Open the same project and type `godev`. The assistant reads the current Ask, ans
 
 - **A worker stopped:** The assistant inspects the saved output and changes before accepting any result. Silence or exit code zero alone is not enough.
 
-- **Settings are missing or invalid:** Ask it to explain the repair. Established settings must not be guessed from STATUS. A v7 file is migrated only when opened, with its existing choices retained unless you explicitly opt into the new worker and review defaults.
+- **Settings are missing or invalid:** Startup adds absent properties from the current template. It reports wrong saved values with suggested replacements and asks before changing them. Safe presentation and timing values use template defaults in memory while work continues; unsafe path, ownership, permission, execution, and cleanup values stop startup. Established settings are never guessed from STATUS. A v7 file is migrated only when opened, with its existing choices retained unless you explicitly opt into the new worker and review defaults.
 
 - **Skills seem to disagree:** Ask for `agf skills audit`. It lists discoverable skills and prepares a read-only assessment. The audit itself makes no edits or model calls; your assistant explains confirmed conflicts and possible remedies.
 

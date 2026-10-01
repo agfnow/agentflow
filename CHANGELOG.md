@@ -1,6 +1,14 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.6. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.7. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.7]
+
+- At startup, add missing properties from the current settings template and report invalid saved values with suggested replacements. Safe invalid values use template defaults in memory while work continues; unsafe settings still stop startup. Wrong saved values are never changed without owner permission.
+
+- Include `away-gates` in new project templates and alphabetize switch keys for easier lookup.
+
+- Keep a verified completed round valid in the Stop hook when working files change later. The hook checks the close receipt, commit, and saved Reply before accepting that round.
 
 ## [8.4.6]
 

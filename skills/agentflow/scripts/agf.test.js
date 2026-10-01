@@ -334,6 +334,66 @@ test('start reports an existing Ask when bare godev resumes written owner conten
 	}
 })
 
+test('start adds missing template fields and reports a safe invalid value without changing it', () => {
+	const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-start-audit-')))
+	try {
+		ag_settings.initialize_project({ repo_root: dir, active_host: 'codex' })
+		const config_path = path.join(dir, 'ag.json')
+		const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		delete config.switches['away-gates']
+		config.switches['log-verbosity'] = 'maybe'
+		fs.writeFileSync(config_path, `${JSON.stringify(config, null, 2)}\n`)
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json'], { cwd: dir, input: 'godev\n', encoding: 'utf8' })
+		assert.equal(result.status, 0, result.stderr)
+		const output = JSON.parse(result.stdout)
+		assert.deepEqual(output.config_audit, { added: ['switches.away-gates'], invalid: [{ path: 'switches.log-verbosity', value: 'maybe', suggested: 'all' }] })
+		const saved = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		assert.equal(saved.switches['away-gates'], 'off')
+		assert.equal(saved.switches['log-verbosity'], 'maybe')
+		assert.deepEqual(Object.keys(saved.switches), Object.keys(saved.switches).sort())
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true })
+	}
+})
+
+test('start stops on an unsafe invalid value and suggests the template value', () => {
+	const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-start-unsafe-audit-')))
+	try {
+		ag_settings.initialize_project({ repo_root: dir, active_host: 'codex' })
+		const config_path = path.join(dir, 'ag.json')
+		const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		config.switches['notebook-ownership'] = 'maybe'
+		const original = `${JSON.stringify(config, null, 2)}\n`
+		fs.writeFileSync(config_path, original)
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json'], { cwd: dir, input: 'godev\n', encoding: 'utf8' })
+		assert.notEqual(result.status, 0)
+		assert.match(result.stderr, /notebook-ownership.*template suggestions.*switches\.notebook-ownership="off"/s)
+		assert.equal(fs.readFileSync(config_path, 'utf8'), original)
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true })
+	}
+})
+
+test('start migrates schema seven before adding missing current template fields', () => {
+	const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-start-migrate-audit-')))
+	try {
+		ag_settings.initialize_project({ repo_root: dir, active_host: 'codex' })
+		const config_path = path.join(dir, 'ag.json')
+		const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		config['schema-version'] = 7
+		delete config.switches['away-gates']
+		fs.writeFileSync(config_path, `${JSON.stringify(config, null, 2)}\n`)
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json'], { cwd: dir, input: 'godev\n', encoding: 'utf8' })
+		assert.equal(result.status, 0, result.stderr)
+		assert.deepEqual(JSON.parse(result.stdout).config_audit?.added, ['switches.away-gates'])
+		const saved = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		assert.equal(saved['schema-version'], 8)
+		assert.equal(saved.switches['away-gates'], 'off')
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true })
+	}
+})
+
 test('start preserves the first scope baseline when bare godev resumes an existing Ask', () => {
 	const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-start-scope-')))
 	execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
@@ -469,6 +529,11 @@ test('start keeps an interrupted startup conservative when its lock is still pre
 		agf.update_ignore_file(dir)
 		execFileSync('git', ['add', '-A'], { cwd: dir })
 		execFileSync('git', ['commit', '-qm', 'fixture'], { cwd: dir })
+		const config_path = path.join(dir, 'ag.json')
+		const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		delete config.switches['away-gates']
+		const config_before = `${JSON.stringify(config, null, 2)}\n`
+		fs.writeFileSync(config_path, config_before)
 		fs.writeFileSync(path.join(dir, '.agentflow-start.lock'), 'Agentflow startup lock\npid: 1\n')
 		const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'codex', '--message-stdin', '--json'], {
 			cwd: dir, input: '+ interrupted request\n', encoding: 'utf8',
@@ -479,6 +544,7 @@ test('start keeps an interrupted startup conservative when its lock is still pre
 		assert.equal(output.stream_decision.reason, 'foreign_or_parallel_work')
 		assert.match(output.stream_decision.evidence.join(' '), /startup did not return/i)
 		assert.match(fs.readFileSync(path.join(dir, '.agentflow/devlog.md'), 'utf8'), /\n\n\+ ?\n$/)
+		assert.equal(fs.readFileSync(config_path, 'utf8'), config_before)
 	} finally {
 		fs.rmSync(dir, { recursive: true, force: true })
 	}

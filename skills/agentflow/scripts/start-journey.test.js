@@ -252,6 +252,25 @@ test('real PTY startup detects the computer language and preserves the saved cho
 	assert.equal(fs.readFileSync(config_path, 'utf8'), saved);
 });
 
+test('real PTY startup adds missing settings and reports a safe invalid value', { skip: terminal_skip }, () => {
+	const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-audit-journey-')));
+	const settings = require('./ag-settings.js');
+	settings.initialize_project({ repo_root: root, active_host: 'codex' });
+	const config_path = path.join(root, 'ag.json');
+	const config = JSON.parse(fs.readFileSync(config_path, 'utf8'));
+	delete config.switches['away-gates'];
+	config.switches['log-verbosity'] = 'maybe';
+	fs.writeFileSync(config_path, `${JSON.stringify(config, null, 2)}\n`);
+	const result = run(root, [AGF, 'start', '--host', 'codex'], 'godev\n');
+	assert.equal(result.status, 0, result.stderr + result.stdout);
+	assert.match(result.stdout, /\/dev\/tt/);
+	assert.match(result.stdout, /godev/);
+	assert.deepEqual(transcript_json(result.stdout).config_audit, { added: ['switches.away-gates'], invalid: [{ path: 'switches.log-verbosity', value: 'maybe', suggested: 'all' }] });
+	const saved = JSON.parse(fs.readFileSync(config_path, 'utf8'));
+	assert.equal(saved.switches['away-gates'], 'off');
+	assert.equal(saved.switches['log-verbosity'], 'maybe');
+});
+
 test('active-host real PTY startup adds the other host only when it runs', { skip: terminal_skip }, () => {
 	const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-host-journey-')));
 	let prior_host;

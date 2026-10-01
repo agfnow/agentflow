@@ -36,8 +36,8 @@ const completion_cleanup_defaults = Object.freeze({ 'completion-cleanup': 'off',
 const notebook_control_defaults = Object.freeze({ 'log-verbosity': 'all', 'inline-reply': 'off', 'notebook-ownership': 'off' })
 const notebook_controls = (config = {}) => {
 	const controls = Object.fromEntries(Object.entries(notebook_control_defaults).map(([key, fallback]) => [key, has_own(config.switches || {}, key) ? config.switches[key] : fallback]))
-	if (!['off', 'wip', 'all'].includes(controls['log-verbosity'])) throw new SettingsError('log-verbosity must be off, wip, or all')
-	if (!['off', 'on'].includes(controls['inline-reply'])) throw new SettingsError('inline-reply must be off or on')
+	if (!['off', 'wip', 'all'].includes(controls['log-verbosity'])) controls['log-verbosity'] = notebook_control_defaults['log-verbosity']
+	if (!['off', 'on'].includes(controls['inline-reply'])) controls['inline-reply'] = notebook_control_defaults['inline-reply']
 	if (!['off', 'on'].includes(controls['notebook-ownership'])) throw new SettingsError('notebook-ownership must be off or on')
 	return controls
 }
@@ -163,22 +163,24 @@ const host_template_values = {
   codex: {
     'schema-version': schema_version,
     switches: {
+      'allow-ag': 'on',
+      'allowed-worker': ['external', 'internal', 'host'],
+      'ask-names': 'on',
+      'auto-reply': 'off',
+      'away-gates': 'off',
+      'cli-provider': 'on',
+      'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
+      'completion-cleanup-interval-days': completion_cleanup_defaults['completion-cleanup-interval-days'],
+      'git-timeout-ms': git_timeout_default_ms,
+      'inline-reply': notebook_control_defaults['inline-reply'],
+      lang: 'en',
+      'large-work-minutes': 120,
+      'log-verbosity': notebook_control_defaults['log-verbosity'],
+      'notebook-ownership': notebook_control_defaults['notebook-ownership'],
+      'review-policy': 'prefer-independent',
+      streams: 'ask',
       'target-doc': '.agentflow/devlog.md',
       'workspace-dir': '.agentflow',
-      'cli-provider': 'on',
-      'auto-reply': 'off',
-      ...notebook_control_defaults,
-      lang: 'en',
-      streams: 'ask',
-      'ask-names': 'on',
-      'allow-ag': 'on',
-      'large-work-minutes': 120,
-      'git-timeout-ms': git_timeout_default_ms,
-      'allowed-worker': ['external', 'internal', 'host'],
-      'review-policy': 'prefer-independent',
-      'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
-      'completion-cleanup-interval-days':
-        completion_cleanup_defaults['completion-cleanup-interval-days'],
     },
     'pipeline-roles': pipeline_role_defaults,
     'external-workers': [
@@ -211,22 +213,24 @@ const host_template_values = {
   claude: {
     'schema-version': schema_version,
     switches: {
+      'allow-ag': 'on',
+      'allowed-worker': ['external', 'internal', 'host'],
+      'ask-names': 'on',
+      'auto-reply': 'off',
+      'away-gates': 'off',
+      'cli-provider': 'on',
+      'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
+      'completion-cleanup-interval-days': completion_cleanup_defaults['completion-cleanup-interval-days'],
+      'git-timeout-ms': git_timeout_default_ms,
+      'inline-reply': notebook_control_defaults['inline-reply'],
+      lang: 'en',
+      'large-work-minutes': 120,
+      'log-verbosity': notebook_control_defaults['log-verbosity'],
+      'notebook-ownership': notebook_control_defaults['notebook-ownership'],
+      'review-policy': 'prefer-independent',
+      streams: 'ask',
       'target-doc': '.agentflow/devlog.md',
       'workspace-dir': '.agentflow',
-      'cli-provider': 'on',
-      'auto-reply': 'off',
-      ...notebook_control_defaults,
-      lang: 'en',
-      streams: 'ask',
-      'ask-names': 'on',
-      'allow-ag': 'on',
-      'large-work-minutes': 120,
-      'git-timeout-ms': git_timeout_default_ms,
-      'allowed-worker': ['external', 'internal', 'host'],
-      'review-policy': 'prefer-independent',
-      'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
-      'completion-cleanup-interval-days':
-        completion_cleanup_defaults['completion-cleanup-interval-days'],
     },
     'pipeline-roles': pipeline_role_defaults,
     'external-workers': [
@@ -712,6 +716,65 @@ const validate_current_config = (config, options = {}) => {
 
 const validate_config = (config, options = {}) => validate_current_config(config, options)
 
+const safe_start_fallbacks = Object.freeze(['ask-names', 'git-timeout-ms', 'inline-reply', 'lang', 'large-work-minutes', 'log-verbosity'])
+const audit_template = (config, options = {}) => {
+	const template = make_template(options.active_host || 'codex')
+	const merged = clone_value(config)
+	if (!is_plain_object(config)) return { config: merged, runtime: merged, added: [], invalid: [] }
+	const added = []
+	const fill = (current, defaults, prefix = '') => {
+		if (!is_plain_object(current) || !is_plain_object(defaults)) return
+		for (const [key, value] of Object.entries(defaults)) {
+			const path = prefix ? `${prefix}.${key}` : key
+			if (!has_own(current, key)) {
+				current[key] = clone_value(value)
+				added.push(path)
+			} else if (is_plain_object(value)) fill(current[key], value, path)
+		}
+	}
+	fill(merged, template)
+	const validation = validate_config(merged, { ...options, check_executables: false })
+	const role_probe = clone_value(merged)
+	if (is_plain_object(role_probe.switches)) role_probe.switches = clone_value(template.switches)
+	role_probe['external-workers'] = clone_value(template['external-workers'])
+	const role_errors = validate_config(role_probe, { ...options, check_executables: false }).errors
+	const invalid = []
+	for (const [section, defaults] of [['switches', template.switches], ['pipeline-roles', template['pipeline-roles']]]) {
+		if (!is_plain_object(config[section])) continue
+		for (const [key, suggested] of Object.entries(defaults)) {
+			if (!has_own(config[section], key)) continue
+			const path = `${section}.${key}`
+			const errors = section === 'pipeline-roles' ? role_errors : validation.errors
+			if (errors.some(error => error.includes(path))) invalid.push({ path, value: config[section][key], suggested })
+		}
+	}
+	if (has_own(config, 'schema-version') && config['schema-version'] !== schema_version) invalid.push({ path: 'schema-version', value: config['schema-version'], suggested: schema_version })
+	if (has_own(config, 'external-workers') && !Array.isArray(config['external-workers'])) invalid.push({ path: 'external-workers', value: config['external-workers'], suggested: template['external-workers'] })
+	else if (Array.isArray(config['external-workers'])) {
+		const seen = new Set()
+		for (const error of validation.errors) {
+			const match = /^Invalid external-workers\[(\d+)\](?:\.([^:]+))?:/u.exec(error)
+			if (!match) continue
+			const index = Number(match[1])
+			const current_profile = config['external-workers'][index]
+			const default_profile = template['external-workers'][index]
+			if (!is_plain_object(current_profile) || !default_profile || current_profile.id !== default_profile.id) continue
+			const field = match[2] || ''
+			const path = `external-workers[${index}]${field ? `.${field}` : ''}`
+			if (seen.has(path)) continue
+			const parts = field.replace(/\[(\d+)\]/gu, '.$1').split('.').filter(Boolean)
+			const at = (object, keys) => keys.reduce((value, key) => value?.[key], object)
+			const suggested = at(default_profile, parts)
+			if (suggested === undefined) continue
+			invalid.push({ path, value: at(current_profile, parts), suggested })
+			seen.add(path)
+		}
+	}
+	const runtime = clone_value(merged)
+	for (const entry of invalid) if (entry.path.startsWith('switches.') && safe_start_fallbacks.includes(entry.path.slice(9))) runtime.switches[entry.path.slice(9)] = clone_value(entry.suggested)
+	return { config: merged, runtime, added: added.sort(), invalid }
+}
+
 const assert_valid_config = (config, options = {}) => {
 	const result = validate_config(config, options)
 	if (!result.valid) throw error_from(result.errors.join('; '), result.errors, result.warnings, 'AG_CONFIG_INVALID')
@@ -916,20 +979,23 @@ const read_json_config = (config_path, options = {}) => {
 		migrated = true
 	}
 
+	const initial_validation = validate_config(config, { ...options, repo_root: options.repo_root, check_executables: false })
+	const runtime_audit = !initial_validation.valid && !options.strict_values ? audit_template(config, { ...options, active_host: options.active_host || 'codex' }) : null
+	const runtime_config = runtime_audit && runtime_audit.added.length === 0 ? runtime_audit.runtime : config
 	try {
-		const schema_validation = validate_config(config, { ...options, repo_root: options.repo_root, check_executables: false })
+		const schema_validation = runtime_config === config ? initial_validation : validate_config(runtime_config, { ...options, repo_root: options.repo_root, check_executables: false })
 		if (!schema_validation.valid) throw error_from(schema_validation.errors.join('; '), schema_validation.errors, schema_validation.warnings, 'AG_CONFIG_INVALID')
 	} catch (error) {
 		if (error instanceof SettingsError && error.code === 'AG_CONFIG_WRITE') throw error
 		throw new SettingsError(`${error.message}; ${established_config_repair(config_path, options.repo_root)}`, { code: error.code || 'AG_CONFIG_INVALID' })
 	}
 	const active_host = options.active_host || detect_host(options)
-	assert_valid_config(config, { ...options, active_host })
+	assert_valid_config(runtime_config, { ...options, active_host })
 	if (migrated && options.persist_migration !== false) {
 		const serialized = JSON.stringify(config, null, 2) + '\n'
 		write_text_atomic(config_path, serialized, options)
 	}
-	return config
+	return runtime_config
 }
 
 const load_config = read_json_config
@@ -967,7 +1033,7 @@ const write_text_atomic = (file_path, text, options = {}) => {
 
 const canonical_config = config => ({
 	'schema-version': config['schema-version'],
-	switches: {
+	switches: Object.fromEntries(Object.entries({
 		'target-doc': config.switches['target-doc'],
 		...(has_own(config.switches, 'workspace-dir') ? { 'workspace-dir': config.switches['workspace-dir'] } : {}),
 		'cli-provider': config.switches['cli-provider'],
@@ -984,7 +1050,7 @@ const canonical_config = config => ({
 		'review-policy': config.switches['review-policy'],
 		...(has_own(config.switches, 'completion-cleanup') ? { 'completion-cleanup': config.switches['completion-cleanup'] } : {}),
 		...(has_own(config.switches, 'completion-cleanup-interval-days') ? { 'completion-cleanup-interval-days': config.switches['completion-cleanup-interval-days'] } : {}),
-	},
+	}).sort(([left], [right]) => left.localeCompare(right, 'en'))),
 	'pipeline-roles': Object.fromEntries(pipeline_role_names.map(role => [role, role === 'threeways' ? threeways_tier(config) : config['pipeline-roles'][role]])),
 	'external-workers': config['external-workers'].map(profile => ({
 		id: profile.id,
@@ -1551,7 +1617,7 @@ const apply_changes = (config, changes, options = {}) => {
 
 const change_configuration = (config_path, changes, options = {}) => {
 	const repo_root = node_path.resolve(options.repo_root || node_path.dirname(config_path))
-	const config = read_json_config(config_path, { ...options, repo_root })
+	const config = read_json_config(config_path, { ...options, repo_root, strict_values: true })
 	const active_host = options.active_host || options.explicit_host || detect_host(options)
 	const result = apply_changes(config, changes, { ...options, repo_root, active_host })
 	if (result.changes.length > 0) write_config_atomic(config_path, result.config, { ...options, repo_root, active_host })
@@ -2039,14 +2105,14 @@ const cli_main = (argv, io = {}) => {
 
 	const config_path = options.config_path || active_config_path(repo_root, notebook_path)
 	if (parsed.command === 'validate') {
-		const config = read_json_config(config_path, common)
+		const config = read_json_config(config_path, { ...common, strict_values: true })
 		output(`valid ${display_path(config_path, repo_root)} for ${common.explicit_host || common.active_host || detect_host(common)}`)
 		const validation = validate_config(config, common)
 		for (const warning of validation.warnings) output(warning)
 		return 0
 	}
 	if (parsed.command === 'show' || parsed.command === 'settings') {
-		const config = read_json_config(config_path, common)
+		const config = read_json_config(config_path, { ...common, strict_values: true })
 		output(format_settings_display(config, common))
 		return 0
 	}
@@ -2098,6 +2164,7 @@ module.exports = {
 	normalise_host_identity,
 	migrate_config,
 	make_template,
+	audit_template,
 	detect_initial_language,
 	template_for_host,
 	detect_host_info,

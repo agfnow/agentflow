@@ -1,4 +1,4 @@
-# Agentflow v8.4.6
+# Agentflow v8.4.7
 
 [English](README.md) · **繁體中文**
 
@@ -88,4 +88,4 @@ godev
 
 - [指令參考](skills/agentflow/scripts/README.md)，供進階設定與問題排除使用。
 
-專案設定保存在 `ag.json`，目前使用設定格式版本 8。輸入 `settings` 即可查看；既有 v7 檔案只在開啟時以保守方式遷移。`allowed-worker` 是 external、internal、host 的無順序權限清單，排列順序不代表執行優先級；`cli-provider` 只篩選 external profile。模型組合放在 `external-workers`，顧問角色設定放在 `pipeline-roles`。
+專案設定保存在 `ag.json`，目前使用設定格式版本 8。輸入 `settings` 即可查看。啟動時會依最新版範本補齊缺少的屬性，並回報無效的已存值及建議值；修改錯誤值前會先徵求同意，不安全的無效設定仍會停止啟動。既有 v7 檔案只在開啟時以保守方式遷移。`allowed-worker` 是 external、internal、host 的無順序權限清單，排列順序不代表執行優先級；`cli-provider` 只篩選 external profile。模型組合放在 `external-workers`，顧問角色設定放在 `pipeline-roles`。

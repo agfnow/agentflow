@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.6"
+  version: "8.4.7"
 ---
 
-# Agentflow v8.4.6
+# Agentflow v8.4.7
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -42,6 +42,8 @@ Already-launched looper workers follow their supplied plan directly, not this ho
    Once startup or a later message establishes a nonempty current Ask, read `references/writing.md`, `references/closeout.md`, and `references/progress.md` together in one tool call before substantive work. Include any other required files whose triggers are already satisfied by the Ask or startup result. Read required files in full and reuse those already loaded in this session. Batch newly required reads when later triggers arise, before the affected action; do not preload untriggered references. Empty activation and pending fast-lane without a task skip this batch.
 
 4. Use startup `configuration.language` for Agentflow writing: answers, devlog records, user documents, code comments, and commits. It overrides host/personal defaults; preserve owner quotes unless an exact deliverable request says otherwise.
+
+   If startup reports `config_audit.invalid`, briefly tell the owner each wrong saved value and the suggested template value, then ask permission before changing those values. Continue the current Ask while safe in-memory defaults are usable. Missing template properties reported in `config_audit.added` were filled automatically; this check needs no separate owner gate. An unsafe invalid value still stops startup so the owner can approve a correction before Agentflow uses it.
 
 5. Startup is idempotent. Load `references/streams.md` when `stream_decision` requires it.
 
