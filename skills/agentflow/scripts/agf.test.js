@@ -45,6 +45,39 @@ test('parse_close_args requires one manifest stdin and keeps push authority sepa
 
 // ---------- dispatch ----------
 
+test('ignore defaults preserve project skill exceptions and original bytes', () => {
+	const { dir, run } = make_repo()
+	try {
+		run(['config', 'core.excludesFile', path.join(dir, '.git', 'info', 'exclude')])
+		for (const newline of ['\n', '\r\n']) {
+			const original = ['# Keep project skills', '', '/.codex/*', '!/.codex/skills/', '/.claude/*', '!/.claude/skills/', '.worktrees/', ''].join(newline)
+			fs.writeFileSync(path.join(dir, '.gitignore'), original)
+			agf.update_ignore_file(dir)
+			const saved = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8')
+			assert.ok(saved.endsWith(original), 'original comments, blank lines and endings stay byte-for-byte')
+			for (const host of ['codex', 'claude']) {
+				const skill = spawnSync('git', ['check-ignore', '--no-index', `.${host}/skills/example/SKILL.md`], { cwd: dir })
+				assert.equal(skill.status, 1, `${host} project skills must remain trackable`)
+				assert.equal(run(['check-ignore', '--no-index', `.${host}/session.json`]), `.${host}/session.json\n`)
+			}
+			agf.update_ignore_file(dir)
+			assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), saved)
+		}
+	} finally { drop(dir) }
+})
+
+test('ignore defaults protect fresh projects and preserve a missing final newline', () => {
+	const { dir, run } = make_repo()
+	try {
+		agf.update_ignore_file(dir)
+		for (const file of ['.codex/session.json', '.claude/settings.json', '.worktrees/task/file'])
+			assert.equal(run(['check-ignore', '--no-index', file]), `${file}\n`)
+		fs.writeFileSync(path.join(dir, '.gitignore'), '# Owner comment without final newline')
+		agf.update_ignore_file(dir)
+		assert.ok(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8').endsWith('# Owner comment without final newline'))
+	} finally { drop(dir) }
+})
+
 test('main prints usage on a missing or unknown subcommand', () => {
 	let logs = []
 	assert.equal(agf.main([], '/tmp', (m) => logs.push(m)), 1)

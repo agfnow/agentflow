@@ -205,10 +205,13 @@ const parse_close_args = (argv) => {
 const update_ignore_file = (repo) => {
 	const ignore_path = path.join(repo, '.gitignore')
 	const current = fs.existsSync(ignore_path) ? fs.readFileSync(ignore_path, 'utf8') : ''
-	const lines = current.split(/\r?\n/u).filter(Boolean)
-	const next = [...lines]
-	for (const entry of ['.claude/', '.codex/', '.worktrees/']) if (!next.includes(entry)) next.push(entry)
-	const text = `${next.join('\n')}\n`
+	const lines = current.split(/\r?\n/u)
+	// Leave directory-specific owner rules alone, including skill exceptions.
+	// Defaults precede owner rules; preserve the owner's original bytes.
+	const missing = ['.claude/', '.codex/', '.worktrees/'].filter(entry =>
+		!lines.some(line => line.replace(/^!?\//u, '').replace(/^!/u, '').startsWith(entry)))
+	const newline = current.includes('\r\n') ? '\r\n' : '\n'
+	const text = missing.length ? `${missing.join(newline)}${newline}${current}` : current
 	if (text !== current) ag_settings.write_text_atomic(ignore_path, text)
 	return ignore_path
 }

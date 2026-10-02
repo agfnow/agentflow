@@ -1,6 +1,12 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.7. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.8. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.8]
+
+- Fix issue [22](https://github.com/agfnow/agentflow/issues/22): startup and initialization preserve existing directory-specific ignore rules, including project skill exceptions. Missing defaults are added before the original text without removing comments, blank lines, line endings, or a missing final newline. Repeated runs make no further changes.
+
+- Existing conflicting broad ignore rules from earlier versions are preserved, not automatically repaired. Inspect and adjust such a rule if project skills are already hidden. Native Windows looper support remains unavailable.
 
 ## [8.4.7]
 

@@ -1,4 +1,4 @@
-# Agentflow v8.4.7 — a guide for everyday use
+# Agentflow v8.4.8 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
