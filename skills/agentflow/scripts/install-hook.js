@@ -30,12 +30,18 @@ const { execFileSync } = require('node:child_process');
 const ag_settings = require('./ag-settings.js');
 
 const shell_literal = value => `'${String(value).replaceAll("'", "'\\''")}'`;
-const hook_command_for = host => `node ${shell_literal(node_path.join(__dirname, 'stop-hook.js'))} --host ${host}`;
+// Keep the installation name: Node resolves __dirname through skill symlinks.
+const installed_script_for = (host, script, home = node_os.homedir()) => {
+  const preferred = node_path.join(home, `.${host}`, 'skills', 'agentflow', 'scripts', script);
+  const alternate = node_path.join(home, host === 'claude' ? '.codex' : '.claude', 'skills', 'agentflow', 'scripts', script);
+  return !node_fs.existsSync(preferred) && node_fs.existsSync(alternate) ? alternate : preferred;
+};
+const hook_command_for = host => `node ${shell_literal(installed_script_for(host, 'stop-hook.js'))} --host ${host}`;
 
 // The git pre-commit devlog guard (I-039). Project scope only — git hooks are
 // per-repo; worktrees share the main checkout's hooks, so one install covers all.
 const guard_marker = 'agentflow devlog-guard';
-const guard_command = `node ${shell_literal(node_path.join(__dirname, 'devlog-guard.js'))}`;
+const guard_command = `node ${shell_literal(installed_script_for('codex', 'devlog-guard.js'))}`;
 const guard_script = `#!/bin/sh\n# ${guard_marker} — blocks committing root devlog.md on a non-default branch (I-039).\n# Installed by install-hook.js; remove with: node install-hook.js --project --off\n${guard_command}\n`;
 
 const HOSTS = ['claude', 'codex'];
@@ -60,31 +66,24 @@ const parse_owned_command = command => {
 
 const is_our_command = (command, host) => {
   const parsed = parse_owned_command(command);
-  const installed_script = node_path.resolve(node_path.join(__dirname, 'stop-hook.js'));
+  const installed_script = installed_script_for(host, 'stop-hook.js');
   return parsed !== null && parsed.host === host && parsed.script === installed_script;
 };
 
-const canonical_path = value => {
-  const missing = [];
-  let cursor = node_path.resolve(value);
-  while (!node_fs.existsSync(cursor)) {
-    const parent = node_path.dirname(cursor);
-    if (parent === cursor) return node_path.resolve(value);
-    missing.unshift(node_path.basename(cursor));
-    cursor = parent;
-  }
-  return node_path.join(node_fs.realpathSync(cursor), ...missing);
+// Only a complete Agentflow skill suffix identifies relocated installations.
+const is_legacy_agentflow_command = (command, host) => {
+  const parsed = parse_owned_command(command);
+  return parsed !== null && parsed.host === host
+    && parsed.script.endsWith(node_path.sep + node_path.join('skills', 'agentflow', 'scripts', 'stop-hook.js'));
 };
 
-const is_project_worktree_command = (command, host, cwd) => {
-  const parsed = parse_owned_command(command);
-  if (parsed === null || parsed.host !== host) return false;
-  const worktrees = `${canonical_path(node_path.resolve(cwd, '.worktrees'))}${node_path.sep}`;
-  const suffix = node_path.join('skills', 'agentflow', 'scripts', 'stop-hook.js');
-  const script = canonical_path(parsed.script);
-  return script.startsWith(worktrees)
-    && script.endsWith(`${node_path.sep}${suffix}`)
-    && script.slice(worktrees.length, -suffix.length - 1).split(node_path.sep).length === 1;
+const is_our_guard = text => {
+  if (typeof text !== 'string') return false;
+  const lines = text.split('\n');
+  if (lines.length !== 5 || lines[0] !== '#!/bin/sh' || lines[1] !== guard_script.split('\n')[1]
+    || lines[2] !== guard_script.split('\n')[2] || lines[4] !== '') return false;
+  const parsed = parse_owned_command(`${lines[3]} --host codex`);
+  return parsed !== null && parsed.script.endsWith(node_path.sep + node_path.join('skills', 'agentflow', 'scripts', 'devlog-guard.js'));
 };
 
 const parse_args = argv => {
@@ -140,7 +139,7 @@ const add_hook = (config, host, { scope = 'project', cwd = process.cwd(), event 
   const stop_entries = Array.isArray(config.hooks && config.hooks[event]) ? config.hooks[event] : [];
   const desired_command = hook_command_for(host);
   const owned = command => is_our_command(command, host)
-    || (scope === 'project' && is_project_worktree_command(command, host, cwd));
+    || is_legacy_agentflow_command(command, host);
   let kept_one = false;
   const next_entries = stop_entries.flatMap(entry => {
     if (!Array.isArray(entry.hooks)) return [entry];
@@ -174,7 +173,7 @@ const remove_hook = (config, host, { scope = 'project', cwd = process.cwd(), eve
     }
 
     const hooks = entry.hooks.filter(hook => !(is_our_command(hook.command, host)
-      || (scope === 'project' && is_project_worktree_command(hook.command, host, cwd))));
+      || is_legacy_agentflow_command(hook.command, host)));
     if (hooks.length === entry.hooks.length) {
       kept.push(entry);
       continue;
@@ -256,7 +255,7 @@ const apply_guard = (off, say, cwd = process.cwd()) => {
   const existing = hook_stat && hook_stat.isFile() ? node_fs.readFileSync(hook_path, 'utf8') : null;
 
   if (off) {
-    if (existing === guard_script) {
+    if (is_our_guard(existing)) {
       node_fs.unlinkSync(hook_path);
       say(`git: removed the pre-commit devlog guard from ${hook_path}`);
     } else if (hook_stat) {
@@ -271,7 +270,14 @@ const apply_guard = (off, say, cwd = process.cwd()) => {
     ag_settings.write_text_atomic(hook_path, guard_script);
     node_fs.chmodSync(hook_path, 0o755);
     say(`git: added the pre-commit devlog guard at ${hook_path}`);
-  } else if (existing === guard_script) {
+  } else if (is_our_guard(existing)) {
+    if (existing !== guard_script) {
+      backup(hook_path);
+      ag_settings.write_text_atomic(hook_path, guard_script);
+      node_fs.chmodSync(hook_path, hook_stat.mode & 0o777);
+      say(`git: updated the pre-commit devlog guard at ${hook_path}`);
+      return;
+    }
     say('git: no change — the pre-commit devlog guard is already present');
   } else {
     // Refuse rather than damage: a hook someone else wrote is never edited.
@@ -316,7 +322,7 @@ const inspect = ({ cwd = process.cwd(), scope = 'project', hosts = HOSTS } = {})
     try {
       const hooks_dir = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-path', 'hooks'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
       const hook_path = node_path.join(hooks_dir, 'pre-commit');
-      if (node_fs.existsSync(hook_path) && node_fs.readFileSync(hook_path, 'utf8') === guard_script) {
+      if (node_fs.existsSync(hook_path) && is_our_guard(node_fs.readFileSync(hook_path, 'utf8'))) {
         found.push(`remove the verified Agentflow pre-commit guard from ${hook_path}`);
       }
     } catch {}
@@ -329,6 +335,6 @@ const main = () => {
   install(options);
 };
 
-module.exports = { install, inspect, config_path_for, apply_guard, hook_command_for, parse_owned_command };
+module.exports = { install, inspect, config_path_for, apply_guard, hook_command_for, parse_owned_command, installed_script_for };
 
 if (require.main === module) main();

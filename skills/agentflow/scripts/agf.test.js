@@ -3259,9 +3259,16 @@ test('invalid configured default stops stream operations before changing branch 
   } finally { drop(dir) }
 })
 
-test('cleanup preserves known local records outside the worktree without force', () => {
+for (const installation of ['current', 'installed-copy']) test(`cleanup preserves known local records outside the worktree without force (${installation})`, () => {
 	const { dir, run } = make_repo()
+	const os = require('node:os'), original_home = os.homedir
 	try {
+		if (installation === 'installed-copy') {
+			const home = path.join(dir, 'installed-home'), scripts = path.join(home, '.codex/skills/agentflow/scripts')
+			fs.mkdirSync(scripts, { recursive: true })
+			fs.copyFileSync(path.join(__dirname, 'stop-hook.js'), path.join(scripts, 'stop-hook.js'))
+			os.homedir = () => home
+		}
 		agf.update_ignore_file(dir)
 		fs.appendFileSync(path.join(dir, '.gitignore'), '.DS_Store\n')
 		run(['add', '.gitignore']); run(['commit', '-m', 'ignore local files'])
@@ -3281,7 +3288,7 @@ test('cleanup preserves known local records outside the worktree without force',
 		const backup = logs.find(line => line.startsWith('preserved local files: ')).slice('preserved local files: '.length)
 		assert.deepEqual(fs.readFileSync(path.join(backup, path.relative(wt, receipt))), before)
 		assert.equal(fs.readFileSync(path.join(backup, '.DS_Store'), 'utf8'), 'finder metadata')
-	} finally { drop(dir) }
+	} finally { os.homedir = original_home; drop(dir) }
 })
 
 for (const kind of ['unknown', 'symlink', 'foreign-hooks', 'active-owner', 'notebook-lock', 'backup-collision', 'backup-symlink', 'changed-after-copy']) test(`cleanup keeps local files on ${kind}`, () => {

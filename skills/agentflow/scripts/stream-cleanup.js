@@ -31,7 +31,8 @@ const owned_hooks = (bytes, host) => {
     const commands = entries[0].hooks
     if (!Array.isArray(commands) || commands.length !== 1 || Object.keys(commands[0]).sort().join(',') !== 'command,type' || commands[0].type !== 'command') return false
     const parsed = hooks.parse_owned_command(commands[0].command)
-    return parsed?.host === host && fs.realpathSync(parsed.script) === fs.realpathSync(path.join(__dirname, 'stop-hook.js'))
+    return parsed?.host === host && (parsed.script === hooks.installed_script_for(host, 'stop-hook.js')
+      || fs.realpathSync(parsed.script) === fs.realpathSync(path.join(__dirname, 'stop-hook.js')))
   })
 }
 

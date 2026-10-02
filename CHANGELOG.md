@@ -1,6 +1,14 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.8. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.9. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.9]
+
+- Generate Codex, Claude, and Git guard hook commands using the installed Agentflow skill directory rather than the development checkout. Migrate recognized old commands while preserving unrelated hooks and settings; keep worktree cleanup compatible with separately installed copies.
+
+- Installed paths retain their symlink spelling. If an installation is a symlink to a development checkout, moving that checkout still requires updating the symlink target. Existing project hooks are migrated when the updated installer runs.
+
+- Trigger automatic notebook archiving at 500 lines instead of more than 1,000 lines. The 768 KiB threshold, exact-byte verification, and protection of the current round and pending inline answers remain unchanged.
 
 ## [8.4.8]
 

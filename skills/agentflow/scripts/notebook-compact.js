@@ -88,7 +88,7 @@ const publish_archive = ({ file, original, additions, notebook_file, notebook, o
 const compact_locked = ({ root, notebook, original, ownership, force = false, include_answered = false }) => {
   notebook = require('./notebook-owner').location({ root, notebook }).notebook;
   const result = { notebook, archive: archive_path_for_notebook(notebook), rounds: [], snapshot: original };
-  if (!force && original.content.length < 768 * 1024 && (original.text.match(/\n/gu) || []).length <= 1000) return result;
+  if (!force && original.content.length < 768 * 1024 && (original.text.match(/\n/gu) || []).length < 500) return result;
   const parsed = parse_devlog(original.text);
   const selected = [];
   let blocked;

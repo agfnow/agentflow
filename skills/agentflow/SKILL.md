@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.8"
+  version: "8.4.9"
 ---
 
-# Agentflow v8.4.8
+# Agentflow v8.4.9
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -49,7 +49,7 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    If `hooks_restart_required: true`, tell the owner once to restart the host; until then, use the per-message capture below.
 
-6. Startup and input capture automatically compact eligible completed rounds when the notebook exceeds 1,000 lines or reaches 768 KiB. Check size after the first meaningful response; before closeout, if still needed, run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round and the suffix from any nonempty inline answer. Before `--include-answered true`, verify every selected answer was carried forward and handled; otherwise retain the suffix and report the blocker. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
+6. Startup and input capture automatically compact eligible completed rounds when the notebook reaches 500 lines or reaches 768 KiB. Check size after the first meaningful response; before closeout, if still needed, run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round and the suffix from any nonempty inline answer. Before `--include-answered true`, verify every selected answer was carried forward and handled; otherwise retain the suffix and report the blocker. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
 
    The notebook and its adjacent archive are the single authoritative conversation history. Completed Ask/RUN/WIP/Reply spans and archived bytes are immutable and append-only; do not rewrite, summarize in place, or reformat them without explicit owner permission. STATUS and live recovery records are mutable projections. Verified byte-preserving compaction is the permitted move, not permission to edit history.
 

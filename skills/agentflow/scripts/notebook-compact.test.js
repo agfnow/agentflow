@@ -62,8 +62,26 @@ test('compaction copies physical rounds byte-exactly and preserves the open Ask'
   assert.deepEqual(fs.readFileSync(f.archive), Buffer.from(history));
 });
 
+for (const lines of [499, 500, 501]) test(`automatic compaction at ${lines} lines respects the 500-line threshold`, () => {
+  const f = fixture(closed('A-001'));
+  const base = fs.readFileSync(f.file, 'utf8');
+  const padding = 'done\n'.repeat(lines - (base.match(/\n/gu) || []).length);
+  const before = base.replace('# ← Reply / A-001\n', '# ← Reply / A-001\n' + padding);
+  fs.writeFileSync(f.file, before);
+  assert.equal((before.match(/\n/gu) || []).length, lines);
+  const result = compact(f, { force: false });
+  assert.equal(result.rounds.length, lines >= 500 ? 1 : 0);
+  if (lines < 500) {
+    assert.equal(fs.existsSync(f.archive), false);
+    assert.equal(fs.readFileSync(f.file, 'utf8'), before);
+  } else {
+    assert.deepEqual(fs.readFileSync(f.archive), Buffer.from(closed('A-001').replace('# ← Reply / A-001\n', '# ← Reply / A-001\n' + padding)));
+    assert.ok(fs.readFileSync(f.file, 'utf8').endsWith('# → Ask / A-003\n\n+ current request\n'));
+  }
+});
+
 test('capture automatically compacts completed history over the line threshold', () => {
-  const history = closed('A-001', 'done\n'.repeat(1100));
+  const history = closed('A-001', 'done\n'.repeat(500));
   const f = fixture(history);
   writer.append_input({ root: f.root, notebook: f.notebook, text: 'next direction', host: 'codex' });
   assert.deepEqual(fs.readFileSync(f.archive), Buffer.from(history));

@@ -1,4 +1,4 @@
-# Agentflow v8.4.8 — a guide for everyday use
+# Agentflow v8.4.9 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -104,7 +104,7 @@ Think of each **Ask** as one conversation about a task. Its matching **Reply** c
 
 Already answered questions are checked when work resumes. A suggested answer is only a suggestion; leaving `ans:` empty does not approve it.
 
-Startup and prompt capture automatically move eligible completed rounds to the adjacent archive after 1,000 lines or at 768 KiB. Each copied round is verified before its original bytes are removed. The current task and rounds with inline answers stay live; when an answered round blocks compaction, every later round stays live with it. For explicit recovery, run `agf compact --notebook <active-notebook>` with your current session identity. A notebook or single open round over 1 MiB remains usable; submitted messages and drafts still have their own size limits.
+Startup and prompt capture automatically move eligible completed rounds to the adjacent archive at 500 lines or at 768 KiB. Each copied round is verified before its original bytes are removed. The current task and rounds with inline answers stay live; when an answered round blocks compaction, every later round stays live with it. For explicit recovery, run `agf compact --notebook <active-notebook>` with your current session identity. A notebook or single open round over 1 MiB remains usable; submitted messages and drafts still have their own size limits.
 
 Input receipts now live under the configured workspace’s `.tmp/` for every host. Manual capture does not write `.codex/` or `.claude/`; existing receipts there remain readable for continuity.
 

@@ -20,7 +20,7 @@ Agentflow is a project workflow for an AI assistant. Its main record is a Markdo
 
 - **STATUS:** A short current projection, not the source of configuration or permission. `ag.json` controls settings. RUN entries record material events; WIP records recovery state. A tracker under `.agentflow/artifacts/A-NNN-name/` tracks split work; designs, reports, and verification live nearby. The `.agentflow/.tmp/` records hold local completion evidence.
 
-- **History and streams:** Completed rounds are append-only. Agentflow can verify and move old complete rounds to an adjacent archive while preserving the active round and unanswered inline decisions. A feature stream has its own branch, worktree, notebook, and ownership; only its active session writes that notebook. Plain folders can use Agentflow without Git, but feature branches and Git delivery require Git.
+- **History and streams:** Completed rounds are append-only. At 500 lines or 768 KiB, startup and prompt capture automatically archive eligible completed rounds. Agentflow can verify and move old complete rounds to an adjacent archive while preserving the active round and unanswered inline decisions. A feature stream has its own branch, worktree, notebook, and ownership; only its active session writes that notebook. Plain folders can use Agentflow without Git, but feature branches and Git delivery require Git.
 
 ## Choose the right route
 
@@ -56,7 +56,7 @@ The host chooses among permitted `external`, `internal`, and `host` executors fr
 
 The controls above are messages to the assistant. The assistant uses the Node commands below to carry them out; an `agf` command name alone does not grant a new task or waive a gate.
 
-- `agf start` initializes or resumes the project and installs hooks for the active Codex or Claude host. `agf setup` reports installation health; `agf setup --fix` repairs recognized shell shortcuts with backups. Project hooks are host-specific: run `godev` in Claude after Codex initialization if Claude hooks are needed.
+- `agf start` initializes or resumes the project and installs hooks for the active Codex or Claude host. `agf setup` reports installation health; `agf setup --fix` repairs recognized shell shortcuts with backups. Project hooks are host-specific: run `godev` in Claude after Codex initialization if Claude hooks are needed. Hook commands use the installed skill directory instead of the development checkout, and the installer migrates recognized old commands while preserving unrelated settings. A symlink installation still needs its target updated if the checkout moves.
 
 - `agf settings show`, `validate`, and `change --set 'key: value'` inspect, check, and atomically update the applicable `ag.json`. A managed `target-doc` rename uses the settings rename command, not a manual file move.
 
@@ -86,4 +86,4 @@ At startup, Agentflow adds missing settings properties from the current template
 
 Startup and initialization preserve existing directory-specific ignore rules and project skill exceptions. Missing defaults precede the original ignore-file text, which keeps its comments, blank lines, and line endings. A conflicting broad rule left by an older version is preserved and needs separate inspection and adjustment; this release does not automatically repair it. Native Windows looper support remains unavailable.
 
-For exact behavior, read the installed `SKILL.md` and only the references it triggers: `writing.md`, `progress.md`, `closeout.md`, `ag.md`, `delegation.md`, `streams.md`, `skip-ag.md`, `fast-lane.md`, or `looper.md`. The user guides explain normal use; `scripts/README.md` documents commands and tests. Recheck those sources when the installed version changes. This brief describes v8.4.8 source behavior, not a promise that every possible host/version has been tested.
+For exact behavior, read the installed `SKILL.md` and only the references it triggers: `writing.md`, `progress.md`, `closeout.md`, `ag.md`, `delegation.md`, `streams.md`, `skip-ag.md`, `fast-lane.md`, or `looper.md`. The user guides explain normal use; `scripts/README.md` documents commands and tests. Recheck those sources when the installed version changes. This brief describes v8.4.9 source behavior, not a promise that every possible host/version has been tested.

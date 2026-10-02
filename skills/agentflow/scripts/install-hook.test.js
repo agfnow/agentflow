@@ -82,7 +82,7 @@ test('project install replaces stale worktree hooks and collapses owned duplicat
   const dir = node_fs.realpathSync(fresh_dir());
   const config_path = node_path.join(dir, '.codex', 'hooks.json');
   const stale = `node "${node_path.join(dir, '.worktrees', 'fix-2', 'skills', 'agentflow', 'scripts', 'stop-hook.js')}" --host codex`;
-  const current = `node '${node_path.join(__dirname, 'stop-hook.js')}' --host codex`;
+  const current = require('./install-hook.js').hook_command_for('codex');
   const foreign = { type: 'command', command: 'foreign-command --keep' };
   node_fs.mkdirSync(node_path.dirname(config_path), { recursive: true });
   node_fs.writeFileSync(config_path, `${JSON.stringify({ hooks: { Stop: [
@@ -262,7 +262,7 @@ for (const host of ['codex', 'claude']) {
     const dir = fresh_dir();
     const config_path = require('./install-hook.js').config_path_for(host, 'project', dir);
     node_fs.mkdirSync(node_path.dirname(config_path), { recursive: true });
-    const command = 'node "' + node_path.join(__dirname, 'stop-hook.js') + '" --host ' + host;
+    const command = 'node "' + require('./install-hook.js').installed_script_for(host, 'stop-hook.js') + '" --host ' + host;
     const entry = { hooks: [{ type: 'command', command, timeout: 20 }] };
     const bytes = JSON.stringify({ hooks: { Stop: [entry], UserPromptSubmit: [entry] }, keep: true }, null, 4) + '\n';
     node_fs.writeFileSync(config_path, bytes);
@@ -271,3 +271,62 @@ for (const host of ['codex', 'claude']) {
     assert.equal(node_fs.existsSync(config_path + '.agentflow-backup'), false);
   });
 }
+
+for (const host of ['codex', 'claude']) {
+  test('installed paths stay stable after a checkout moves for ' + host, () => {
+    const dir = fresh_repo();
+    const config_path = require('./install-hook.js').config_path_for(host, 'project', dir);
+    node_fs.mkdirSync(node_path.dirname(config_path), { recursive: true });
+    const stale = `node '/gone/checkout/skills/agentflow/scripts/stop-hook.js' --host ${host}`;
+    node_fs.writeFileSync(config_path, JSON.stringify({ keep: true, hooks: {
+      Stop: [{ hooks: [{ type: 'command', command: stale, timeout: 42 }] }],
+      UserPromptSubmit: [{ hooks: [{ type: 'command', command: stale }] }]
+    } }));
+    const guard = "#!/bin/sh\n# agentflow devlog-guard — blocks committing root devlog.md on a non-default branch (I-039).\n# Installed by install-hook.js; remove with: node install-hook.js --project --off\nnode '/gone/checkout/skills/agentflow/scripts/devlog-guard.js'\n";
+    node_fs.writeFileSync(pre_commit_path(dir), guard, { mode: 0o755 });
+    run(dir, ['--project', '--host', host, '--quiet']);
+    const config = read_json(config_path);
+    assert.equal(config.keep, true);
+    assert.equal(config.hooks.Stop[0].hooks[0].timeout, 42);
+    for (const event of ['Stop', 'UserPromptSubmit']) {
+      assert.equal(config.hooks[event].length, 1);
+      assert.equal(config.hooks[event][0].hooks[0].command, require('./install-hook.js').hook_command_for(host));
+      assert.ok(!config.hooks[event][0].hooks[0].command.includes('/gone/checkout'));
+    }
+    assert.ok(!node_fs.readFileSync(pre_commit_path(dir), 'utf8').includes('/gone/checkout'));
+    assert.equal(node_fs.readFileSync(pre_commit_path(dir) + '.agentflow-backup', 'utf8'), guard);
+  });
+}
+
+test('path selection preserves lexical symlinks and falls back to the other installed host', () => {
+  const home = fresh_dir();
+  const scripts = node_path.join(home, '.claude', 'skills', 'agentflow', 'scripts');
+  node_fs.mkdirSync(scripts, { recursive: true });
+  node_fs.writeFileSync(node_path.join(scripts, 'stop-hook.js'), '');
+  const resolver = require('./install-hook.js').installed_script_for;
+  assert.equal(resolver('codex', 'stop-hook.js', home), node_path.join(scripts, 'stop-hook.js'));
+  node_fs.mkdirSync(node_path.join(home, '.codex', 'skills'), { recursive: true });
+  node_fs.symlinkSync(node_path.dirname(scripts), node_path.join(home, '.codex', 'skills', 'agentflow'));
+  assert.equal(resolver('codex', 'stop-hook.js', home), node_path.join(home, '.codex', 'skills', 'agentflow', 'scripts', 'stop-hook.js'));
+});
+
+
+test('real PTY installation and hook execution use installed skill paths', { skip: process.platform !== 'darwin' || !node_fs.existsSync('/usr/bin/expect') }, () => {
+  const dir = fresh_repo();
+  const journey = `set timeout 20
+spawn /bin/sh -c {test -t 0 && test -t 1 && printf 'PTY confirmed\\n' && node "$1" --project --host codex} journey $env(AGF_JOURNEY_SCRIPT)
+expect "PTY confirmed"
+expect "Hook command (codex):"
+expect eof
+set result [wait]
+exit [lindex $result 3]
+`;
+  const output = execFileSync('/usr/bin/expect', ['-c', journey], { cwd: dir, encoding: 'utf8', env: { ...process.env, AGF_JOURNEY_SCRIPT: script } });
+  assert.match(output, /PTY confirmed/);
+  const config = read_json(node_path.join(dir, '.codex', 'hooks.json'));
+  const hooks = require('./install-hook.js');
+  assert.equal(config.hooks.Stop[0].hooks[0].command, hooks.hook_command_for('codex'));
+  assert.match(node_fs.readFileSync(pre_commit_path(dir), 'utf8'), /[.]codex\/skills\/agentflow\/scripts\/devlog-guard[.]js/);
+  execFileSync('/bin/sh', [pre_commit_path(dir)], { cwd: dir, encoding: 'utf8' });
+  execFileSync('node', [hooks.installed_script_for('codex', 'stop-hook.js'), '--host', 'codex'], { cwd: dir, input: JSON.stringify({ cwd: dir, hook_event_name: 'Stop' }), encoding: 'utf8' });
+});
