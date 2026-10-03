@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.9"
+  version: "8.4.10"
 ---
 
-# Agentflow v8.4.9
+# Agentflow v8.4.10
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -49,7 +49,7 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    If `hooks_restart_required: true`, tell the owner once to restart the host; until then, use the per-message capture below.
 
-6. Startup and input capture automatically compact eligible completed rounds when the notebook reaches 500 lines or reaches 768 KiB. Check size after the first meaningful response; before closeout, if still needed, run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round and the suffix from any nonempty inline answer. Before `--include-answered true`, verify every selected answer was carried forward and handled; otherwise retain the suffix and report the blocker. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
+6. Startup and input capture automatically compact eligible completed rounds when the notebook reaches 750 lines or reaches 768 KiB. Check size after the first meaningful response; before closeout, if still needed, run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round and the suffix from any nonempty inline answer. Before `--include-answered true`, verify every selected answer was carried forward and handled; otherwise retain the suffix and report the blocker. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
 
    The notebook and its adjacent archive are the single authoritative conversation history. Completed Ask/RUN/WIP/Reply spans and archived bytes are immutable and append-only; do not rewrite, summarize in place, or reformat them without explicit owner permission. STATUS and live recovery records are mutable projections. Verified byte-preserving compaction is the permitted move, not permission to edit history.
 
@@ -70,6 +70,8 @@ Before answering or acting, save each submitted message in the current Ask, incl
 Answer the entire current Ask in its saved Reply; question-only turns also close with `agf close --manifest-stdin`. A diagnostic follow-up does not cancel the unfinished task or require fresh permission for authorized work; resume it and close when its existing gates pass, unless the owner cancels or replaces it. When explaining commands, compare the loaded rule with actual output; distinguish required checks, your mistakes, and genuine instruction gaps.
 
 ## Load rules only when triggered
+
+- Read `references/mixed-requests.md` before planning or acting on a large mixed Ask, a request whose separate outcomes need explicit tracking of authorization and dependencies, or a handover of unfinished questions or tasks between rounds. Inspect the whole Ask to recognize this trigger; do not use a fixed item-count threshold. Include this reference in the required startup reference batch when the trigger is already present.
 
 - `skip-ag [task]` or `/skip-ag [task]` selects the direct route for this Ask only; keep devlog and normal review/closeout. Read `references/skip-ag.md` before routing. `no-ag` skips the entire host Agentflow protocol.
 
@@ -101,6 +103,8 @@ Answer the entire current Ask in its saved Reply; question-only turns also close
 - Use the configured notebook; the standard stream notebook is `<workspace-dir>/features/<taskkey>/<taskkey>.devlog.md`. Notebook/config/archive rules and writer-managed completion metadata under `<workspace-dir>/.tmp/` remain separate. Input receipts for every host also live in that ignored runtime directory; old Codex/Claude receipts are read for continuity without writing their host configuration directories. Workers use their assigned output paths.
 
 ## Scope and evidence
+
+- Identify every requested outcome, splitting compound requests where needed and keeping constraints attached. Distinguish questions, authorized tasks and ideas from the whole Ask and context; answering a question does not complete an associated task. Preserve existing authorization and account for unfinished work.
 
 - Task risk determines required checks; observed difficulty determines guidance. Start with outcome, scope, proof, and next action. For known difficulty, use a relevant checklist in the current task record. No model ranking or paid qualification call is needed.
 

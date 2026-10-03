@@ -1,6 +1,16 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.9. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.10. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.10]
+
+- Raise automatic notebook archiving from 500 to 750 lines. Keep the 768 KiB threshold, exact-byte verification, active-round protection and pending inline-answer protection.
+
+- Add on-demand guidance for large mixed requests: track each requested outcome, preserve authorization and dependencies, and carry unfinished work forward without claiming that continuation has started.
+
+- Start each numbered devlog final-report item with a verbatim quotation of the original request or question, limited to its first 30 words; quote shorter requests in full and place any omission marker outside the quotation.
+
+- Clarify line-start examples for the existing skip-ag control; normal review, delegation and stream requirements remain in effect.
 
 ## [8.4.9]
 
