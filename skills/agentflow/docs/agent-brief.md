@@ -22,6 +22,8 @@ Agentflow is a project workflow for an AI assistant. Its main record is a Markdo
 
 - **History and streams:** Completed rounds are append-only. At 750 lines or 768 KiB, startup and prompt capture automatically archive eligible completed rounds. Agentflow can verify and move old complete rounds to an adjacent archive while preserving the active round and unanswered inline decisions. A feature stream has its own branch, worktree, notebook, and ownership; only its active session writes that notebook. Plain folders can use Agentflow without Git, but feature branches and Git delivery require Git.
 
+- **Possible intentions:** Keep possible tasks from discussion in the existing tracker, with the original wording, desired outcome, next action and pending decision. Discuss first when requested, then ask a specific saved Reply question with a suggested default and empty `ans:`. A pending item grants no implementation permission; preserve existing authorization and record rejection or deferral.
+
 ## Choose the right route
 
 - **Direct:** Clear, reversible work uses the main assistant or a bounded worker. Necessary tests, notebook records, host inspection, and ordinary review still apply.
@@ -86,4 +88,4 @@ At startup, Agentflow adds missing settings properties from the current template
 
 Startup and initialization preserve existing directory-specific ignore rules and project skill exceptions. Missing defaults precede the original ignore-file text, which keeps its comments, blank lines, and line endings. A conflicting broad rule left by an older version is preserved and needs separate inspection and adjustment; this release does not automatically repair it. Native Windows looper support remains unavailable.
 
-For exact behavior, read the installed `SKILL.md` and only the references it triggers: `writing.md`, `progress.md`, `closeout.md`, `ag.md`, `delegation.md`, `streams.md`, `skip-ag.md`, `fast-lane.md`, or `looper.md`. The user guides explain normal use; `scripts/README.md` documents commands and tests. Recheck those sources when the installed version changes. This brief describes v8.4.12 source behavior, not a promise that every possible host/version has been tested.
+For exact behavior, read the installed `SKILL.md` and only the references it triggers: `writing.md`, `progress.md`, `closeout.md`, `ag.md`, `delegation.md`, `streams.md`, `skip-ag.md`, `fast-lane.md`, or `looper.md`. The user guides explain normal use; `scripts/README.md` documents commands and tests. Recheck those sources when the installed version changes. This brief describes v8.4.13 source behavior, not a promise that every possible host/version has been tested.

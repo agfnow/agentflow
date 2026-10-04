@@ -1,4 +1,4 @@
-# Agentflow v8.4.12 — a guide for everyday use
+# Agentflow v8.4.13 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -91,6 +91,8 @@ The assistant records your request, does the authorized work, checks it, and wri
 - **Writing directly in the notebook:** Add your request under the empty Ask at the bottom, save the file, then type `godev`. Keep completed requests and replies intact.
 
 - **Changing direction:** Say what to change or stop. A follow-up question normally stays with the unfinished task. “Stop this task” cancels that work; asking for an explanation does not authorize an extra fix.
+
+- **Discuss possible work first:** Say, “Could we replace the provider? Discuss with me first.” The assistant records the possible task and what decision it needs, discusses your options, then asks a specific question in the saved Reply. Answer in chat or its `ans:` field. Recording an idea does not authorize implementation; rejected or deferred ideas stay recorded, and already-authorized work continues.
 
 ## 3. Read the notebook without learning its machinery
 

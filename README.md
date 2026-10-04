@@ -1,4 +1,4 @@
-# Agentflow v8.4.12
+# Agentflow v8.4.13
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -11,6 +11,8 @@ Agentflow has verified integrations for **Codex and Claude Code** and a portable
 - **Find the result:** Open the notebook named in the assistant’s closing message, usually `.agentflow/devlog.md`.
 
 - **Get help quickly:** Ask your agent, “How do I use the Agentflow skill for this task?” It can explain the controls using your actual project.
+
+- **Discuss possible work first:** Say, “Could we replace the provider? Discuss with me first.” The assistant records the possible task and what decision it needs, discusses your options, then asks a specific question in the saved Reply. Answer in chat or its `ans:` field. Recording an idea does not authorize implementation; rejected or deferred ideas stay recorded, and already-authorized work continues.
 
 ## Install
 

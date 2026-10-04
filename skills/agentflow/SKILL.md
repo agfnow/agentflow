@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.12"
+  version: "8.4.13"
 ---
 
-# Agentflow v8.4.12
+# Agentflow v8.4.13
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -105,6 +105,8 @@ Account for every current Ask item in its saved Reply; follow references/closeou
 ## Scope and evidence
 
 - Identify every requested outcome, splitting compound requests where needed and keeping constraints attached. Distinguish questions, authorized tasks and ideas from the whole Ask and context; answering a question does not complete an associated task. Preserve existing authorization and account for unfinished work.
+
+- Track possible owner intentions as well as explicit tasks. When discussion or wording such as “discuss with me first” suggests work the owner may want, preserve the original wording/source and intended outcome in a pending-intentions section of the existing tracker; create the normal tracker only if needed. Record its next action and whether it awaits discussion, a decision or implementation permission. Discuss first when requested, then ask one specific confirmation question in the saved Reply, with a suggested default and empty `ans:`; never silently drop uncertain intentions. A pending item grants no permission to implement. Reuse existing authorization, never re-ask resolved decisions, and record rejection or deferral so the item does not keep returning. Continue independent authorized work.
 
 - Task risk determines required checks; observed difficulty determines guidance. Start with outcome, scope, proof, and next action. For known difficulty, use a relevant checklist in the current task record. No model ranking or paid qualification call is needed.
 

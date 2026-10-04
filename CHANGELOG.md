@@ -1,6 +1,12 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.12. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.13. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.13]
+
+- Track possible owner intentions from discussion in the existing task tracker. Preserve original wording, desired outcome, next action and pending discussion, decision or implementation permission. Discuss first when requested, then ask a specific saved Reply question; keep existing authorization and record rejection or deferral.
+
+- Explain the intention-tracking workflow in both public READMEs and user guides, the assistant brief and current usage documentation. A tracked idea grants no permission to implement.
 
 ## [8.4.12]
 
