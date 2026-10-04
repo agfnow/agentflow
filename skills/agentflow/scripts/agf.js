@@ -759,7 +759,7 @@ const hook_result_for = (host, result) => result || (['codex', 'claude'].include
 	? { status: 'available', host }
 	: { status: 'not_available', host, reason: 'no_host_hook_integration', instructions: manual_hook_instructions(host) })
 
-const start_result = ({ repo, host, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result, config_audit }) => ({
+const start_result = ({ repo, host, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result, config_audit, compaction }) => ({
 	repository: repo,
 	notebook,
 	active_host: host,
@@ -781,6 +781,7 @@ const start_result = ({ repo, host, host_family, notebook, notebook_text, intake
 		ignored_local_host_settings: setup_result.changed_files.filter(file => ['.codex/hooks.json', '.claude/settings.json'].includes(file)),
 	},
 	message: { inserted: message_result.inserted, reason: message_result.reason },
+	...(compaction ? { compaction } : {}),
 	current_ask_identifier: intake.current_ask?.id || null,
 	current_ask: intake.current_ask,
 	changed_paths: intake.changed_paths,
@@ -805,6 +806,7 @@ const start_public_result = result => ({
 	hooks_restart_required: result.hooks_restart_required,
 	...(result.hooks.status === 'not_available' ? { hooks: result.hooks } : {}),
 	message: result.message,
+	...(result.compaction ? { compaction: result.compaction } : {}),
 	current_ask_identifier: result.current_ask_identifier,
 	changed_paths: result.changed_paths,
 	stream_decision: result.stream_decision,
@@ -829,11 +831,13 @@ const emit_start_result = (result, args, repo, log) => {
 			hooks_restart_required: result.hooks_restart_required,
 			...(result.hooks.status === 'not_available' ? { hooks: result.hooks } : {}),
 			message: result.message,
+			...(result.compaction ? { compaction: result.compaction } : {}),
 		},
 	}
 	if (args.json) return { dir: repo, json: start_public_result(result) }
 	log(`ready: ${repo}`)
 	log(`notebook: ${result.notebook}`)
+	if (result.compaction) log(result.compaction.message)
 	log(`setup: ${result.setup.created ? 'initialized' : 'already complete'}`)
 	log(`owner message: ${result.message.inserted ? 'recorded' : 'already present'}`)
 	if (result.hooks.status === 'not_available') {
@@ -948,11 +952,13 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		update_ignore_file(repo)
 		const hook_result = install_hook.install({ cwd: repo, hosts: [args.host], quiet: true, say: () => {} })
 		const setup_provenance = start_provenance({ repo, paths, before })
-		let message_result
+		let message_result, compaction
 		try {
 			let original = notebook_writer.read_regular_file(notebook_file, 'notebook')
 			notebook_owner.verify(ownership)
-			original = require('./notebook-compact').compact_locked({ root: repo, notebook, original, ownership, force: false }).snapshot
+			const compacted = require('./notebook-compact').compact_locked({ root: repo, notebook, original, ownership, force: false })
+			original = compacted.snapshot
+			if (compacted.blocked) compaction = { blocked: compacted.blocked, message: compacted.message }
 			const current = resume_intake.final_ask_span(original.text)
 			message_result = insert_start_message(original.text, current, message)
 			message_result.owner_message = message
@@ -975,7 +981,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		release_start_lock(lock)
 		lock = null
 		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: notebook, active_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}), bootstrap_provenance: provenance })
-		return emit_start_result(start_result({ repo, host: args.host, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, config_audit, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
+		return emit_start_result(start_result({ repo, host: args.host, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, config_audit, compaction, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
 	} finally {
 		if (input_lock !== null) notebook_writer.release_close_round_lock(input_lock)
 		if (lock !== null) release_start_lock(lock)

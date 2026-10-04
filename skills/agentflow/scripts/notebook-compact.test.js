@@ -97,6 +97,36 @@ test('compaction reports the answered round that conservatively blocks the prefi
   assert.match(result.message, /A-001|answered|live/i);
 });
 
+test('capture reports the retained history on new input and duplicate input', () => {
+  const pending = closed('A-001', 'done\n'.repeat(750) + '- ans: unresolved decision');
+  const f = fixture(pending);
+  for (const inserted of [true, false]) {
+    const result = writer.append_input({ root: f.root, notebook: f.notebook, text: 'continue', host: 'codex' });
+    assert.equal(result.inserted, inserted);
+    assert.deepEqual(result.compaction?.blocked, { ask: 'A-001', reason: 'answered-round-retained' });
+    assert.match(result.compaction.message, /answer recovery.*verify.*include-answered/iu);
+    assert.ok(fs.readFileSync(f.file, 'utf8').includes(pending));
+    assert.equal(fs.existsSync(f.archive), false);
+  }
+  const activation = writer.append_input({ root: f.root, notebook: f.notebook, text: 'godev', host: 'codex' });
+  assert.equal(activation.reason, 'activation_only');
+  assert.equal(activation.compaction.blocked.ask, 'A-001');
+});
+
+test('prompt hook exposes the compaction blocker without losing the owner request', () => {
+  const pending = closed('A-001', 'done\n'.repeat(750) + '-> ask: unresolved followup');
+  const f = fixture(pending);
+  const payload = { cwd: f.root, hook_event_name: 'UserPromptSubmit', session_id: session, prompt: 'continue' };
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'stop-hook.js'), '--host', 'codex'], { cwd: f.root, input: JSON.stringify(payload), encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const notice = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+  assert.match(notice, /A-001.*answered-round-retained/iu);
+  assert.match(notice, /answer recovery.*verify.*include-answered/iu);
+  assert.match(fs.readFileSync(f.file, 'utf8'), /\+ continue/);
+  assert.ok(fs.readFileSync(f.file, 'utf8').includes(pending));
+  assert.equal(fs.existsSync(f.archive), false);
+});
+
 test('an explicit manual override archives answered rounds without changing their bytes', () => {
   const answered = `${closed('A-001')}## Questions\n\n- ans: keep this decision\n\n---\n\n`;
   const history = answered + closed('A-002');
@@ -189,6 +219,8 @@ for (const marker of ['-> ask:', '\t -> ans:']) test(`startup retains an older i
   const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', f.root, '--host', 'codex', '--message-stdin', '--json'], { cwd: f.root, input: 'godev\n', encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout).current_ask_identifier, 'A-003');
+  assert.deepEqual(JSON.parse(result.stdout).compaction?.blocked, { ask: 'A-001', reason: 'answered-round-retained' });
+  assert.match(JSON.parse(result.stdout).compaction.message, /answer recovery.*verify.*include-answered/iu);
   assert.ok(fs.readFileSync(f.file, 'utf8').includes(pending + suffix), 'the owner followup remains available to the recovery gate');
   assert.equal(fs.existsSync(f.archive), false);
 });

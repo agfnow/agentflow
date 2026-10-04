@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.13"
+  version: "8.4.14"
 ---
 
-# Agentflow v8.4.13
+# Agentflow v8.4.14
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -49,7 +49,7 @@ Already-launched looper workers follow their supplied plan directly, not this ho
 
    If `hooks_restart_required: true`, tell the owner once to restart the host; until then, use the per-message capture below.
 
-6. Startup and input capture automatically compact eligible completed rounds when the notebook reaches 750 lines or reaches 768 KiB. Check size after the first meaningful response; before closeout, if still needed, run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc>` with the current host/session. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round and the suffix from any nonempty inline answer or owner inline `-> ask:`/`-> ans:`. Before `--include-answered true`, verify every selected answer or inline request was carried forward and handled; otherwise retain the suffix and report the blocker. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
+6. Startup and input capture automatically compact eligible completed rounds when the notebook reaches 750 lines or reaches 768 KiB. A returned `compaction.blocked` or hook retention notice requires follow-through after the mandatory answer-recovery gate, before substantive work: inspect the retained answers and requests, verify their complete saved answers, then run `node <active-agentflow-skill-dir>/scripts/agf.js compact --notebook <target-doc> --include-answered true` with the current host/session only when every selected item is handled. Do not infer handling from a completed round or an answered marker alone. If any item remains unresolved, keep its suffix live, carry it into the current Ask and report the specific blocker; exceeding the threshold is then expected, not permission to drop content. Check size after the first meaningful response and again before closeout; when still above either threshold without a retention notice, run the ordinary compact command and resolve its result by the same rule. It supports notebooks over 1 MiB and verifies archive identifiers, byte lengths and SHA-256 before removing live bytes. Preserve the current round. Stop on collisions, replacement or uncertain boundaries. Never truncate or archive an open round; individual input/draft limits still apply.
 
    The notebook and its adjacent archive are the single authoritative conversation history. Completed Ask/RUN/WIP/Reply spans and archived bytes are immutable and append-only; do not rewrite, summarize in place, or reformat them without explicit owner permission. STATUS and live recovery records are mutable projections. Verified byte-preserving compaction is the permitted move, not permission to edit history.
 

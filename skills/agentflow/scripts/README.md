@@ -191,3 +191,5 @@ node --test *.test.js
 - **`threeways-tier-journey.js`** — run `node threeways-tier-journey.js` in a real terminal/PTY to verify the optional 3ways tier setting, legacy read compatibility, unchanged other roles, visible settings output, and rejection of `off`. Uses a temporary configuration and makes no model calls.
 
 - `node review-only-journey.js` in a real terminal verifies truthful review-only closeout and the stop hook using synthetic reviewer evidence, including rejection of a later product change. No model calls are made.
+
+- **Archive retention notices:** startup JSON and prompt capture return `compaction.blocked` with the retained Ask and reason, plus recovery guidance. Duplicate input and bare activation retain the notice. Verify complete saved answers before the existing `compact --include-answered true` override; unresolved history remains live.

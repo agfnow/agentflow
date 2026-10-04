@@ -862,10 +862,12 @@ const append_input = ({ root = process.cwd(), notebook: notebook_path, text, mes
     host = ownership.identity.host;
     // Preserve the stored filename when an owner submits a case or short-name alias.
     file = resolve_path(ownership.root, ownership.notebook, 'notebook');
-    original = require('./notebook-compact').compact_locked({ root: repository_root, notebook: notebook_path, original, ownership, force: false }).snapshot;
+    const compacted = require('./notebook-compact').compact_locked({ root: repository_root, notebook: notebook_path, original, ownership, force: false });
+    original = compacted.snapshot;
+    const capture_result = result => ({ ...result, ...(compacted.blocked ? { compaction: { blocked: compacted.blocked, message: compacted.message } } : {}) });
     const round = parse_devlog(original.text).rounds.at(-1);
     if (!round || round.reply_text.trim()) fail('owner input requires a current open Ask');
-    if (/^\/?godev$/iu.test(text.trim())) return { notebook: notebook_path, ask: round.id, inserted: false, reason: 'activation_only' };
+    if (/^\/?godev$/iu.test(text.trim())) return capture_result({ notebook: notebook_path, ask: round.id, inserted: false, reason: 'activation_only' });
     const id = node_crypto.createHash('sha256').update(String(message_id || '') + '\0' + text).digest('hex');
     const marker = `<!-- agentflow-input: ${id} -->`;
     // Plain list paragraphs keep pasted headings and dividers inside owner input.
@@ -876,7 +878,7 @@ const append_input = ({ root = process.cwd(), notebook: notebook_path, text, mes
     const prior = receipts?.data.entries[id];
     const delivered = prior && Number.isSafeInteger(prior.start) && prior.start >= 0
       && round.ask_text.slice(prior.start, prior.start + listed.length) === listed;
-    if (round.ask_text.includes(marker) || delivered || (!message_id && (ask_content.includes(`\n\n${listed}\n\n`) || round.ask_text.trim() === text.trim()))) return { notebook: notebook_path, ask: round.id, inserted: false, reason: 'already_present' };
+    if (round.ask_text.includes(marker) || delivered || (!message_id && (ask_content.includes(`\n\n${listed}\n\n`) || round.ask_text.trim() === text.trim()))) return capture_result({ notebook: notebook_path, ask: round.id, inserted: false, reason: 'already_present' });
     // Manual/startup capture may precede the hook's submission ID. Adopt an
     // unclaimed copy once; another real submission ID still records a repeat.
     if (receipts) {
@@ -887,7 +889,7 @@ const append_input = ({ root = process.cwd(), notebook: notebook_path, text, mes
           entry.start < start + listed.length && start < entry.start + (Number.isSafeInteger(entry.length) ? entry.length : Infinity))) continue;
         receipts.data.entries[id] = { start, length: listed.length };
         atomic_replace(receipts.file, Buffer.from(JSON.stringify(receipts.data) + '\n'), 0o600);
-        return { notebook: notebook_path, ask: round.id, inserted: false, reason: 'already_present' };
+        return capture_result({ notebook: notebook_path, ask: round.id, inserted: false, reason: 'already_present' });
       }
     }
     const ask_start = round.start + round.text.length - round.body.length;
@@ -904,7 +906,7 @@ const append_input = ({ root = process.cwd(), notebook: notebook_path, text, mes
     }
     notebook_owner.verify(ownership, { root: repository_root, notebook: notebook_path, ask: round.id, active: true });
     atomic_replace(file, Buffer.from(candidate.endsWith('\n') ? candidate : candidate + '\n'), original.mode);
-    return { notebook: notebook_path, ask: round.id, inserted: true, reason: 'owner_input_saved' };
+    return capture_result({ notebook: notebook_path, ask: round.id, inserted: true, reason: 'owner_input_saved' });
   } finally { release_close_round_lock(lock); }
 };
 

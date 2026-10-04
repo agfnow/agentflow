@@ -1,4 +1,4 @@
-# Agentflow v8.4.13
+# Agentflow v8.4.14
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -13,6 +13,8 @@ Agentflow has verified integrations for **Codex and Claude Code** and a portable
 - **Get help quickly:** Ask your agent, “How do I use the Agentflow skill for this task?” It can explain the controls using your actual project.
 
 - **Discuss possible work first:** Say, “Could we replace the provider? Discuss with me first.” The assistant records the possible task and what decision it needs, discusses your options, then asks a specific question in the saved Reply. Answer in chat or its `ans:` field. Recording an idea does not authorize implementation; rejected or deferred ideas stay recorded, and already-authorized work continues.
+
+Automatic archiving reports when an older answer or request keeps history in the live notebook. The assistant must recover and verify complete saved answers before overriding that protection; unresolved items stay live.
 
 ## Install
 

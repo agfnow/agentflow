@@ -106,6 +106,7 @@ const compact_locked = ({ root, notebook, original, ownership, force = false, in
   if (blocked) {
     result.blocked = blocked;
     result.message = `Compaction retained ${blocked.ask} (${blocked.reason}); its live bytes and the unselected suffix remain authoritative.`;
+    if (blocked.reason === 'answered-round-retained') result.message += ' After answer recovery, verify every selected answer or request is handled before using compact --include-answered true; otherwise keep the unresolved suffix live and report it.';
   }
   if (!selected.length) return result;
   const boundaries = lint_round_boundaries(original.text);

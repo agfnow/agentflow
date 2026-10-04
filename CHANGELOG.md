@@ -1,6 +1,12 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.13. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.14. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.14]
+
+- Report blocked automatic archiving in startup output and prompt-capture notices, including duplicate input and bare activation. Name the retained round and explain that its live history remains authoritative.
+
+- Require answer recovery and verification of complete saved answers before using the existing explicit answered-round override. Keep unresolved requests and every later round live; do not treat completion or an answered marker alone as proof.
 
 ## [8.4.13]
 

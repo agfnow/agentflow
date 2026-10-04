@@ -133,9 +133,10 @@ const main = () => {
     const route_notice = fast_lane ? ` Fast-lane ${fast_lane.state}: work directly without AG, delegation, new streams, external review, or pipeline approval/artifact requirements. Keep host self-review, necessary tests, trackers, timed WIP checkpoints, detailed reports, and integrity checks. ${fast_lane.state === 'pending' ? 'Wait for the task; leave this Ask open without a Reply or closeout.' : 'This applies through this task’s closeout, then expires.'}` : skip_ag ? ` Skip-ag ${skip_ag.state}: skip the development pipeline and advisors for this Ask; retain normal logging, review, execution, integrity and closeout rules. ${skip_ag.state === 'pending' ? 'Wait for the task; leave this Ask open.' : 'This expires when the task closes.'}` : '';
     const capture_state = result.inserted ? 'was saved' : 'was already present; no duplicate was written'
     const session_notice = input.session_id ? ` Hook session: ${input.session_id}.` : ''
+    const compaction_notice = result.compaction ? ` ${result.compaction.message}` : ''
     process.stdout.write(JSON.stringify({ hookSpecificOutput: {
       hookEventName: 'UserPromptSubmit',
-      additionalContext: `The user's instruction ${capture_state} in ${notebook_path}, ${result.ask}.${session_notice} Read the current Ask and address all its instructions together. Do not record this hook notice as user input.${route_notice}`,
+      additionalContext: `The user's instruction ${capture_state} in ${notebook_path}, ${result.ask}.${session_notice} Read the current Ask and address all its instructions together. Do not record this hook notice as user input.${route_notice}${compaction_notice}`,
     } }) + '\n');
     return 0;
   }

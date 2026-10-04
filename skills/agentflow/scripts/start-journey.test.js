@@ -75,6 +75,39 @@ const transcript_json = transcript => {
 
 const git = (cwd, args) => child_process.execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
+test('real PTY startup and prompt capture expose retained-history recovery instructions', { skip: terminal_skip }, () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-retention-journey-')));
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-retention-home-')));
+  const skill = path.join(home, '.codex', 'skills', 'agentflow');
+  fs.mkdirSync(path.dirname(skill), { recursive: true });
+  fs.symlinkSync(SKILL_ROOT, skill, 'dir');
+  const env = { HOME: home, USERPROFILE: home };
+  const command = [AGF, 'start', '--repo', root, '--host', 'codex', '--message-stdin', '--json'];
+  const first = run(root, command, 'godev\n', env);
+  assert.equal(first.status, 0, first.stdout + first.stderr);
+  const file = path.join(root, '.agentflow/devlog.md');
+  const prefix = fs.readFileSync(file, 'utf8').split('# → Ask /')[0];
+  const pending = '# → Ask / A-001\n\n+ original request\n\n# ← Reply / A-001\n\n' + 'done\n'.repeat(750) + '\n-> ask: unresolved followup\n\n---\n\n';
+  fs.writeFileSync(file, prefix + pending + '# → Ask / A-003\n\n+\n');
+  const start = run(root, command, 'godev\n', env);
+  assert.equal(start.status, 0, start.stdout + start.stderr);
+  assert.match(start.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
+  assert.match(start.stdout, /godev/);
+  const notice = transcript_json(start.stdout).compaction;
+  assert.equal(notice.blocked.ask, 'A-001');
+  assert.match(notice.message, /answer recovery.*verify.*include-answered/iu);
+  const input = JSON.stringify({ cwd: root, hook_event_name: 'UserPromptSubmit', session_id: ownership_fixture.session, prompt: 'continue after archive warning' });
+  const capture = run(root, [STOP, '--host', 'codex'], input, env);
+  assert.equal(capture.status, 0, capture.stdout + capture.stderr);
+  assert.match(capture.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
+  assert.match(capture.stdout, /continue after archive warning/);
+  assert.match(capture.stdout, /A-001.*answered-round-retained/);
+  const saved = fs.readFileSync(file, 'utf8');
+  assert.ok(saved.includes(pending));
+  assert.match(saved, /\+ continue after archive warning/);
+  assert.equal(fs.existsSync(path.join(root, '.agentflow/devlog.archive.md')), false);
+});
+
 for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'non-behavioral', 'natural-waiver', 'non-git', 'non-git-normal', 'archive-retry']) test(`${mode} real start and one-command close journey proves visible input, JSON output, and scoped local delivery`, { skip: terminal_skip }, () => {
 	const non_git = mode.startsWith('non-git');
 	const fast_lane = ['inline', 'resume', 'comma-resume', 'non-git'].includes(mode);
