@@ -107,7 +107,7 @@ for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'n
 		const first = run(root, host_command, owner_request, host_env);
 		assert.equal(first.status, 0, `${first.command}\n${first.input}\n${first.stdout}\n${first.stderr}`);
 		assert.match(first.stdout, /journey owner request/);
-		assert.match(first.stdout, /\/dev\/tt/);
+		assert.match(first.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
 		const first_output = transcript_json(first.stdout);
 		assert.equal(first_output.active_host, 'codex');
 		assert.equal(first_output.setup_created, !non_git);
@@ -185,7 +185,7 @@ for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'n
 		}
 		const close = run(root, [AGF, 'close', '--manifest-stdin'], close_input, host_env);
 		assert.equal(close.status, 0, `${close.command}\n${close.input}\n${close.stdout}\n${close.stderr}`);
-		assert.match(close.stdout, /\/dev\/tt/);
+		assert.match(close.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
 		if (archive_retry) {
 			assert.match(close.stdout, /The archive retry completed/);
 			assert.equal(fs.readFileSync(path.join(root, '.agentflow/devlog.archive.md'), 'utf8'), archive_before);
@@ -205,7 +205,7 @@ for (const mode of ['normal', 'inline', 'resume', 'comma-resume', 'cosmetic', 'n
 		if (mode === 'normal' || mode === 'comma-resume' || archive_retry) {
 			const stop = run(root, [STOP, '--host', 'codex'], JSON.stringify({ cwd: root, hook_event_name: 'Stop' }), host_env);
 			assert.equal(stop.status, 0, stop.stdout + stop.stderr);
-			assert.match(stop.stdout, /\/dev\/tt/);
+			assert.match(stop.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
 			assert.match(stop.stdout, /hook_event_name.*Stop/);
 			assert.match(stop.stdout, /Stop exit: 0/);
 		}
@@ -237,7 +237,7 @@ test('real PTY startup detects the computer language and preserves the saved cho
 	const expected = detect_initial_language();
 	const first = run(root, [AGF, 'start', '--host', 'codex'], 'locale journey\n');
 	assert.equal(first.status, 0, first.stderr + first.stdout);
-	assert.match(first.stdout, /\/dev\/tt/);
+	assert.match(first.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
 	assert.match(first.stdout, /locale journey/);
 	assert.equal(transcript_json(first.stdout).configuration.language, expected);
 	const config_path = path.join(root, 'ag.json');
@@ -263,7 +263,7 @@ test('real PTY startup adds missing settings and reports a safe invalid value', 
 	fs.writeFileSync(config_path, `${JSON.stringify(config, null, 2)}\n`);
 	const result = run(root, [AGF, 'start', '--host', 'codex'], 'godev\n');
 	assert.equal(result.status, 0, result.stderr + result.stdout);
-	assert.match(result.stdout, /\/dev\/tt/);
+	assert.match(result.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
 	assert.match(result.stdout, /godev/);
 	assert.deepEqual(transcript_json(result.stdout).config_audit, { added: ['switches.away-gates'], invalid: [{ path: 'switches.log-verbosity', value: 'maybe', suggested: 'all' }] });
 	const saved = JSON.parse(fs.readFileSync(config_path, 'utf8'));
@@ -279,7 +279,7 @@ test('active-host real PTY startup adds the other host only when it runs', { ski
 		prior_host = host;
 		const result = run(root, [AGF, 'start', '--host', host], 'active host journey\n');
 		assert.equal(result.status, 0, result.stderr + result.stdout);
-		assert.match(result.stdout, /\/dev\/tty/);
+		assert.match(result.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
 		assert.match(result.stdout, /active host journey/);
 		assert.equal(transcript_json(result.stdout).active_host, host);
 		assert.ok(fs.existsSync(path.join(root, '.codex', 'hooks.json')));

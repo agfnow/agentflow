@@ -182,6 +182,17 @@ test('nonempty inline answers keep their round and later history live', () => {
   assert.ok(fs.readFileSync(f.file, 'utf8').includes(answered));
 });
 
+for (const marker of ['-> ask:', '\t -> ans:']) test(`startup retains an older inline ${marker.trim()} and the following history before recovery`, () => {
+  const pending = closed('A-001', 'done\n'.repeat(750) + marker + ' please handle this followup');
+  const suffix = closed('A-002');
+  const f = fixture(pending + suffix);
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', f.root, '--host', 'codex', '--message-stdin', '--json'], { cwd: f.root, input: 'godev\n', encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).current_ask_identifier, 'A-003');
+  assert.ok(fs.readFileSync(f.file, 'utf8').includes(pending + suffix), 'the owner followup remains available to the recovery gate');
+  assert.equal(fs.existsSync(f.archive), false);
+});
+
 test('startup resumes a single large open Ask with bounded metadata', () => {
   const f = fixture('', '+ ' + 'large request '.repeat(90000) + '\n');
   const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'start', '--repo', f.root, '--host', 'codex', '--message-stdin', '--json'], { cwd: f.root, input: 'godev\n', encoding: 'utf8' });

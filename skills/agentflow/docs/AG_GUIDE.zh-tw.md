@@ -1,4 +1,4 @@
-# Agentflow v8.4.10 — 日常使用指南
+# Agentflow v8.4.11 — 日常使用指南
 
 [English](AG_GUIDE.md) · 繁體中文
 
@@ -33,6 +33,8 @@ npx skills add agfnow/agentflow
 想確認安裝是否正常，可以請助理執行 `agf setup`。它會列出目前可用的工具；`agf setup --fix` 則會先備份 shell 設定，再補上缺少的指令捷徑。選用的協作助理無法使用，不一定代表安裝失敗。如果助理在安裝 hooks 後提醒你重新啟動，照做一次即可；hooks 是用來記錄訊息、檢查工作是否完成的小型整合程式。
 
 專案 hooks 會依執行 `godev` 的助理安裝。如果先用 Codex 初始化同一個 repo，換到 Claude Code 後也要執行 `godev`：即使已有 `ag.json`，啟動流程仍會補上 `.claude/settings.json` 的 hooks，並保留 Codex hooks。只開啟 Claude Code 不會自動安裝 Agentflow hooks。
+
+設定 hooks 時會優先使用既有的全域安裝。如果兩個助理的全域腳本都不存在，就使用目前執行中的安裝位置，包含專案技能與 Claude 外掛快取。更新後執行 `godev`，即可修復可辨識的舊 hooks；收到提醒時重新啟動助理，並保留該安裝目錄。
 
 ### 定期更新 skill
 

@@ -30,11 +30,13 @@ const { execFileSync } = require('node:child_process');
 const ag_settings = require('./ag-settings.js');
 
 const shell_literal = value => `'${String(value).replaceAll("'", "'\\''")}'`;
-// Keep the installation name: Node resolves __dirname through skill symlinks.
+// Preserve global installation names (including symlinks), then use the active installation.
 const installed_script_for = (host, script, home = node_os.homedir()) => {
   const preferred = node_path.join(home, `.${host}`, 'skills', 'agentflow', 'scripts', script);
   const alternate = node_path.join(home, host === 'claude' ? '.codex' : '.claude', 'skills', 'agentflow', 'scripts', script);
-  return !node_fs.existsSync(preferred) && node_fs.existsSync(alternate) ? alternate : preferred;
+  if (node_fs.existsSync(preferred)) return preferred;
+  if (node_fs.existsSync(alternate)) return alternate;
+  return node_path.join(__dirname, script);
 };
 const hook_command_for = host => `node ${shell_literal(installed_script_for(host, 'stop-hook.js'))} --host ${host}`;
 

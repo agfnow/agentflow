@@ -1,6 +1,16 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.10. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.11. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.11]
+
+- Fix [#25](https://github.com/agfnow/agentflow/issues/25) and [#26](https://github.com/agfnow/agentflow/issues/26): hook setup uses the running installation when neither global host script exists. Project-scoped Skills installations and Claude plugin-cache installations no longer receive missing global hook paths; existing global path priority and symlink spelling are preserved.
+
+- Recognized stale hooks are repaired when startup or the hook installer runs after updating. Keep the installation directory available and restart the assistant when prompted.
+
+- Enable Linux terminal checks to recognize /dev/pts devices. Verify common workflows on Ubuntu with Node 24 and 26; five pre-existing failed checks remain in four groups, so the complete suite is not green.
+
+- Include the previously committed inline-request safeguards: recover unanswered owner requests, protect them during archiving, and keep one complete saved answer location per request.
 
 ## [8.4.10]
 

@@ -1,4 +1,4 @@
-# Agentflow v8.4.10 — a guide for everyday use
+# Agentflow v8.4.11 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -33,6 +33,8 @@ For Codex, the Agentflow maintainer recommends **`gpt-6.1-sol/medium` as the mos
 If you want an installation check, ask your assistant to run `agf setup`. It reports what is available. `agf setup --fix` can add missing shell shortcuts after backing up the shell settings. An unavailable optional worker does not mean installation failed. If the assistant asks you to restart after installing hooks, restart once; hooks are the small integrations that record messages and check completion.
 
 Project hooks are installed for the assistant running `godev`. If Codex initialized the repository first, run `godev` in Claude Code too: startup adds `.claude/settings.json` hooks even when `ag.json` already exists, and keeps the Codex hooks. Opening Claude Code alone does not install Agentflow hooks.
+
+Hook setup prefers an existing global host installation. If neither global host script exists, it uses the running installation, including project skills and Claude plugin-cache installations. After updating, run `godev` to repair recognized stale hooks and restart the assistant when prompted. Keep that installation directory available.
 
 ### Pi and Oh My Pi: basic manual support
 

@@ -276,7 +276,7 @@ for (const mode of ['plain', 'git']) test(`${mode} tracked completion has a real
     cwd: f.root, encoding: 'utf8', env: { ...process.env, JOURNEY_INPUT: JSON.stringify(f.manifest), JOURNEY_NODE: process.execPath, JOURNEY_AGF: path.join(__dirname, 'agf.js') },
   });
   assert.equal(journey.status, 0, journey.stdout + journey.stderr);
-  assert.match(journey.stdout, /\/dev\/tt/);
+  assert.match(journey.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
   assert.match(journey.stdout, /Save a local artifact/);
   assert.match(journey.stdout, mode === 'plain' ? /"state": "not_applicable"/ : /"state": "created"/);
   assert.match(fs.readFileSync(path.join(f.root, f.manifest.notebook), 'utf8'), /# → Ask \/ A-002/);

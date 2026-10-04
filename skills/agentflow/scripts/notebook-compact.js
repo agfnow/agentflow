@@ -97,7 +97,7 @@ const compact_locked = ({ root, notebook, original, ownership, force = false, in
       blocked = { ask: round.id, reason: 'open-round-retained' };
       break;
     }
-    if (!include_answered && /^[ \t]*[-+]?[ \t]*ans:[ \t]*\S/imu.test(round.text)) {
+    if (!include_answered && /^[ \t]*[-+]?[ \t]*(?:ans:|->[ \t]*(?:ask|ans):)[ \t]*\S/imu.test(round.text)) {
       blocked = { ask: round.id, reason: 'answered-round-retained' };
       break;
     }

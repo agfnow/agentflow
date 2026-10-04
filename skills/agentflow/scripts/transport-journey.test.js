@@ -32,7 +32,7 @@ const terminal = (root, script, args, input = '') => {
     AGF_JOURNEY_NODE: process.execPath, AGF_JOURNEY_WRAPPER: wrapper,
     AGF_JOURNEY_ARGS: JSON.stringify(script === null ? args : [path.join(__dirname, script), ...args]), AGF_JOURNEY_INPUT: input,
   } })
-  assert.match(result.stdout, /Terminal: \/dev\/tt/)
+  assert.match(result.stdout, /Terminal: \/dev\/(?:tt[^\s]+|pts\/\d+)/)
   assert.match(result.stdout, /Visible input:/)
   assert.match(result.stdout, new RegExp(`Process exit: ${result.status}`))
   return result
