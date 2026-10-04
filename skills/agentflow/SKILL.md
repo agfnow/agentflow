@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.11"
+  version: "8.4.12"
 ---
 
-# Agentflow v8.4.11
+# Agentflow v8.4.12
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -73,7 +73,7 @@ Account for every current Ask item in its saved Reply; follow references/closeou
 
 - Read `references/mixed-requests.md` before planning or acting on a large mixed Ask, a request whose separate outcomes need explicit tracking of authorization and dependencies, or a handover of unfinished questions or tasks between rounds. Inspect the whole Ask to recognize this trigger; do not use a fixed item-count threshold. Include this reference in the required startup reference batch when the trigger is already present.
 
-- `skip-ag [task]` or `/skip-ag [task]` selects the direct route for this Ask only; keep devlog and normal review/closeout. Read `references/skip-ag.md` before routing. `no-ag` skips the entire host Agentflow protocol.
+- `skip-ag [task]` or `/skip-ag [task]` selects the direct route for this Ask only; keep devlog and normal review/closeout. Read `references/skip-ag.md` before routing. An actual unquoted line-start `no-ag` control, alone or followed by a task separated by whitespace, a colon or a comma (`no-ag fix this`, `no-ag: fix this`, `no-ag, fix this`) skips the entire host Agentflow protocol for that submitted turn, before startup, capture, notebook recovery or closeout. Quoted mentions (single/double quotes or backticks), code examples, conditional statements and discussion do not activate it. The next ordinary submitted message follows the active workflow again; no setting is changed. Prompt and Stop hooks must honor the same bypass without saving the bypassed message.
 
 - Read `references/skill-conflicts.md` only for an explicit skills audit (`agf skills audit`) or an observed conflict involving another loaded skill. Use its read-only audit prompt or once-per-conflict runtime warning as applicable; ordinary work does not scan installed skills.
 

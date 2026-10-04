@@ -63,6 +63,11 @@ for (const host of ['codex', 'claude']) {
       for (const prompt of ['godev', 'no-ag, fix this hook', 'hello']) {
         const result = spawnSync(process.execPath, [hook, '--host', host], { input: JSON.stringify({ cwd: root, hook_event_name: 'UserPromptSubmit', session_id: 'repair-session', prompt }), env, cwd: root, encoding: 'utf8' });
         assert.equal(result.status, 0, result.stderr);
+        if (prompt.startsWith('no-ag')) {
+          assert.equal(result.stdout, '');
+          assert.deepEqual(snapshot(), before);
+          continue;
+        }
         const notice = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
         assert.match(notice, /not saved.*ownership/i);
         assert.match(notice, /Continue with the submitted request/);
@@ -87,7 +92,7 @@ for (const host of ['codex', 'claude']) {
       // A regular stdin descriptor keeps this size-boundary test independent of
       // synchronous pipe transfer in the process-isolated Node test runner.
       const input_file = path.join(root, 'hook-input.json');
-      fs.writeFileSync(input_file, JSON.stringify({ cwd: root, hook_event_name: 'UserPromptSubmit', session_id: 'repair-session', prompt: fault === 'oversized input' ? 'x'.repeat(65537) : 'no-ag, repair intake' }));
+      fs.writeFileSync(input_file, JSON.stringify({ cwd: root, hook_event_name: 'UserPromptSubmit', session_id: 'repair-session', prompt: fault === 'oversized input' ? 'x'.repeat(65537) : 'repair intake' }));
       const input_fd = fs.openSync(input_file, 'r');
       let result;
       try {

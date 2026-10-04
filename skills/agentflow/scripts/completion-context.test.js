@@ -590,3 +590,23 @@ test('completion metadata classifications share fence boundaries and reject dupl
   write(root, 'new-behavior.js', 'module.exports = 7;\n');
   assert.equal(decision(fence(classification)).status, 'required');
 });
+
+for (const command of ['skip review', 'skip-review: example only']) {
+  for (const quote of ['"', "'", '`', '“', '‘']) {
+    test(`review waiver ignores multiline ${quote} ${command}`, () => {
+      const root = cleanup_fixture();
+      write(root, 'changed.js', 'module.exports = 1;\n');
+      const close = quote === '“' ? '”' : quote === '‘' ? '’' : quote;
+      const text = `# → Ask / A-002\n\n+ ${quote}\n+ ${command}\n+ ${close}\n\n# ← Reply / A-002\n\n- Host review: PASS — inspected changed source.\n`;
+      assert.equal(collect({ project_root: root, notebook_path: '.agentflow/devlog.md', devlog_text: text }).review_decision.status, 'required');
+    });
+  }
+}
+
+test('quoted waiver examples leave real review controls available', () => {
+  const root = cleanup_fixture();
+  write(root, 'changed.js', 'module.exports = 1;\n');
+  const decision = owner => collect({ project_root: root, notebook_path: '.agentflow/devlog.md', devlog_text: `# → Ask / A-002\n\n${owner}\n\n# ← Reply / A-002\n\n- Host review: PASS — inspected changed source.\n` }).review_decision;
+  for (const owner of ['"\nskip review\n"\nskip review', '`\nskip-review: example\n`\nskip-review: approved bounded change']) assert.equal(decision(owner).status, 'skip-review', owner);
+  for (const owner of ['Do not skip review', 'If approved, skip review', 'Unless approved, skip review', '> skip-review: example only', '```\nskip-review: example only\n```']) assert.equal(decision(owner).status, 'required', owner);
+});

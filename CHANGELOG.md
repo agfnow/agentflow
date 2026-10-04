@@ -1,6 +1,16 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.11. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.12. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.12]
+
+- Make actual unquoted `no-ag` bypass prompt capture, notebook/configuration recovery and completion checks, including a leading space-separated task. Keep bare, colon and comma forms, quoted/conditional exclusions and next-message reset. Verify with affected hook checks and an actual interactive Codex terminal.
+
+- Ignore multiline quoted fast-lane/skip-ag commands and natural/explicit review waivers using one shared quotation reader. Preserve real controls and their existing task states.
+
+- Remove saved no-ag review-waiver compatibility and temporary bypass-marker fallback. Stop uses current prompt/transcript evidence; unavailable current input retains ordinary checks. Keep the Git guard's separate notebook/configuration protection.
+
+- Clarify the supported forms and one-message duration in current guides, command references and public README templates.
 
 ## [8.4.11]
 

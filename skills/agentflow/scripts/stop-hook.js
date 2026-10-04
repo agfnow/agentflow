@@ -11,7 +11,7 @@
 const node_fs = require('node:fs');
 const node_path = require('node:path');
 const { lint_round, parse_devlog } = require('./round-linter');
-const { collect } = require('./completion-context');
+const { collect, no_ag_bypass, latest_owner_prompt } = require('./completion-context');
 
 const external_delegate_marker_pattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
@@ -57,6 +57,17 @@ const main = () => {
 
   // CLAUDE_PROJECT_DIR is Claude-Code-only; every host passes cwd on stdin.
   const project_dir = (active_host === 'claude' ? process.env.CLAUDE_PROJECT_DIR : '') || input.cwd || process.cwd();
+  if (capturing_prompt) {
+    const opted_out = typeof input.prompt === 'string' && no_ag_bypass(input.prompt);
+    if (opted_out) return 0;
+  } else {
+    const prompt = typeof input.prompt === 'string' ? input.prompt : latest_owner_prompt(input.transcript_path, input.session_id);
+    if (prompt !== undefined) {
+      const opted_out = no_ag_bypass(prompt);
+      if (opted_out) return 0;
+    }
+  }
+
   let notebook_path = '.agentflow/devlog.md';
   let config_path = node_path.join(project_dir, 'ag.json');
   const project_name = node_path.basename(project_dir);

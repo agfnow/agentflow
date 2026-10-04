@@ -12,4 +12,4 @@ Keep normal Agentflow requirements. Ordinary delegation and stream rules remain 
 
 Skip pipeline-specific advisor artifacts, prepared queues, pipeline acceptance/security stages, and Design Go/Result Go requirements. Retain any independently required permission or safety condition; skipping the pipeline does not authorize destructive actions or expand the task.
 
-`no-ag` skips the entire host Agentflow protocol. `fast-lane` additionally disables delegation, new streams and independent review. Neither is an alias for `skip-ag`.
+Unquoted line-start `no-ag`, alone or followed by a task separated by whitespace, a colon or a comma, skips the entire host Agentflow protocol for that message, including capture and closeout. Quoted examples and conditional statements do not activate it; the next ordinary message resumes the workflow. `fast-lane` additionally disables delegation, new streams and independent review. Neither is an alias for `skip-ag`.

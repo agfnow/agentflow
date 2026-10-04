@@ -8,7 +8,7 @@ Incident citations explain earlier failures, not permanent remedies. Approved re
 
 ## Front door and route
 
-`skip-ag [task]` or `/skip-ag [task]` skips the development pipeline and its advisors for the current Ask while keeping devlog records, necessary checks, normal independent review, ordinary delegation, and stream rules. It leaves project settings unchanged and expires when the Ask closes. A bare command waits for a task. `no-ag` skips the entire Agentflow protocol; `fast-lane` also skips delegation, new streams, and independent review. Read `references/skip-ag.md` when this control is active; it takes precedence over pipeline triggers for this Ask.
+`skip-ag [task]` or `/skip-ag [task]` skips the development pipeline and its advisors for the current Ask while keeping devlog records, necessary checks, normal independent review, ordinary delegation, and stream rules. It leaves project settings unchanged and expires when the Ask closes. A bare command waits for a task. Unquoted `no-ag [task]`, `no-ag: [task]` or `no-ag, [task]` skips the entire Agentflow protocol for that submitted message, including notebook capture and closeout. Quoted mentions and conditional statements do not activate it; the next ordinary message resumes the workflow; `fast-lane` also skips delegation, new streams, and independent review. Read `references/skip-ag.md` when this control is active; it takes precedence over pipeline triggers for this Ask.
 
 Read `references/delegation.md` before selecting or dispatching a worker; it owns frozen-brief transport, external/native/host selection, confinement limits, profiles, watchdog, attempts, and acceptance.
 

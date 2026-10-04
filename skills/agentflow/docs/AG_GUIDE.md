@@ -1,4 +1,4 @@
-# Agentflow v8.4.11 — a guide for everyday use
+# Agentflow v8.4.12 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -116,7 +116,7 @@ You can normally describe the task and let the assistant choose. These controls 
 
 - **Keep a small task light:** `fast-lane Fix the spelling in README.md.` The main assistant handles this task itself. It skips the larger pipeline, delegation, new feature workspaces, and separate review. Necessary checks, progress notes, and the assistant’s own review still happen. The mode ends with this task.
 
-- **Skip only the pipeline:** `skip-ag Fix the login bug.` Keeps the notebook and normal checks, review, delegation and delivery rules, while skipping the development pipeline and its advisors for this task. It survives follow-ups and resume, expires when the task closes, and does not change project settings. Bare `skip-ag` waits for a task. `no-ag` skips the entire host Agentflow protocol.
+- **Skip only the pipeline:** `skip-ag Fix the login bug.` Keeps the notebook and normal checks, review, delegation and delivery rules, while skipping the development pipeline and its advisors for this task. It survives follow-ups and resume, expires when the task closes, and does not change project settings. Bare `skip-ag` waits for a task. Start a message with unquoted `no-ag`, alone or followed by your task: `no-ag Count the files.`, `no-ag: Count the files.` and `no-ag, Count the files.` all bypass Agentflow, including automatic notebook capture and completion checks. Quoted mentions, code examples and conditional statements such as `no-ag if tests pass` do not bypass it. The next ordinary message follows the active workflow again.
 
 - **See a plan first:** “Make a plan and let me review it before implementation.” The assistant saves a plan and waits at that checkpoint.
 

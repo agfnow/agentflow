@@ -1,4 +1,4 @@
-# Agentflow v8.4.11
+# Agentflow v8.4.12
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -58,7 +58,7 @@ Keep the existing links. Let me review the result before uploading it.
 
 Small tasks can stay simple. `fast-lane` keeps one task with the main assistant and skips separate review while retaining necessary checks and self-review. `cross-check` requests a separate review of finished work; `review-policy: prefer-independent` permits a clearly labelled host review only after separate-review unavailability, while `require-independent` stays strict. `ag` requests the full development process when the project’s `allow-ag` setting permits it.
 
-`skip-ag [task]` or `/skip-ag [task]` skips the development pipeline and its advisors for the current Ask while keeping devlog records, necessary checks, normal independent review, ordinary delegation, and stream rules. It leaves project settings unchanged and expires when the Ask closes. A bare command waits for a task. `no-ag` skips the entire Agentflow protocol; `fast-lane` also skips delegation, new streams, and independent review.
+`skip-ag [task]` or `/skip-ag [task]` skips the development pipeline and its advisors for the current Ask while keeping devlog records, necessary checks, normal independent review, ordinary delegation, and stream rules. It leaves project settings unchanged and expires when the Ask closes. A bare command waits for a task. Unquoted `no-ag [task]`, `no-ag: [task]` or `no-ag, [task]` skips the entire Agentflow protocol for that submitted message, including notebook capture and closeout. Quoted mentions and conditional statements do not activate it; the next ordinary message resumes the workflow; `fast-lane` also skips delegation, new streams, and independent review.
 
 The notebook keeps the conversation, so a fresh session can resume an unfinished request with `godev`. With Git, Agentflow normally commits completed work and pushes when a remote exists; tell it when you want local work only.
 

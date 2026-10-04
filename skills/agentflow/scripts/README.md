@@ -10,6 +10,10 @@ grades the applicable notebook and host-owned facts, asks for at most one
 correcting turn, and fails open on its own internal errors. A passing verdict is
 not a general guarantee that code or a model claim is honest.
 
+## Message controls
+
+Start a submitted message with unquoted `no-ag`, alone or followed by a task separated by a space, colon or comma. The prompt hook bypasses capture; Stop uses the current prompt or latest owner message from that session's transcript. It never reuses a cached bypass marker. Without usable current input, ordinary checks remain. `no-ag` has no saved-round review-waiver behavior. Single/double quotes, backticks, fenced examples and multiline quotations cannot activate bypass, pipeline controls or review waivers. The next ordinary message resumes Agentflow.
+
 ## Active scripts
 
 - **`fast-lane.js`** — parses current-Ask `fast-lane` and `skip-ag` commands from owner input, ignoring quoted examples and mentions. `skip-ag` disables only the development pipeline and advisors; normal review, execution, stream, notebook and delivery rules remain. Both controls expire at the next Ask, and neither changes project settings.

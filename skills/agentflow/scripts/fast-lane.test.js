@@ -200,3 +200,35 @@ test('skip-ag overrides pipeline trigger facts while retaining route integrity',
   assert.equal(check({ ...route, owner_confirmation: 'approved' }).status, 'fail');
   assert.equal(check({ ...route, route: 'full_pipeline' }).status, 'fail');
 });
+
+for (const name of ['fast-lane', 'skip-ag']) {
+  for (const quote of ['"', "'", '`']) {
+    test(`${name} ignores multiline ${quote} quotations`, () => {
+      const parser = require('./fast-lane')[name === 'fast-lane' ? 'parse_fast_lane' : 'parse_skip_ag'];
+      assert.equal(parser(`${quote}\n${name}\n${quote}`), null);
+    });
+  }
+}
+
+test('lane controls retain real pending/task states beside quoted examples', () => {
+  const { parse_fast_lane, parse_skip_ag } = require('./fast-lane');
+  for (const [name, parser] of [['fast-lane', parse_fast_lane], ['skip-ag', parse_skip_ag]]) {
+    assert.deepEqual(parser(name), { state: 'pending' });
+    assert.deepEqual(parser(`${name} fix this`), { state: 'active' });
+    assert.deepEqual(parser(`"\n${name}\n"\n${name} fix this`), { state: 'active' });
+    for (const text of [`Do not use ${name}`, `If approved, ${name}`, `Unless approved, ${name}`, `> ${name}`, `~~~text\n${name}\n~~~`, `\x60\x60\x60text\n${name}\n\x60\x60\x60`]) {
+      assert.equal(parser(text), null, text);
+    }
+  }
+});
+
+for (const name of ['fast-lane', 'skip-ag']) {
+  test(`${name} keeps real controls after quotes inside fences`, () => {
+    const parser = require('./fast-lane')[name === 'fast-lane' ? 'parse_fast_lane' : 'parse_skip_ag'];
+    for (const fence of ['~~~', '\x60\x60\x60']) {
+      for (const quote of ['"', "'", '\x60']) {
+        assert.deepEqual(parser(`${fence}text\n${quote}\n${fence}\n${name} fix this\n${quote}example${quote}`), { state: 'active' });
+      }
+    }
+  });
+}

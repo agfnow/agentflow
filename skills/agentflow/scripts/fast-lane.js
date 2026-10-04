@@ -1,19 +1,26 @@
 'use strict';
 
+const { unquoted_control_text } = require('./owner-control-text');
+
 // A round-scoped command, derived from owner input rather than saved settings.
 const parse_task_control = (owner_text = '', name) => {
   const command_pattern = new RegExp('^/?' + name + '(?:(?:[ \\t]*[,，][ \\t]*|[ \\t]+)(\\S.*))?[ \\t]*$', 'iu');
   let selected = false;
   let has_task = false;
   let fenced = false;
-  for (const raw of owner_text.split(/\r?\n/u)) {
+  // Remove fenced content before quotations so its quotes cannot consume real controls.
+  const control_text = owner_text.split(/\r?\n/u).map(raw => {
     const line = raw.replace(/^\+ ?/u, '');
     if (/^\s*(?:`{3,}|~{3,})/u.test(line)) {
       fenced = !fenced;
       has_task = true;
-      continue;
+      return ' [fenced] ';
     }
-    const command = !fenced && command_pattern.exec(line);
+    return fenced ? ' [fenced] ' : raw;
+  }).join('\n');
+  for (const raw of unquoted_control_text(control_text).split(/\r?\n/u)) {
+    const line = raw.replace(/^\+ ?/u, '');
+    const command = command_pattern.exec(line);
     if (command) {
       selected = true;
       if (command[1]) has_task = true;
