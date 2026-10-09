@@ -244,6 +244,45 @@ test('start combines initialization, exact owner input, intake, and structured J
 	}
 })
 
+test('Claude startup reports manual capture and the actual session for activation and tasks', () => {
+	for (const prompt of ['godev', 'start the task']) {
+		const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-claude-manual-start-')))
+		try {
+			const env = { ...process.env }
+			for (const markers of Object.values(ag_settings.host_markers)) for (const marker of markers) delete env[marker]
+			delete env.AGENTFLOW_SESSION_ID
+			const args = [path.join(__dirname, 'agf.js'), 'start', '--repo', dir, '--host', 'claude', '--session', 'claude-manual-start', '--message-stdin', '--json']
+			for (let attempt = 0; attempt < 2; attempt++) {
+				const result = spawnSync(process.execPath, args, { cwd: dir, env, input: prompt, encoding: 'utf8' })
+				assert.equal(result.status, 0, result.stderr)
+				const output = JSON.parse(result.stdout)
+				assert.equal(output.session_id, 'claude-manual-start')
+				assert.equal(output.hooks.status, 'available')
+				assert.equal(output.hooks.prompt_capture, 'manual')
+				assert.match(output.hooks.instructions.capture, /append-input.*--host claude.*--session/)
+				const hooks = JSON.parse(fs.readFileSync(path.join(dir, '.claude/settings.json'), 'utf8')).hooks
+				assert.equal(hooks.Stop.length, 1)
+				assert.equal(hooks.UserPromptSubmit, undefined)
+				const notebook = fs.readFileSync(path.join(dir, '.agentflow/devlog.md'), 'utf8')
+				if (prompt !== 'godev') assert.equal(notebook.split('+ start the task').length - 1, 1)
+			}
+			const native_args = args.filter((value, index) => value !== '--session' && args[index - 1] !== '--session' && value !== '--json')
+			const native = spawnSync(process.execPath, native_args, { cwd: dir, env: { ...env, CLAUDE_CODE_SESSION_ID: 'claude-manual-start' }, input: prompt, encoding: 'utf8' })
+			assert.equal(native.status, 0, native.stderr)
+			assert.match(native.stderr, /session: claude-manual-start/)
+			assert.match(native.stderr, /Stop available; owner-message capture manual/)
+			assert.match(native.stderr, /append-input.*--host claude.*--session/)
+			const before = fs.readFileSync(path.join(dir, '.agentflow/devlog.md'))
+			for (const conflicting of [false, true]) {
+				const refused = spawnSync(process.execPath, conflicting ? args : native_args, { cwd: dir, env: conflicting ? { ...env, CLAUDE_CODE_SESSION_ID: 'other-session' } : env, input: prompt, encoding: 'utf8' })
+				assert.equal(refused.status, 1, refused.stderr)
+				assert.match(refused.stderr, conflicting ? /conflicting session IDs/ : /session identity is missing/)
+				assert.deepEqual(fs.readFileSync(path.join(dir, '.agentflow/devlog.md')), before)
+			}
+		} finally { drop(dir) }
+	}
+})
+
 test('start rejects detached HEAD instead of treating it as unborn', () => {
 	const { dir } = make_repo()
 	try {
@@ -637,6 +676,45 @@ test('finish help receives the dispatcher terminal width', () => {
 	const logs = []
 	assert.equal(agf.main(['finish', '--help'], '/tmp', (message) => logs.push(message), undefined, 40), 1)
 	assert.equal(logs.join(''), agf.render_usage(40))
+})
+
+test('init rejects damaged established notebooks before host detection or setup writes', () => {
+	const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-init-damaged-')))
+	try {
+		const initialized = ag_settings.initialize_project({ repo_root: dir, explicit_host: 'codex' })
+		const original = fs.readFileSync(initialized.notebook_path, 'utf8')
+		const config_path = path.join(dir, 'ag.json')
+		const config = JSON.parse(fs.readFileSync(config_path, 'utf8'))
+		const env = { ...process.env }
+		for (const markers of Object.values(ag_settings.host_markers)) for (const marker of markers) delete env[marker]
+		for (const target of ['.agentflow/devlog.md', 'notes.md']) {
+			config.switches['target-doc'] = target
+			fs.writeFileSync(config_path, JSON.stringify(config))
+			const config_before = fs.readFileSync(config_path)
+			for (const text of ['', '# → Ask / A-001\n\n+\n', original.replace(/^---\n/mu, ''), original.slice(0, original.indexOf('# → Ask'))]) {
+				fs.writeFileSync(path.join(dir, target), text)
+				for (const host of [null, 'claude']) {
+					const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'init'], {
+						cwd: dir, env: host ? { ...env, CLAUDE_CODE_SESSION_ID: 'init-damaged' } : env, encoding: 'utf8',
+					})
+					assert.equal(result.status, 1, result.stderr)
+					assert.match(result.stderr, /notebook .*invalid.*restore.*backup|notebook .*invalid.*restore.*Git/iu)
+					assert.doesNotMatch(result.stderr, /ready:|could not identify the project host/iu)
+					assert.equal(fs.readFileSync(path.join(dir, target), 'utf8'), text)
+					assert.deepEqual(fs.readFileSync(config_path), config_before)
+					for (const file of ['.gitignore', '.claude/settings.json', '.codex/hooks.json']) assert.equal(fs.existsSync(path.join(dir, file)), false)
+				}
+			}
+			const restored = original.replace('Notebook: .agentflow/devlog.md', `Notebook: ${target}`)
+			fs.writeFileSync(path.join(dir, target), restored)
+			const valid = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'init'], { cwd: dir, env, encoding: 'utf8' })
+			assert.equal(valid.status, 0, valid.stderr)
+			assert.ok(valid.stderr.includes(`ready: ${target}`))
+			assert.equal(fs.readFileSync(path.join(dir, target), 'utf8'), restored)
+			// Restore the absent setup state for the next malformed target checks.
+			for (const file of ['.gitignore', '.codex/hooks.json']) fs.renameSync(path.join(dir, file), path.join(dir, path.basename(file) + '-' + target.replaceAll('/', '_')))
+		}
+	} finally { drop(dir) }
 })
 
 test('init creates the configured notebook, ignore entries, and project hooks in one repeatable action', () => {
@@ -3159,7 +3237,7 @@ test('slow close push releases the notebook writer while retaining delivery owne
       input: JSON.stringify({ cwd: fixture.dir, hook_event_name: 'UserPromptSubmit', session_id: ownership_fixture.session, turn_id: host, prompt: `incoming ${host} while push waits` }),
     })
     assert.equal(capture.status, 0, `${capture.stdout}\n${capture.stderr}`)
-    if (host === 'claude') assert.match(JSON.parse(capture.stdout).hookSpecificOutput.additionalContext, /not saved.*ownership/u)
+    if (host === 'claude') assert.equal(capture.stdout, '')
   }
   fs.writeFileSync(release, 'release')
   assert.equal(await ended, 0, `${stdout}\n${stderr}`)

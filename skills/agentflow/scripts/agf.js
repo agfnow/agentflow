@@ -221,8 +221,22 @@ const init_main = (argv, cwd, log) => {
 	if (args.error || args.key) { log(args.error || 'init accepts no arguments'); return 1 }
 	if (args.help) { log(render_usage(80)); return 1 }
 	const repo = path.resolve(cwd)
+	const config_file = path.join(repo, 'ag.json')
+	const notebook_path = fs.existsSync(config_file)
+		? JSON.parse(fs.readFileSync(config_file, 'utf8'))?.switches?.['target-doc'] || '.agentflow/devlog.md'
+		: '.agentflow/devlog.md'
+	if (fs.existsSync(path.resolve(repo, notebook_path))) {
+		const text = notebook_writer.read_regular_file(notebook_writer.resolve_path(repo, notebook_path, 'notebook'), 'notebook').text
+		try {
+			ag_settings.status_region(text)
+			resume_intake.status_block(text)
+			if (!resume_intake.final_ask_span(text)) throw new Error('notebook has no open final Ask')
+		} catch (error) {
+			throw new Error(`notebook ${notebook_path} is invalid: ${error.message}; restore it from Git or a backup, or repair it explicitly while preserving existing history; init does not reconstruct established notebooks`)
+		}
+	}
 	const host = active_host_for_cli(repo)
-	const result = ag_settings.initialize_project({ repo_root: repo, explicit_host: host })
+	const result = ag_settings.initialize_project({ repo_root: repo, explicit_host: host, notebook_path })
 	update_ignore_file(repo)
 	install_hook.install({ cwd: repo, hosts: [host], quiet: true, say: () => {} })
 	const notebook = path.relative(repo, result.notebook_path || path.join(repo, result.config.switches['target-doc'])).split(path.sep).join('/')
@@ -755,14 +769,16 @@ const manual_hook_instructions = host => {
 	return { capture, closeout, manual_capture: capture, manual_closeout: closeout }
 }
 
-const hook_result_for = (host, result) => result || (['codex', 'claude'].includes(host)
-	? { status: 'available', host }
+const hook_result_for = (host, result) => result || (host === 'claude'
+	? { status: 'available', host, prompt_capture: 'manual', instructions: install_hook.claude_capture_instructions() }
+	: host === 'codex' ? { status: 'available', host }
 	: { status: 'not_available', host, reason: 'no_host_hook_integration', instructions: manual_hook_instructions(host) })
 
-const start_result = ({ repo, host, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result, config_audit, compaction }) => ({
+const start_result = ({ repo, host, session_id, host_family, notebook, notebook_text, intake, setup_result, message_result, provenance, git_identity, hook_result, config_audit, compaction }) => ({
 	repository: repo,
 	notebook,
 	active_host: host,
+	...(host === 'claude' ? { session_id } : {}),
 	...(host_family ? { host_family } : {}),
 	git: git_identity,
 	next_run_id: next_run_id(notebook_text, intake.current_ask),
@@ -795,6 +811,7 @@ const start_public_result = result => ({
 	repository: result.repository,
 	notebook: result.notebook,
 	active_host: result.active_host,
+	...(result.active_host === 'claude' ? { session_id: result.session_id } : {}),
 	...(result.host_family ? { host_family: result.host_family } : {}),
 	local_timestamp: format_local_timestamp(),
 	configuration: result.configuration,
@@ -804,7 +821,7 @@ const start_public_result = result => ({
 	setup_created: result.setup_created,
 	setup_created_files: result.setup_created_files,
 	hooks_restart_required: result.hooks_restart_required,
-	...(result.hooks.status === 'not_available' ? { hooks: result.hooks } : {}),
+	...(result.hooks.status === 'not_available' || result.hooks.prompt_capture === 'manual' ? { hooks: result.hooks } : {}),
 	message: result.message,
 	...(result.compaction ? { compaction: result.compaction } : {}),
 	current_ask_identifier: result.current_ask_identifier,
@@ -822,6 +839,7 @@ const emit_start_result = (result, args, repo, log) => {
 			repository: result.repository,
 			notebook: result.notebook,
 			active_host: result.active_host,
+			...(result.active_host === 'claude' ? { session_id: result.session_id } : {}),
 			...(result.host_family ? { host_family: result.host_family } : {}),
 			configuration: result.configuration,
 			...(result.config_audit ? { config_audit: result.config_audit } : {}),
@@ -829,7 +847,7 @@ const emit_start_result = (result, args, repo, log) => {
 			setup_created: result.setup_created,
 			setup_created_files: result.setup_created_files,
 			hooks_restart_required: result.hooks_restart_required,
-			...(result.hooks.status === 'not_available' ? { hooks: result.hooks } : {}),
+			...(result.hooks.status === 'not_available' || result.hooks.prompt_capture === 'manual' ? { hooks: result.hooks } : {}),
 			message: result.message,
 			...(result.compaction ? { compaction: result.compaction } : {}),
 		},
@@ -840,6 +858,11 @@ const emit_start_result = (result, args, repo, log) => {
 	if (result.compaction) log(result.compaction.message)
 	log(`setup: ${result.setup.created ? 'initialized' : 'already complete'}`)
 	log(`owner message: ${result.message.inserted ? 'recorded' : 'already present'}`)
+	if (result.hooks.prompt_capture === 'manual') {
+		log(`session: ${result.session_id}`)
+		log('hooks: Stop available; owner-message capture manual')
+		log(`manual capture: ${result.hooks.instructions.capture}`)
+	}
 	if (result.hooks.status === 'not_available') {
 		log('hooks: not_available')
 		log(`manual capture: ${result.hooks.instructions.capture}`)
@@ -858,7 +881,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 	if (args.help) { log(render_usage(80)); return 1 }
 	if (args.error) { log(`${args.error}\n\n${render_usage(80)}`); return 1 }
 	const notebook_owner = require('./notebook-owner')
-	notebook_owner.identity({ host: args.host, session: args.session })
+	const identity = notebook_owner.identity({ host: args.host, session: args.session })
 
 	const requested = path.resolve(cwd, args.repo)
 	const repo_path = real_path(requested)
@@ -916,6 +939,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		const result = start_result({
 			repo,
 			host: args.host,
+			session_id: identity.session,
 				notebook: intake.notebook,
 				notebook_text: fs.readFileSync(path.join(repo, intake.notebook), 'utf8'),
 				intake,
@@ -981,7 +1005,7 @@ const start_main = (argv, cwd, log, _ask, _width = 80) => {
 		release_start_lock(lock)
 		lock = null
 		const intake = resume_intake.collect_intake({ repo_root: repo, notebook_path: notebook, active_host: args.host, ...(args.host_family ? { host_family: args.host_family } : {}), bootstrap_provenance: provenance })
-		return emit_start_result(start_result({ repo, host: args.host, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, config_audit, compaction, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
+		return emit_start_result(start_result({ repo, host: args.host, session_id: identity.session, host_family: args.host_family, notebook, notebook_text: message_result.text, intake, setup_result, message_result, provenance, git_identity, config_audit, compaction, hook_result: Array.isArray(hook_result) ? hook_result[0] : hook_result }), args, repo, log)
 	} finally {
 		if (input_lock !== null) notebook_writer.release_close_round_lock(input_lock)
 		if (lock !== null) release_start_lock(lock)

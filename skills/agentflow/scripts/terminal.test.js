@@ -89,15 +89,19 @@ printf 'PTY identity: stdin/stdout/stderr are terminals\\n'
 node "$1" --host claude <<'INPUT'
 {"hook_event_name":"UserPromptSubmit","prompt":"skip-ag","session_id":"skip-ag-pty","turn_id":"one"}
 INPUT
+node "$3" append-input --notebook .agentflow/devlog.md --host claude --session skip-ag-pty --input-stdin <<'INPUT'
+skip-ag
+INPUT
+printf 'Claude manual capture: skip-ag saved\\n'
 node "$1" --host codex <<'INPUT'
 {"hook_event_name":"UserPromptSubmit","prompt":"fix the login bug","session_id":"skip-ag-pty","turn_id":"two"}
 INPUT
 printf 'module.exports = true;\\n' > app.js
 node "$2" review --notebook .agentflow/devlog.md --host codex
-`, 'skip-ag-pty', path.join(__dirname, 'stop-hook.js'), agf], { cwd: repo, columns: 110 })
+`, 'skip-ag-pty', path.join(__dirname, 'stop-hook.js'), agf, path.join(__dirname, 'notebook-write.js')], { cwd: repo, columns: 110 })
   assert.equal(result.status, 0, result.output)
   assert.match(result.output, /PTY identity/)
-  assert.match(result.output, /Skip-ag pending/)
+  assert.match(result.output, /Claude manual capture: skip-ag saved/)
   assert.match(result.output, /Skip-ag active/)
   assert.match(result.output, /"status": "required"/)
   assert.deepEqual(fs.readFileSync(path.join(repo, 'ag.json')), before)

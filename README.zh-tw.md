@@ -1,4 +1,4 @@
-# Agentflow v8.4.14
+# Agentflow v8.4.15
 
 [English](README.md) · **繁體中文**
 
@@ -70,9 +70,27 @@ godev
 
 `notebook-ownership: on|off` 預設為 `off`，省略時也一樣。開啟時，一個進行中的筆記回合只由一個工作階段寫入；關閉時，不同工作階段可能將訊息、決定和回覆混在同一回合。兩種模式都保留檔案鎖、安全路徑、目前回合、未改動快照與筆記路由檢查。關閉時不改動既有所有權紀錄。若可能共用筆記，請設為 `notebook-ownership: on`；重新開啟時，保留的舊紀錄可能需要明確接管。目前沒有證據顯示關閉後啟動會明顯加快。
 
+Codex 會自動記錄後續的使用者訊息。Claude 保留啟動訊息記錄及檢查收尾的 Stop hook，但助理必須使用啟動回傳的 `session_id` 手動保存後續真正由使用者送出的訊息；自動產生的報告不得寫入 Ask。更新設定時，只會移除所選範圍內屬於 Agentflow 的 Claude 訊息 hook；舊的全域安裝須另外更新並移除該 hook。收到提醒時請重新啟動。
+
 ## 檢查安裝
 
 請 agent 執行 `agf setup`；如果指令捷徑已可使用，也能直接在終端機執行。`agf setup --fix` 會先備份 shell 設定，再補上缺少的捷徑。選用的協作助理無法使用，不一定代表安裝失敗。安裝專案 hooks 後，若收到重新啟動提醒，照做即可。
+
+<details>
+
+<summary>找不到 agf 指令捷徑時</summary>
+
+若全域安裝位於以下位置，請執行對應的設定檔。若安裝在其他位置，請先讓 agent 找出已安裝的 skill。
+
+```sh
+node "$HOME/.codex/skills/agentflow/scripts/setup.js"
+```
+
+```sh
+node "$HOME/.claude/skills/agentflow/scripts/setup.js"
+```
+
+</details>
 
 ## Windows 與貢獻者測試
 

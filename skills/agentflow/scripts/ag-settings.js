@@ -167,7 +167,7 @@ const host_template_values = {
       'allowed-worker': ['external', 'internal', 'host'],
       'ask-names': 'on',
       'auto-reply': 'off',
-      'away-gates': 'off',
+      'away-gates': 'on',
       'cli-provider': 'on',
       'completion-cleanup': completion_cleanup_defaults['completion-cleanup'],
       'completion-cleanup-interval-days': completion_cleanup_defaults['completion-cleanup-interval-days'],

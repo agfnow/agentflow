@@ -1,4 +1,4 @@
-# Agentflow v8.4.14 — a guide for everyday use
+# Agentflow v8.4.15 — a guide for everyday use
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
@@ -31,6 +31,8 @@ Choose the assistant you use and whether to install for this project or all your
 For Codex, the Agentflow maintainer recommends **`gpt-6.1-sol/medium` as the most stable coordinator choice in their use**. This means model `gpt-6.1-sol` with reasoning effort `medium`, running the main conversation and coordinating work. It is a project recommendation; your task and available models still matter. [OpenAI’s model documentation](https://developers.openai.com/api/docs/models/gpt-6.1-sol) confirms that this model supports `medium` effort.
 
 If you want an installation check, ask your assistant to run `agf setup`. It reports what is available. `agf setup --fix` can add missing shell shortcuts after backing up the shell settings. An unavailable optional worker does not mean installation failed. If the assistant asks you to restart after installing hooks, restart once; hooks are the small integrations that record messages and check completion.
+
+Codex records later owner messages automatically. Claude keeps startup capture and its completion-checking Stop hook, but the assistant must manually save later actual owner messages using the startup `session_id`; generated reports must not enter the Ask. Updating setup removes owned Claude prompt hooks in the selected scope. Older global installations need their own update and hook migration; restart when prompted.
 
 Project hooks are installed for the assistant running `godev`. If Codex initialized the repository first, run `godev` in Claude Code too: startup adds `.claude/settings.json` hooks even when `ag.json` already exists, and keeps the Codex hooks. Opening Claude Code alone does not install Agentflow hooks.
 

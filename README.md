@@ -1,4 +1,4 @@
-# Agentflow v8.4.14
+# Agentflow v8.4.15
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -69,6 +69,8 @@ The notebook keeps the conversation, so a fresh session can resume an unfinished
 ## Shared notebooks
 
 `notebook-ownership: on|off` is optional and defaults to `off`, including when omitted. On gives one session control of an active notebook round; off allows sessions to mix messages, decisions and replies. Both modes retain file locks, safe paths, current-round checks, unchanged snapshots and stream routing. Off preserves existing ownership records. Use `notebook-ownership: on` when a notebook may be shared. Turning it back on may require explicit recovery of a retained record; no noticeable startup speed gain has been proven.
+
+Codex records later owner messages automatically. Claude keeps startup capture and its completion-checking Stop hook, but the assistant must manually save later actual owner messages using the startup `session_id`; generated reports must not enter the Ask. Updating setup removes owned Claude prompt hooks in the selected scope. Older global installations need their own update and hook migration; restart when prompted.
 
 ## Check installation
 

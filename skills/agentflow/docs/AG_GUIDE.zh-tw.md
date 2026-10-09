@@ -1,4 +1,4 @@
-# Agentflow v8.4.14 — 日常使用指南
+# Agentflow v8.4.15 — 日常使用指南
 
 [English](AG_GUIDE.md) · 繁體中文
 
@@ -31,6 +31,8 @@ npx skills add agfnow/agentflow
 如果你使用 Codex，Agentflow 維護者依自己的使用經驗，建議選擇 **`gpt-6.1-sol/medium` 作為表現最穩定的控場模型**。也就是模型選 `gpt-6.1-sol`，推理程度選 `medium`，由它負責和你對話、安排工作。這是本專案的使用建議，仍可依任務與帳號可用的模型調整。[OpenAI 官方模型文件](https://developers.openai.com/api/docs/models/gpt-6.1-sol)也確認這個模型支援 `medium` 推理程度。
 
 想確認安裝是否正常，可以請助理執行 `agf setup`。它會列出目前可用的工具；`agf setup --fix` 則會先備份 shell 設定，再補上缺少的指令捷徑。選用的協作助理無法使用，不一定代表安裝失敗。如果助理在安裝 hooks 後提醒你重新啟動，照做一次即可；hooks 是用來記錄訊息、檢查工作是否完成的小型整合程式。
+
+Codex 會自動記錄後續的使用者訊息。Claude 保留啟動訊息記錄及檢查收尾的 Stop hook，但助理必須使用啟動回傳的 `session_id` 手動保存後續真正由使用者送出的訊息；自動產生的報告不得寫入 Ask。更新設定時，只會移除所選範圍內屬於 Agentflow 的 Claude 訊息 hook；舊的全域安裝須另外更新並移除該 hook。收到提醒時請重新啟動。
 
 專案 hooks 會依執行 `godev` 的助理安裝。如果先用 Codex 初始化同一個 repo，換到 Claude Code 後也要執行 `godev`：即使已有 `ag.json`，啟動流程仍會補上 `.claude/settings.json` 的 hooks，並保留 Codex hooks。只開啟 Claude Code 不會自動安裝 Agentflow hooks。
 

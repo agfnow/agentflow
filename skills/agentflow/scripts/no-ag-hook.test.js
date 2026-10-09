@@ -41,14 +41,16 @@ for (const host of ['codex', 'claude']) {
       assert.equal(stop.stderr, '');
       assert.equal(run(root, host, { hook_event_name: 'Stop', session_id: 'other' }).status, 2);
       const ordinary = run(root, host, { hook_event_name: 'UserPromptSubmit', session_id: 'owner', prompt: 'ordinary task' });
-      assert.match(ordinary.stdout, /instruction was saved/);
+      if (host === 'codex') assert.match(ordinary.stdout, /instruction was saved/);
+      else { assert.equal(ordinary.stdout, ''); assert.deepEqual(snapshot(root), before); }
       assert.equal(run(root, host, { hook_event_name: 'Stop', session_id: 'owner' }).status, 2);
     });
   }
   for (const prompt of ['"no-ag"', "'no-ag'", '`no-ag`', '"no-ag:"', "'no-ag: fix'", '`no-ag: fix`', '"no-ag how many files in folder?"', "'no-ag yes again'", '`no-ag repair`', '"example\nno-ag:\nend"', '`example\nno-ag:\nend`', '```text\nno-ag:\n```', '~~~text\nno-ag:\n~~~', '> no-ag:', 'For example: no-ag:', 'no-ag is a command', 'no-ag if tests pass', 'no-ag unless approved', 'no-ag: unless approved', 'no-ag repair; godev']) {
-    test(`${host} captures mention ${JSON.stringify(prompt)}`, () => {
+    test(`${host} handles mention ${JSON.stringify(prompt)} with its capture policy`, () => {
       const result = run(fixture(), host, { hook_event_name: 'UserPromptSubmit', session_id: 'owner', prompt });
-      assert.match(result.stdout, /instruction was saved/);
+      if (host === 'codex') assert.match(result.stdout, /instruction was saved/);
+      else { assert.equal(result.stdout, ''); assert.equal(result.stderr, ''); }
     });
   }
   test(`${host} Stop uses only the latest real transcript owner turn`, () => {

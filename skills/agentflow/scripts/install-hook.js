@@ -56,6 +56,11 @@ const manual_instructions = host => {
   return { capture, closeout, manual_capture: capture, manual_closeout: closeout };
 };
 
+const claude_capture_instructions = () => {
+  const capture = `For each actual owner message, retain the startup notebook and session ID and run node ${shell_literal(installed_script_for('claude', 'notebook-write.js'))} append-input --notebook <path> --host claude --session <id> --input-stdin with only its exact submitted text on stdin. Queued, generated and hook content is not owner input. The Stop hook remains available.`;
+  return { capture, manual_capture: capture };
+};
+
 const parse_owned_command = command => {
   if (typeof command !== 'string') return null;
 
@@ -216,27 +221,30 @@ const apply_to_host = (host, scope, off, say, cwd = process.cwd()) => {
   const config = read_config(config_path);
   let next_config = config;
   let changed = false;
+  const capture_policy = host === 'claude' && !off ? { prompt_capture: 'manual', instructions: claude_capture_instructions() } : {};
   for (const event of ['Stop', 'UserPromptSubmit']) {
-    const result = (off ? remove_hook : add_hook)(next_config, host, { scope, cwd, event });
+    const result = (off || (host === 'claude' && event === 'UserPromptSubmit') ? remove_hook : add_hook)(next_config, host, { scope, cwd, event });
     next_config = result.config;
     changed = changed || result.changed;
   }
 
   if (!changed) {
     say(`${host}: no change — the Agentflow hooks were already ${off ? 'absent from' : 'present in'} ${config_path}`);
-    return { status: 'available', host, changed: false, config_path };
+    return { status: 'available', host, changed: false, config_path, ...capture_policy };
   }
 
   const backup_path = backup(config_path);
 
   ag_settings.write_text_atomic(config_path, `${JSON.stringify(next_config, null, 2)}\n`);
 
-  say(`${host}: ${off ? 'removed' : 'added'} the Agentflow Stop and UserPromptSubmit hooks ${off ? 'from' : 'in'} ${config_path}. Restart the host to load this change.`);
+  say(host === 'claude' && !off
+    ? `${host}: added or retained the Agentflow Stop hook and removed owned UserPromptSubmit hooks in ${config_path}; owner messages require manual capture. Restart the host to load this change.`
+    : `${host}: ${off ? 'removed' : 'added'} the Agentflow Stop and UserPromptSubmit hooks ${off ? 'from' : 'in'} ${config_path}. Restart the host to load this change.`);
 
   if (backup_path) {
     say(`${host}: backup of the previous file: ${backup_path}`);
   }
-  return { status: 'available', host, changed: true, config_path };
+  return { status: 'available', host, changed: true, config_path, ...capture_policy };
 };
 
 const apply_guard = (off, say, cwd = process.cwd()) => {
@@ -337,6 +345,6 @@ const main = () => {
   install(options);
 };
 
-module.exports = { install, inspect, config_path_for, apply_guard, hook_command_for, parse_owned_command, installed_script_for };
+module.exports = { claude_capture_instructions, install, inspect, config_path_for, apply_guard, hook_command_for, parse_owned_command, installed_script_for };
 
 if (require.main === module) main();

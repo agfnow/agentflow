@@ -1,6 +1,16 @@
 # Changelog
 
-Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.14. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+Notable Agentflow changes, with the newest version first. Release metadata uses major.minor.patch; the current release is 8.4.15. Earlier dates identify recorded source milestones, not independently verified public publication dates.
+
+## [8.4.15]
+
+- Fix [#27](https://github.com/agfnow/agentflow/issues/27): switch Claude to explicit manual capture of later owner submissions because UserPromptSubmit cannot reliably identify generated messages. Keep startup capture, Stop enforcement and Codex automatic capture; remove owned Claude prompt hooks on setup and silently ignore stale Claude prompt calls. Restart Claude after updating; separately update/migrate old global installations.
+
+- Fix [#28](https://github.com/agfnow/agentflow/issues/28): validate established notebooks before init host detection or setup writes, refuse damaged structure with restoration guidance, and preserve existing content.
+
+- Fix [#29](https://github.com/agfnow/agentflow/issues/29): restore the missing Traditional Chinese setup fallback examples with exact command parity.
+
+- Affected behavior and terminal journeys pass. Three broader fixtures reproduce on the pre-change source; this release does not claim the entire suite is green.
 
 ## [8.4.14]
 

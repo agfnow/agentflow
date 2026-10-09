@@ -55,6 +55,10 @@ const main = () => {
     throw new Error('Stop hook requires --host codex or --host claude');
   }
 
+  // Claude prompt events do not establish owner-message origin. Loaded older
+  // hooks must stay silent and leave notebook state untouched.
+  if (active_host === 'claude' && capturing_prompt) return 0;
+
   // CLAUDE_PROJECT_DIR is Claude-Code-only; every host passes cwd on stdin.
   const project_dir = (active_host === 'claude' ? process.env.CLAUDE_PROJECT_DIR : '') || input.cwd || process.cwd();
   if (capturing_prompt) {

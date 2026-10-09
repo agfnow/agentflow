@@ -14,6 +14,7 @@ ownership_fixture.configure();
 const SKILL_ROOT = path.resolve(__dirname, '..');
 const AGF = path.join(SKILL_ROOT, 'scripts', 'agf.js');
 const STOP = path.join(SKILL_ROOT, 'scripts', 'stop-hook.js');
+const WRITER = path.join(SKILL_ROOT, 'scripts', 'notebook-write.js');
 const terminal_executable = command => {
   const candidates = command.includes('/') ? [command] : (process.env.PATH || '').split(path.delimiter).map(directory => path.join(directory, command));
   return candidates.some(file => {
@@ -31,6 +32,8 @@ const PTY_SCRIPT = [
 	'    spawn /bin/sh -c {test -t 0 && test -t 1 && tty && printf %s "$JOURNEY_INPUT" | tee /dev/stderr | "$JOURNEY_NODE" "$JOURNEY_AGF" start --repo "$JOURNEY_REPO" --host "$JOURNEY_HOST" --message-stdin --json}',
 	'} elseif {$env(JOURNEY_MODE) == "stop"} {',
 	'    spawn /bin/sh -c {test -t 0 && test -t 1 && tty && printf %s "$JOURNEY_INPUT" | tee /dev/stderr | "$JOURNEY_NODE" "$JOURNEY_STOP" --host "$JOURNEY_HOST"; outcome=$?; printf "\\nStop exit: %s\\n" "$outcome"; exit "$outcome"}',
+	'} elseif {$env(JOURNEY_MODE) == "manual"} {',
+	'    spawn /bin/sh -c {test -t 0 && test -t 1 && tty && printf %s "$JOURNEY_INPUT" | tee /dev/stderr | "$JOURNEY_NODE" "$JOURNEY_WRITER" append-input --notebook "$JOURNEY_NOTEBOOK" --host "$JOURNEY_HOST" --session "$JOURNEY_SESSION" --input-stdin}',
 	'} else {',
 	'    spawn /bin/sh -c {test -t 0 && test -t 1 && tty && printf %s "$JOURNEY_INPUT" | tee /dev/stderr | "$JOURNEY_NODE" "$JOURNEY_AGF" close --manifest-stdin}',
 	'}',
@@ -45,12 +48,14 @@ const run = (cwd, command, input, env) => {
 		env: {
 			...process.env,
 			...env,
-			AGENTFLOW_SESSION_ID: ownership_fixture.session,
-			JOURNEY_MODE: command.includes('start') ? 'start' : command[0] === STOP ? 'stop' : 'close',
+			AGENTFLOW_SESSION_ID: env?.AGENTFLOW_SESSION_ID ?? ownership_fixture.session,
+			JOURNEY_MODE: command.includes('start') ? 'start' : command[0] === STOP ? 'stop' : command.includes('append-input') ? 'manual' : 'close',
 			JOURNEY_HOST: command[command.indexOf('--host') + 1] || 'codex',
 			JOURNEY_NODE: process.execPath,
 			JOURNEY_AGF: AGF,
 			JOURNEY_STOP: STOP,
+			JOURNEY_WRITER: WRITER,
+			JOURNEY_SESSION: command.includes('--session') ? command[command.indexOf('--session') + 1] : '',
 			JOURNEY_REPO: cwd,
 			JOURNEY_NOTEBOOK: command[command.indexOf('--notebook') + 1] || '',
 			JOURNEY_INPUT: input,
@@ -74,6 +79,47 @@ const transcript_json = transcript => {
 };
 
 const git = (cwd, args) => child_process.execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+
+test('real Claude PTY startup, stale prompt and manual owner capture retain Stop enforcement', { skip: terminal_skip }, () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-claude-manual-journey-')));
+  const env = { CODEX_THREAD_ID: '', CODEX_SESSION_ID: '', CLAUDE_SESSION_ID: '', CLAUDE_PROJECT_DIR: '', AGENTFLOW_SESSION_ID: '', AGENTFLOW_EXTERNAL_DELEGATE: '', CLAUDE_CODE_SESSION_ID: 'claude-manual-journey' };
+  const started = run(root, [AGF, 'start', '--repo', root, '--host', 'claude', '--message-stdin', '--json'], 'journey owner request\n', env);
+  assert.equal(started.status, 0, started.stdout + started.stderr);
+  assert.match(started.stdout, /\/dev\/(?:tt[^\s]+|pts\/\d+)/);
+  assert.match(started.stdout, /journey owner request/);
+  const output = transcript_json(started.stdout);
+  assert.equal(output.session_id, env.CLAUDE_CODE_SESSION_ID);
+  assert.equal(output.hooks.prompt_capture, 'manual');
+  const notebook = path.join(root, output.notebook);
+  const original = fs.readFileSync(notebook, 'utf8');
+  const settings_file = path.join(root, '.claude/settings.json');
+  const hooks = JSON.parse(fs.readFileSync(settings_file, 'utf8')).hooks;
+  assert.equal(hooks.Stop.length, 1);
+  assert.equal(hooks.UserPromptSubmit, undefined);
+  const generated = '<agent-message from="fixture">Generated handback</agent-message>';
+  const stale = run(root, [STOP, '--host', 'claude'], JSON.stringify({ cwd: root, hook_event_name: 'UserPromptSubmit', session_id: output.session_id, prompt: generated }), env);
+  assert.equal(stale.status, 0, stale.stdout + stale.stderr);
+  assert.match(stale.stdout, /Generated handback/);
+  assert.doesNotMatch(stale.stdout, /instruction was saved/);
+  assert.equal(fs.readFileSync(notebook, 'utf8'), original);
+  const manual_command = [WRITER, 'append-input', '--notebook', output.notebook, '--host', 'claude', '--session', output.session_id, '--input-stdin'];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const captured = run(root, manual_command, 'actual owner follow-up\n', env);
+    assert.equal(captured.status, 0, captured.stdout + captured.stderr);
+    assert.match(captured.stdout, /actual owner follow-up/);
+    const receipt = transcript_json(captured.stdout);
+    assert.equal(receipt.notebook, output.notebook);
+    assert.equal(receipt.inserted, attempt === 0);
+  }
+  assert.equal(fs.readFileSync(notebook, 'utf8').split('+ actual owner follow-up').length - 1, 1);
+  assert.ok(!fs.readFileSync(notebook, 'utf8').includes(generated));
+  const config = fs.readFileSync(path.join(root, 'ag.json'));
+  fs.writeFileSync(path.join(root, 'ag.json'), '{ malformed configuration');
+  const stop = run(root, [STOP, '--host', 'claude'], JSON.stringify({ cwd: root, hook_event_name: 'Stop', session_id: output.session_id }), env);
+  assert.equal(stop.status, 2, stop.stdout + stop.stderr);
+  assert.match(stop.stdout, /configuration_valid/);
+  fs.writeFileSync(path.join(root, 'ag.json'), config);
+});
 
 test('real PTY startup and prompt capture expose retained-history recovery instructions', { skip: terminal_skip }, () => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-retention-journey-')));

@@ -2,10 +2,10 @@
 name: "agentflow"
 description: "File logs, Git evidence and optional development. Triggered by godev/devlog/ag/agentflow/fast-lane/skip-ag."
 metadata:
-  version: "8.4.14"
+  version: "8.4.15"
 ---
 
-# Agentflow v8.4.14
+# Agentflow v8.4.15
 
 Agentflow keeps owner conversation and live recovery in a configured notebook; advanced rules load only on demand.
 
@@ -65,7 +65,7 @@ The `direct` planning route supports either executor for clear, reversible work 
 
 ## Every message after startup
 
-Before answering or acting, save each submitted message in the current Ask, including diagnostic questions after interruption. Without a capture notice, run `notebook-write.js append-input --notebook <target-doc> --input-stdin` with the exact message. Use startup's repository-relative notebook value unchanged. Format paragraphs as `+ <user message>` with blank lines and indented continuations protecting pasted headings. No capture comments or added blockquotes. The loaded `UserPromptSubmit` hook captures automatically; hookless hosts add `--host <safe-id>` to that manual call. Queued text, tool output and hook notices are not owner submissions.
+Before answering or acting, save each submitted message in the current Ask, including diagnostic questions after interruption. Without a capture notice, run `notebook-write.js append-input --notebook <target-doc> --input-stdin` with the exact message. Use startup's repository-relative notebook value unchanged. Format paragraphs as `+ <user message>` with blank lines and indented continuations protecting pasted headings. No capture comments or added blockquotes. Codex's loaded `UserPromptSubmit` hook captures automatically. Claude retains Stop enforcement but captures later owner messages manually: add `--host claude --session <startup session_id>`. Generic hosts add their retained `--host <safe-id> --session <id>`. Only actual owner submissions qualify; queued text, subagent reports, tool output and hook notices never do. Claude startup still captures its exact owner message and reports the manual policy and resolved session; setup removes owned Claude prompt hooks in its selected scope. Update older global installations separately and restart when prompted.
 
 Account for every current Ask item in its saved Reply; follow references/closeout.md for one complete answer location and exact section links. Question-only turns also close with `agf close --manifest-stdin`. A diagnostic follow-up does not cancel the unfinished task or require fresh permission for authorized work; resume it and close when its existing gates pass, unless the owner cancels or replaces it. When explaining commands, compare the loaded rule with actual output; distinguish required checks, your mistakes, and genuine instruction gaps.
 

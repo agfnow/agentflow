@@ -92,7 +92,9 @@ const compact_locked = ({ root, notebook, original, ownership, force = false, in
   const parsed = parse_devlog(original.text);
   const selected = [];
   let blocked;
-  for (const round of parsed.rounds.slice(0, -1)) {
+  // Keep the latest completed round beside the current Ask, even for forced compaction.
+  const latest_completed = parsed.rounds.findLastIndex(round => round.reply_text.trim());
+  for (const round of parsed.rounds.slice(0, Math.max(0, latest_completed))) {
     if (!round.reply_text.trim()) {
       blocked = { ask: round.id, reason: 'open-round-retained' };
       break;

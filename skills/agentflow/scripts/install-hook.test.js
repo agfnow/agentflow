@@ -34,7 +34,7 @@ test('project install writes both host configs', () => {
   assert.ok(has_our_stop_hook(claude));
   assert.ok(has_our_stop_hook(codex));
   assert.equal(codex.hooks.UserPromptSubmit.length, 1);
-  assert.equal(claude.hooks.UserPromptSubmit.length, 1);
+  assert.equal(claude.hooks.UserPromptSubmit, undefined);
   assert.match(claude.hooks.Stop[0].hooks[0].command, /--host claude$/);
   assert.match(codex.hooks.Stop[0].hooks[0].command, /--host codex$/);
 });
@@ -264,7 +264,7 @@ for (const host of ['codex', 'claude']) {
     node_fs.mkdirSync(node_path.dirname(config_path), { recursive: true });
     const command = 'node "' + require('./install-hook.js').installed_script_for(host, 'stop-hook.js') + '" --host ' + host;
     const entry = { hooks: [{ type: 'command', command, timeout: 20 }] };
-    const bytes = JSON.stringify({ hooks: { Stop: [entry], UserPromptSubmit: [entry] }, keep: true }, null, 4) + '\n';
+    const bytes = JSON.stringify({ hooks: { Stop: [entry], ...(host === 'codex' ? { UserPromptSubmit: [entry] } : {}) }, keep: true }, null, 4) + '\n';
     node_fs.writeFileSync(config_path, bytes);
     require('./install-hook.js').install({ scope: 'project', hosts: [host], cwd: dir, quiet: true });
     assert.equal(node_fs.readFileSync(config_path, 'utf8'), bytes);
@@ -288,7 +288,8 @@ for (const host of ['codex', 'claude']) {
     const config = read_json(config_path);
     assert.equal(config.keep, true);
     assert.equal(config.hooks.Stop[0].hooks[0].timeout, 42);
-    for (const event of ['Stop', 'UserPromptSubmit']) {
+    if (host === 'claude') assert.equal(config.hooks.UserPromptSubmit, undefined);
+    for (const event of host === 'codex' ? ['Stop', 'UserPromptSubmit'] : ['Stop']) {
       assert.equal(config.hooks[event].length, 1);
       assert.equal(config.hooks[event][0].hooks[0].command, require('./install-hook.js').hook_command_for(host));
       assert.ok(!config.hooks[event][0].hooks[0].command.includes('/gone/checkout'));
@@ -331,7 +332,8 @@ for (const layout of ['.agents/skills/agentflow', '.claude/plugins/cache/agentfl
       assert.equal(config.keep, true);
       assert.equal(config.hooks.Stop[0].matcher, 'keep');
       assert.deepEqual(config.hooks.Stop[0].hooks[1], foreign);
-      for (const event of ['Stop', 'UserPromptSubmit']) {
+      if (host === 'claude') assert.equal(config.hooks.UserPromptSubmit, undefined);
+      for (const event of host === 'codex' ? ['Stop', 'UserPromptSubmit'] : ['Stop']) {
         const command = config.hooks[event][0].hooks[0].command;
         const parsed = require('./install-hook.js').parse_owned_command(command);
         assert.equal(parsed.script, node_path.join(skill, 'scripts', 'stop-hook.js'));
@@ -370,3 +372,40 @@ exit [lindex $result 3]
   execFileSync('/bin/sh', [pre_commit_path(dir)], { cwd: dir, encoding: 'utf8' });
   execFileSync('node', [hooks.installed_script_for('codex', 'stop-hook.js'), '--host', 'codex'], { cwd: dir, input: JSON.stringify({ cwd: dir, hook_event_name: 'Stop' }), encoding: 'utf8' });
 });
+
+for (const scope of ['project', 'global']) {
+  test(`Claude ${scope} install removes only owned prompt hooks and returns manual owner capture instructions`, () => {
+    const root = fresh_dir();
+    const home = fresh_dir();
+    const base = scope === 'global' ? home : root;
+    const config_path = node_path.join(base, '.claude/settings.json');
+    const unselected_path = node_path.join(scope === 'global' ? root : home, '.claude/settings.json');
+    const owned = require('./install-hook').hook_command_for('claude');
+    const stale = "node '/gone/checkout/skills/agentflow/scripts/stop-hook.js' --host claude";
+    const foreign = { type: 'command', command: 'foreign-command --keep' };
+    const unknown = { type: 'command', command: 'node /foreign/stop-hook.js --host claude' };
+    const neutral = { type: 'command', command: 'node /gone/checkout/skills/agentflow/scripts/stop-hook.js' };
+    for (const file of [config_path, unselected_path]) node_fs.mkdirSync(node_path.dirname(file), { recursive: true });
+    node_fs.writeFileSync(unselected_path, 'unchanged scope');
+    node_fs.writeFileSync(config_path, JSON.stringify({ keep: true, hooks: {
+      Stop: [{ hooks: [{ type: 'command', command: owned, timeout: 20 }] }],
+      UserPromptSubmit: [{ matcher: 'mixed', hooks: [{ type: 'command', command: owned }, foreign, { type: 'command', command: stale }, unknown, neutral] }, { hooks: [{ type: 'command', command: stale }] }],
+      PostToolUse: [{ hooks: [foreign] }],
+    } }));
+    const invoke = () => JSON.parse(execFileSync(process.execPath, ['-e', "const result = require(process.argv[1]).install({ scope: process.argv[2], hosts: ['claude'], cwd: process.argv[3], quiet: true }); console.log(JSON.stringify(result))", script, scope, root], { env: { ...process.env, HOME: home, USERPROFILE: home }, encoding: 'utf8' }));
+    const result = invoke();
+    assert.equal(result.prompt_capture, 'manual');
+    assert.match(result.instructions.capture, /append-input --notebook <path> --host claude --session <id> --input-stdin/);
+    assert.match(result.instructions.capture, /owner message/i);
+    assert.equal(result.instructions.manual_capture, result.instructions.capture);
+    assert.deepEqual(read_json(config_path).hooks.UserPromptSubmit, [{ matcher: 'mixed', hooks: [foreign, unknown, neutral] }]);
+    assert.equal(read_json(config_path).hooks.Stop[0].hooks[0].timeout, 20);
+    assert.deepEqual(read_json(config_path).hooks.PostToolUse, [{ hooks: [foreign] }]);
+    assert.equal(node_fs.readFileSync(unselected_path, 'utf8'), 'unchanged scope');
+    const before = node_fs.readFileSync(config_path, 'utf8');
+    const repeated = invoke();
+    assert.equal(repeated.changed, false);
+    assert.equal(repeated.prompt_capture, 'manual');
+    assert.equal(node_fs.readFileSync(config_path, 'utf8'), before);
+  });
+}

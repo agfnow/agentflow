@@ -32,12 +32,15 @@ for (const host of ['codex', 'claude']) {
   assert.equal(stop.stderr, '');
   assert.equal(run({ hook_event_name: 'Stop', session_id: 'different-owner' }).status, 2);
   const quoted = run({ hook_event_name: 'UserPromptSubmit', prompt: '"no-ag: example"' });
-  assert.match(quoted.stdout, /instruction was saved/);
+  if (host === 'codex') assert.match(quoted.stdout, /instruction was saved/);
+  else assert.equal(quoted.stdout, '');
   assert.equal(run({ hook_event_name: 'Stop' }).status, 2);
   const ordinary = run({ hook_event_name: 'UserPromptSubmit', prompt: 'ordinary follow-up' });
-  assert.match(ordinary.stdout, /instruction was saved/);
+  if (host === 'codex') assert.match(ordinary.stdout, /instruction was saved/);
+  else assert.equal(ordinary.stdout, '');
   assert.equal(run({ hook_event_name: 'Stop' }).status, 2);
-  assert.match(fs.readFileSync(notebook, 'utf8'), /ordinary follow-up/);
+  if (host === 'codex') assert.match(fs.readFileSync(notebook, 'utf8'), /ordinary follow-up/);
+  else assert.equal(fs.readFileSync(notebook, 'utf8'), original);
   assert.equal(fs.readFileSync(path.join(root, 'ag.json'), 'utf8'), '{ malformed configuration');
-  console.log(`${host}: PASS — bypass preserves notebook/config; Stop bypasses only owner session; quoted and ordinary input resume capture/checks.`);
+  console.log(`${host}: PASS — bypass preserves notebook/config; Stop bypasses only owner session; quoted and ordinary input follow the host capture policy; Stop checks remain active.`);
 }

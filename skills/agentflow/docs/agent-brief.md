@@ -6,7 +6,7 @@ Agentflow is a project workflow for an AI assistant. Its main record is a Markdo
 
 1. Read the complete installed Agentflow skill at the path provided by the host. Do not guess its installation path. Read the repository's `AGENTS.md` or other host instructions when applicable.
 
-2. Run the skill's single `agf start` command with the exact owner message on standard input. Use the returned notebook path, Ask number, configuration, Git state, and stream decision. Codex and Claude can install project capture and stop hooks; other hosts need a stable explicit host and session ID and manual capture.
+2. Run the skill's single `agf start` command with the exact owner message on standard input. Use the returned notebook path, Ask number, configuration, Git state, and stream decision. Codex installs capture and Stop hooks. Claude retains Stop and startup capture; manually capture later actual owner messages with `--host claude --session <startup session_id>`. Never capture generated reports as owner input. Other hosts need a stable explicit host and session ID and manual capture.
 
 3. Read the live notebook to its end. Carry forward any unanswered question that the owner later answered inline. A bare `godev` with an empty Ask only activates the workflow; an existing Ask resumes it.
 
@@ -88,4 +88,4 @@ At startup, Agentflow adds missing settings properties from the current template
 
 Startup and initialization preserve existing directory-specific ignore rules and project skill exceptions. Missing defaults precede the original ignore-file text, which keeps its comments, blank lines, and line endings. A conflicting broad rule left by an older version is preserved and needs separate inspection and adjustment; this release does not automatically repair it. Native Windows looper support remains unavailable.
 
-For exact behavior, read the installed `SKILL.md` and only the references it triggers: `writing.md`, `progress.md`, `closeout.md`, `ag.md`, `delegation.md`, `streams.md`, `skip-ag.md`, `fast-lane.md`, or `looper.md`. The user guides explain normal use; `scripts/README.md` documents commands and tests. Recheck those sources when the installed version changes. This brief describes v8.4.14 source behavior, not a promise that every possible host/version has been tested.
+For exact behavior, read the installed `SKILL.md` and only the references it triggers: `writing.md`, `progress.md`, `closeout.md`, `ag.md`, `delegation.md`, `streams.md`, `skip-ag.md`, `fast-lane.md`, or `looper.md`. The user guides explain normal use; `scripts/README.md` documents commands and tests. Recheck those sources when the installed version changes. This brief describes v8.4.15 source behavior, not a promise that every possible host/version has been tested.

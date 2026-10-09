@@ -46,7 +46,8 @@ test('skip-ag survives capture and resume without changing settings or waiving r
   const before = fs.readFileSync(path.join(f.root, 'ag.json'));
   const capture = f.hook('claude', { hook_event_name: 'UserPromptSubmit', prompt: 'skip-ag', session_id: ownership_fixture.session, turn_id: 'skip-one' });
   assert.equal(capture.status, 0, capture.stderr);
-  assert.match(capture.stdout, /skip-ag.*pending/i);
+  assert.equal(capture.stdout, '');
+  require('./notebook-write').append_input({ root: f.root, notebook: '.agentflow/devlog.md', text: 'skip-ag', host: 'claude', session: ownership_fixture.session });
   assert.equal(collect_intake({ repo_root: f.root }).skip_ag.state, 'pending');
   f.hook('codex', { hook_event_name: 'UserPromptSubmit', prompt: 'fix the login bug', session_id: ownership_fixture.session, turn_id: 'skip-two' });
   assert.equal(collect_intake({ repo_root: f.root }).skip_ag.state, 'active');
