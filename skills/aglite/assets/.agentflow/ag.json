@@ -1,0 +1,65 @@
+{
+  "schema-version": "aglite-5",
+  "switches": {
+    "ag-dir": ".agentflow",
+    "auto-commit": "on",
+    "auto-push": "on",
+    "gate-design": "off",
+    "gate-tracker": "off",
+    "inline-reply": "off",
+    "review-order": "external-first",
+    "skip-asker": "on",
+    "skip-plan": "off",
+    "skip-run": "on",
+    "skip-wip": "off",
+    "use-lang": "en-us"
+  },
+  "pipeline-roles": {
+    "requirements": "better",
+    "codewalk": "better",
+    "explore": "better",
+    "spike": "better",
+    "spec": "better",
+    "implementation": "basic",
+    "security-scan": "best",
+    "//": "review 也是用 acceptance 設定",
+    "acceptance": "better",
+    "learn": "basic",
+    "threeways": "better",
+    "product-docs": "better"
+  },
+  "model-family": {
+    "openai": {
+      "best": "gpt-6-astra/medium",
+      "better": "gpt-6.1-sol/high",
+      "basic": "gpt-6.1-sol/low",
+      "cheap": "gpt-6-luna/high"
+    },
+    "claude": {
+      "best": "claude-opus-5-5/high",
+      "better": "claude-opus-5-5/medium",
+      "basic": "claude-sonnet-5-5/medium",
+      "cheap": "claude-haiku-5-5/medium"
+    }
+  },
+  "external-workers": [
+    {
+      "id": "codex-default",
+      "command": [
+        "codex",
+        "exec"
+      ],
+      "priority": 3,
+      "model-family": "openai"
+    },
+    {
+      "id": "claude-default",
+      "command": [
+        "claude",
+        "-p"
+      ],
+      "priority": 3,
+      "model-family": "claude"
+    }
+  ]
+}

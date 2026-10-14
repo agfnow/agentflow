@@ -1,0 +1,14 @@
+{
+  "name": "aglite",
+  "description": "Resumable development with the aglite skill.",
+  "owner": {
+    "name": "agfnow"
+  },
+  "plugins": [
+    {
+      "name": "aglite",
+      "source": "./",
+      "description": "Host-driven development with a resumable project notebook."
+    }
+  ]
+}
