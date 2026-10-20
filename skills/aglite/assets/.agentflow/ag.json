@@ -1,5 +1,6 @@
 {
-  "schema-version": "aglite-5",
+  "schema-version": 9,
+  "next_update_date": null,
   "switches": {
     "ag-dir": ".agentflow",
     "auto-commit": "on",
@@ -7,7 +8,8 @@
     "gate-design": "off",
     "gate-tracker": "off",
     "inline-reply": "off",
-    "review-order": "external-first",
+    "plan-order": "external",
+    "review-order": "external",
     "skip-asker": "on",
     "skip-plan": "off",
     "skip-run": "on",
@@ -61,5 +63,10 @@
       "priority": 3,
       "model-family": "claude"
     }
-  ]
+  ],
+  "looper-routes": {},
+  "looper-limits": {
+    "max-workers": 3,
+    "max-repairs": 2
+  }
 }

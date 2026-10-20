@@ -1,0 +1,9 @@
+{
+  "name": "@agfnow/aglite",
+  "version": "0.3.1",
+  "private": true,
+  "description": "Host-driven aglite tasks with a small optional group coordinator",
+  "bin": { "agf": "scripts/agf.js" },
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test scripts/looper*.test.js" }
+}

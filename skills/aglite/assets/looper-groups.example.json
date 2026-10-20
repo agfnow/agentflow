@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "run_id": "example-001",
+  "repo": "/absolute/physical/project",
+  "target_branch": "main",
+  "base_commit": "0000000000000000000000000000000000000000",
+  "request": "request.md",
+  "request_sha256": "REPLACE_WITH_SHA256_OF_EXACT_REQUEST_FILE",
+  "authorization": { "execute": true, "worktrees": true, "local_commits": true },
+  "checks": {
+    "behavior": { "command": ["node", "--test", "test/behavior.test.js"], "timeout_ms": 60000 }
+  },
+  "integration_checks": ["behavior"],
+  "groups": [
+    { "id": "G01", "file": "group-001.md", "depends_on": [], "tasks": [
+      { "id": "T01", "allowed_paths": ["src/feature.js", "test/behavior.test.js"], "checks": ["behavior"] }
+    ] }
+  ]
+}
