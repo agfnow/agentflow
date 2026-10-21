@@ -14,6 +14,57 @@ const write = (root, q) => fs.writeFileSync(path.join(root, 'queue.json'), JSON.
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
 const selection = { kind: 'cli', provider: 'codex', model: 'gpt-6.1-sol', effort: 'low' }
 
+// Fake ordinary task hosts render their own notebook before acting.
+const real_run = L.run
+L.run = async (root, options = {}) => {
+  if (!options.agent) return real_run(root, options)
+  const delegate = options.agent
+  return real_run(root, { ...options, agent: async args => {
+    if (args.role === 'task') render_notebook(args.cwd)
+    return delegate(args)
+  } })
+}
+function render_notebook(cwd) {
+  const file = path.join(cwd, '.aglite-records/devlog.md')
+  if (!fs.existsSync(file)) fs.writeFileSync(file, '# STATUS\n\n# → Ask / A-001\n')
+}
+
+test('Codex CLI network inheritance preserves parent blocks and read-only scope', async () => {
+  const { launch_agent } = require('./looper-agent')
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-network-test-')))
+  const original = process.env.CODEX_SANDBOX_NETWORK_DISABLED
+  try {
+    for (const [role, blocked, network] of [
+      ['task', undefined, true], ['task', '1', false],
+      ['repair', undefined, true], ['review', undefined, false]
+    ]) {
+      if (blocked === undefined) delete process.env.CODEX_SANDBOX_NETWORK_DISABLED
+      else process.env.CODEX_SANDBOX_NETWORK_DISABLED = blocked
+      const attempt = { id: crypto.randomUUID() }
+      const attempt_dir = path.join(home, attempt.id)
+      // Node deliberately rejects Codex's argv; no provider call or credentials are needed.
+      await assert.rejects(launch_agent({ selection: { ...selection, executable: process.execPath },
+        role, cwd: home, prompt: 'Check only the assigned outcome.', attempt, attempt_dir }), /Worker failed/)
+      const { command } = JSON.parse(fs.readFileSync(path.join(attempt_dir, 'launch.json')))
+      assert.equal(command.includes('sandbox_workspace_write.network_access=true'), network)
+      assert.equal(command[command.indexOf('-s') + 1], role === 'review' ? 'read-only' : 'workspace-write')
+      assert.equal(command.some(arg => arg.startsWith('--dangerously-')), false)
+    }
+  } finally {
+    if (original === undefined) delete process.env.CODEX_SANDBOX_NETWORK_DISABLED
+    else process.env.CODEX_SANDBOX_NETWORK_DISABLED = original
+  }
+})
+
+function symlink_or_skip(t, ...args) {
+  try { fs.symlinkSync(...args); return true }
+  catch (error) {
+    if (process.platform !== 'win32' || error.code !== 'EPERM' || args[2] === 'junction') throw error
+    t.skip('Windows symlink privilege unavailable (EPERM); link refusal remains unproved on this machine')
+    return false
+  }
+}
+
 function fixture(groups, options = {}) {
   // Keep failed fixtures for inspection; do not destructively clean worker worktrees.
   const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-loop-test-')))
@@ -26,14 +77,15 @@ function fixture(groups, options = {}) {
   fs.writeFileSync(path.join(repo, 'owner.txt'), 'owner baseline\n')
   fs.writeFileSync(path.join(repo, 'shared.txt'), 'baseline\n')
   const { task = selection, repair, acceptance, max_workers = 2, max_repairs = 2, ...queue_options } = options
-  const config = { 'pipeline-roles': { implementation: 'basic', acceptance: 'better' }, 'model-family': {}, 'looper-routes': {}, 'looper-limits': { 'max-workers': max_workers, 'max-repairs': max_repairs } }
+  const config = { 'schema-version': 12, 'pipeline-roles': { implementation: 'basic', acceptance: 'better' }, 'model-family': {}, 'looper-routes': {}, 'looper-limits': { 'max-workers': max_workers, 'max-repairs': max_repairs } }
   for (const [role, value] of Object.entries({ task, repair, acceptance })) if (value) {
     config['looper-routes'][role] = { kind: value.kind, provider: value.provider, 'model-family': role }
     if (value.executable) config['looper-routes'][role].executable = value.executable
     config['model-family'][role] = { [role === 'acceptance' ? 'better' : 'basic']: `${value.model}/${value.effort}` }
   }
-  fs.writeFileSync(path.join(repo, 'ag.json'), JSON.stringify(config))
-  git(repo, 'add', '.gitignore', 'owner.txt', 'shared.txt', 'ag.json'); git(repo, 'commit', '-m', 'baseline')
+  fs.mkdirSync(path.join(repo, '.agentflow'))
+  fs.writeFileSync(path.join(repo, '.agentflow/ag.json'), JSON.stringify(config))
+  git(repo, 'add', '.gitignore', 'owner.txt', 'shared.txt', '.agentflow/ag.json'); git(repo, 'commit', '-m', 'baseline')
   const q = { schema_version: 2, run_id: 'fixture', repo, target_branch: 'main', base_commit: git(repo, 'rev-parse', 'HEAD'), request: 'request.md', request_sha256: crypto.createHash('sha256').update('Implement every registered task while preserving owner content.').digest('hex'), authorization: { execute: true, worktrees: true, local_commits: true }, checks: { product: { command: [process.execPath, '-e', 'process.exit(0)'] } }, integration_checks: ['product'], groups: groups.map((tasks, i) => ({ id: `G${i + 1}`, file: `group-${String(i + 1).padStart(3, '0')}.md`, tasks: tasks.map((file, j) => ({ id: `T${i + 1}-${j + 1}`, allowed_paths: [file], checks: ['product'] })) })), ...queue_options }
   for (const group of q.groups) fs.writeFileSync(path.join(root, group.file), group.tasks.map(t => `## ${t.id}\n\nWrite ${t.allowed_paths[0]}.\n`).join('\n'))
   fs.writeFileSync(path.join(root, 'request.md'), 'Implement every registered task while preserving owner content.')
@@ -43,6 +95,7 @@ function fixture(groups, options = {}) {
 const result = (attempt, outcome = 'pass') => ({ attempt_id: attempt.id, outcome, summary: outcome === 'pass' ? 'Completed assigned work.' : 'Which value should be used?', evidence: [] })
 function closeout(cwd) {
   const file = path.join(cwd, '.aglite-records/devlog.md')
+  render_notebook(cwd)
   const source = fs.readFileSync(file, 'utf8')
   const n = Math.max(0, ...[...source.matchAll(/^# → Reply \/ A-(\d+)$/gm)].map(m => Number(m[1]))) + 1
   const id = n => String(n).padStart(3, '0')
@@ -243,6 +296,8 @@ test('failed combined check requires repair, fresh checks, review, then acceptan
   assert.equal(await L.run(root, { agent: async args => {
     fs.mkdirSync(args.attempt_dir, { recursive: true })
     events.push(args.role)
+    assert.ok(args.prompt.includes(`read inherited configuration only at ${path.join(args.cwd, '.agentflow/ag.json')}`))
+    assert.ok(args.prompt.includes('No configuration discovery, creation, migration writes, release checks or project adoption'))
     if (['review', 'acceptance'].includes(args.role)) assert.ok(args.prompt.includes('against original request Implement every registered task while preserving owner content.. Base '))
     if (args.role === 'task') task_edit(args)
     if (args.role === 'repair') fs.writeFileSync(path.join(args.cwd, 'a.txt'), 'repaired\n')
@@ -293,7 +348,7 @@ test('ordinary closeout accepts arrowless Reply but requires a newly advanced ro
   const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-closeout-test-')))
   fs.mkdirSync(path.join(cwd, '.aglite-records'))
   const file = path.join(cwd, '.aglite-records/devlog.md')
-  fs.writeFileSync(file, '# Reply / A-001\n\nCompleted.\n\n# → Ask / A-002\n')
+  fs.writeFileSync(file, '# → Ask / A-001\n\n# Reply / A-001\n\nCompleted.\n\n# → Ask / A-002\n')
   assert.equal(L.ordinary_closeout(cwd, { previous_round: 0 }), 1)
   assert.throws(() => L.ordinary_closeout(cwd, { previous_round: 1 }), /new Reply/)
   fs.appendFileSync(file, '\n# Reply / A-002\n\nCompleted next task.\n\n# → Ask / A-003\n')
@@ -429,6 +484,7 @@ test('killed coordinator after actual landing leaves dead claims that resume exa
       agent: async args => {
         fs.mkdirSync(args.attempt_dir, { recursive: true })
         fs.writeFileSync(path.join(args.cwd, 'a.txt'), 'child completed product\\n')
+        fs.writeFileSync(path.join(args.cwd, '.aglite-records/devlog.md'), '# → Ask / A-001\\n')
         fs.appendFileSync(path.join(args.cwd, '.aglite-records/devlog.md'), '\\n# Reply / A-001\\n\\nCompleted.\\n\\n# → Ask / A-002\\n')
         return { attempt_id: args.attempt.id, outcome: 'pass', summary: 'Completed.', evidence: [] }
       },
@@ -448,8 +504,11 @@ test('killed coordinator after actual landing leaves dead claims that resume exa
     child.once('error', reject)
     child.once('close', (code, signal) => resolve({ code, signal }))
   })
-  assert.equal(death.signal, 'SIGKILL', stderr)
-  assert.equal(death.code, null)
+  if (process.platform === 'win32') assert.notEqual(death.code, 0, stderr)
+  else {
+    assert.equal(death.signal, 'SIGKILL', stderr)
+    assert.equal(death.code, null)
+  }
   assert.throws(() => process.kill(child.pid, 0), { code: 'ESRCH' })
   const interrupted = read(root)
   assert.equal(interrupted.integration.phase, 'landing')
@@ -753,7 +812,7 @@ test('repair accepts a legitimate Markdown setext heading underline', { timeout:
 
 test('ag.json alone selects shared implementation/acceptance tiers and extensible catalogs', () => {
   const { root, repo } = fixture([['a.txt']])
-  const file = path.join(repo, 'ag.json')
+  const file = path.join(repo, '.agentflow/ag.json')
   const config = JSON.parse(fs.readFileSync(file))
   config['looper-routes'] = {
     task: { kind: 'native', provider: 'owner-host', 'model-family': 'owner-catalog' },
@@ -772,12 +831,13 @@ test('ag.json alone selects shared implementation/acceptance tiers and extensibl
   assert.deepEqual(L.select(settings, 'review'), L.select(settings, 'acceptance'))
   assert.equal(L.select(settings, 'review').model, 'review-model')
   assert.equal(L.select(settings, 'review').source.tier, 'better')
+  assert.equal(L.select(settings, 'task').source.file, '.agentflow/ag.json')
   assert.ok(!Object.hasOwn(L.load(root), 'task_worker'))
 })
 
 test('invalid selected settings fail before claims; status remains read-only without valid settings', async () => {
   const { root, repo } = fixture([['a.txt']])
-  const file = path.join(repo, 'ag.json'), original = fs.readFileSync(file, 'utf8')
+  const file = path.join(repo, '.agentflow/ag.json'), original = fs.readFileSync(file, 'utf8')
   const queue = fs.readFileSync(path.join(root, 'queue.json'), 'utf8')
   const cases = [
     [c => { delete c['looper-routes'].task }, /looper-routes.task required/],
@@ -818,9 +878,14 @@ test('native resume preserves selections and drains outstanding results after lo
   const { root, repo } = fixture([['a.txt', 'b.txt'], ['c.txt']], { task: { ...selection, kind: 'native' } })
   const noCli = async () => { throw Error('must not substitute CLI') }
   assert.equal(await L.run(root, { checks, agent: noCli }), 2)
+  // Simulate outstanding attempts recorded before configuration relocation.
+  const pending = read(root)
+  for (const group of pending.groups) group.attempt.selection.source.file = 'ag.json'
+  for (const handoff of pending.handoffs) handoff.selection.source.file = 'ag.json'
+  write(root, pending)
   const first = read(root).handoffs
   assert.equal(first.length, 2)
-  const file = path.join(repo, 'ag.json'), config = JSON.parse(fs.readFileSync(file))
+  const file = path.join(repo, '.agentflow/ag.json'), config = JSON.parse(fs.readFileSync(file))
   config['model-family'].task.basic = 'changed-model/high'
   config['looper-limits']['max-workers'] = 1
   fs.writeFileSync(file, JSON.stringify(config))
@@ -836,11 +901,13 @@ test('native resume preserves selections and drains outstanding results after lo
     const saved = q.handoffs.find(x => x.id === handoff.id)
     assert.equal(saved.completed, true)
     assert.deepEqual(saved.selection, handoff.selection)
+    assert.equal(saved.selection.source.file, 'ag.json')
   }
   const next = q.handoffs.find(x => !x.completed)
   assert.ok(next)
   assert.equal(next.selection.model, 'changed-model')
   assert.equal(next.selection.effort, 'high')
+  assert.equal(next.selection.source.file, '.agentflow/ag.json')
   assert.notEqual(next.selection.source.digest, first[0].selection.source.digest)
   assert.deepEqual(q.groups[0].attempt.selection, next.selection)
   task_edit({ cwd: next.cwd, prompt: fs.readFileSync(next.assignment, 'utf8') })
@@ -869,7 +936,7 @@ test('a restarted repair cannot select its own CLI provider for a fresh review',
   } }), 2)
   let q = read(root)
   assert.equal(q.groups[0].suspended_integration.repair_selection.provider, 'codex')
-  const file = path.join(repo, 'ag.json'), config = JSON.parse(fs.readFileSync(file))
+  const file = path.join(repo, '.agentflow/ag.json'), config = JSON.parse(fs.readFileSync(file))
   config['looper-routes'].acceptance.provider = 'codex'
   fs.writeFileSync(file, JSON.stringify(config))
   fs.mkdirSync(path.join(root, 'inbox'), { recursive: true })
@@ -893,7 +960,7 @@ test('outstanding native repair imports despite lower repair budget and broken f
   fs.writeFileSync(path.join(handoff.cwd, 'a.txt'), 'native repair\n')
   fs.mkdirSync(path.join(root, 'inbox'), { recursive: true })
   fs.writeFileSync(path.join(root, 'inbox', `${handoff.id}.json`), JSON.stringify({ ...result({ id: handoff.id }), writer_stopped: true }))
-  const file = path.join(repo, 'ag.json'), config = JSON.parse(fs.readFileSync(file))
+  const file = path.join(repo, '.agentflow/ag.json'), config = JSON.parse(fs.readFileSync(file))
   config['looper-limits']['max-repairs'] = 0
   delete config['looper-routes'].task // no new task remains; route is irrelevant to repair import
   delete config['looper-routes'].acceptance
@@ -947,10 +1014,14 @@ test('invalid request files fail before claims or worktrees', async t => {
     invalid_utf8: ({ root }) => fs.writeFileSync(path.join(root, 'request.md'), Buffer.from([0xff])),
     old_schema: ({ q }) => { q.schema_version = 1 }
   }
-  for (const [name, change] of Object.entries(cases)) await t.test(name, async () => {
+  for (const [name, change] of Object.entries(cases)) await t.test(name, async st => {
     const f = fixture([['a.txt']])
     fs.mkdirSync(path.join(f.root, 'directory'))
-    change(f); write(f.root, f.q)
+    try { change(f) } catch (error) {
+      if (name !== 'symlink' || process.platform !== 'win32' || error.code !== 'EPERM') throw error
+      st.skip('Windows file-symlink privilege unavailable (EPERM); refusal remains unproved'); return
+    }
+    write(f.root, f.q)
     const errors = { missing: /ENOENT/, empty: /nonempty UTF-8/, directory: /regular file/, absolute: /relative path/, traversal: /Unsafe path/, symlink: /Symlink path refused/, changed: /Original request changed/, inline: /ENOENT/, digest: /request_sha256 required/, invalid_utf8: /nonempty UTF-8/, old_schema: /Queue schema 2.*prior runtime/ }
     await assert.rejects(L.run(f.root), errors[name], name)
     assert.equal(fs.existsSync(path.join(f.root, '.queue.owner')), false)
@@ -973,14 +1044,14 @@ test('request mutation after a native pause blocks resume while status preserves
 
 test('coordinator requires host migration for old configuration schema without rewriting it', () => {
   const { repo } = fixture([['a.txt']])
-  const file = path.join(repo, 'ag.json'), config = JSON.parse(fs.readFileSync(file))
-  for (const version of ['aglite-5', 8, '9', 10]) {
+  const file = path.join(repo, '.agentflow/ag.json'), config = JSON.parse(fs.readFileSync(file))
+  for (const version of ['aglite-5', 8, 9, 10, 11, '12', 13]) {
     config['schema-version'] = version; fs.writeFileSync(file, JSON.stringify(config))
     const before = fs.readFileSync(file)
-    assert.throws(() => L.read_settings(repo), /migrate to integer 9 via the host/)
+    assert.throws(() => L.read_settings(repo), /migrate to integer 12 via the host/)
     assert.deepEqual(fs.readFileSync(file), before)
   }
-  config['schema-version'] = 9; fs.writeFileSync(file, JSON.stringify(config))
+  config['schema-version'] = 12; fs.writeFileSync(file, JSON.stringify(config))
   assert.doesNotThrow(() => L.read_settings(repo))
   delete config['schema-version']; fs.writeFileSync(file, JSON.stringify(config))
   assert.doesNotThrow(() => L.read_settings(repo))
@@ -1155,4 +1226,454 @@ for (const [outcome, prior_answer] of [['blocked', false], ['needs_owner', false
   assert.equal(saved.groups[0].attempt.id, crashed_attempt)
   assert.equal(question.requires_owner, outcome === 'needs_owner')
   assert.equal(fs.readFileSync(path.join(saved.groups[0].workspace.worktree, 'a.txt'), 'utf8'), 'unfinished crash-window product\n')
+})
+
+
+test('configuration discovery selects deeply nested ag-dir and passes its exact inherited path', async () => {
+  const { root, repo } = fixture([['a.txt']])
+  const relative = 'docs/agent/records/one/two/notes/ag.json'
+  const old = path.join(repo, '.agentflow/ag.json'), file = path.join(repo, relative)
+  const config = JSON.parse(fs.readFileSync(old))
+  config.switches = { 'ag-dir': path.posix.dirname(relative) }
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  git(repo, 'mv', '.agentflow/ag.json', relative)
+  fs.writeFileSync(file, JSON.stringify(config))
+  git(repo, 'add', relative); git(repo, 'commit', '-m', 'custom configuration')
+  const queue = read(root); queue.base_commit = git(repo, 'rev-parse', 'HEAD'); write(root, queue)
+  // Bundled source, nested checkout and isolated record configs are not this config.
+  for (const [directory, ag_dir] of [['skills/example/assets/.agentflow', '.agentflow'],
+    ['.wts/other/notes', '.wts/other/notes'], ['.aglite-records', '.aglite-records']]) {
+    fs.mkdirSync(path.join(repo, directory), { recursive: true })
+    fs.writeFileSync(path.join(repo, directory, 'ag.json'), JSON.stringify({ switches: { 'ag-dir': ag_dir } }))
+  }
+  fs.writeFileSync(path.join(repo, '.wts/other/.git'), 'gitdir: elsewhere')
+  const settings = L.read_settings(repo)
+  assert.equal(settings.file, relative)
+  assert.equal(L.select(settings, 'task').source.file, relative)
+  assert.equal(await L.run(root, { checks, agent: async args => {
+    assert.ok(args.prompt.includes(`read inherited configuration only at ${path.join(args.cwd, relative)}`))
+    assert.ok(args.prompt.includes('record-only session override'))
+    assert.ok(fs.existsSync(path.join(args.cwd, relative)))
+    task_edit(args); return result(args.attempt)
+  } }), 0)
+})
+
+test('configuration collisions and legacy locations fail before claims or writes', async () => {
+  const { root, repo } = fixture([['a.txt']])
+  const canonical = path.join(repo, '.agentflow/ag.json'), legacy = path.join(repo, 'ag.json')
+  const bytes = fs.readFileSync(canonical), queue = fs.readFileSync(path.join(root, 'queue.json'))
+  fs.writeFileSync(legacy, bytes)
+  await assert.rejects(L.run(root, { agent, checks }), /Configuration collision/)
+  assert.deepEqual(fs.readFileSync(canonical), bytes)
+  assert.deepEqual(fs.readFileSync(legacy), bytes)
+  assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
+  assert.deepEqual(fs.readFileSync(path.join(root, 'queue.json')), queue)
+  fs.renameSync(legacy, path.join(repo, 'saved-root.json'))
+  const config = JSON.parse(bytes); config.switches = { 'ag-dir': 'notes' }; config['schema-version'] = 10
+  fs.writeFileSync(canonical, JSON.stringify(config))
+  await assert.rejects(L.run(root, { agent, checks }), /Legacy configuration.*relocate to <ag-dir>/)
+  fs.mkdirSync(path.join(repo, 'notes'))
+  config['schema-version'] = 12
+  fs.writeFileSync(path.join(repo, 'notes/ag.json'), JSON.stringify(config))
+  await assert.rejects(L.run(root, { agent, checks }), /Configuration collision/)
+  config['schema-version'] = 12
+  fs.writeFileSync(canonical, JSON.stringify(config))
+  await assert.rejects(L.run(root, { agent, checks }), /Misplaced configuration.*owner reconciliation/)
+  // Both canonical candidates also conflict even if each is valid independently.
+  fs.writeFileSync(canonical, bytes)
+  await assert.rejects(L.run(root, { agent, checks }), /Configuration collision/)
+  assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
+  assert.deepEqual(fs.readFileSync(path.join(root, 'queue.json')), queue)
+})
+
+test('current config requires schema 12 and safe ag-dir, without rewriting source', () => {
+  const { repo } = fixture([['a.txt']])
+  const file = path.join(repo, '.agentflow/ag.json'), original = fs.readFileSync(file)
+  for (const version of [9, 10, 11, 'aglite-5', '12', 13]) {
+    const config = JSON.parse(original); config['schema-version'] = version
+    const bytes = JSON.stringify(config); fs.writeFileSync(file, bytes)
+    assert.throws(() => L.read_settings(repo), /migrate to integer 12/)
+    assert.equal(fs.readFileSync(file, 'utf8'), bytes)
+  }
+  for (const value of ['../escape', '/absolute', '', null, 42]) {
+    const config = JSON.parse(original); config.switches = { 'ag-dir': value }
+    fs.writeFileSync(file, JSON.stringify(config))
+    assert.throws(() => L.read_settings(repo), /relative path|Unsafe path/)
+  }
+  const config = JSON.parse(original); delete config['schema-version']
+  fs.writeFileSync(file, JSON.stringify(config)); assert.doesNotThrow(() => L.read_settings(repo))
+})
+
+test('canonical configuration refuses symlinked directories and files', t => {
+  for (const directory of [true, false]) {
+    const { repo } = fixture([['a.txt']])
+    const file = path.join(repo, '.agentflow/ag.json')
+    if (directory) {
+      const saved = path.join(repo, 'saved-config')
+      fs.renameSync(path.dirname(file), saved)
+      if (!symlink_or_skip(t, saved, path.dirname(file), 'junction')) return
+    } else {
+      const saved = path.join(repo, '.agentflow/saved.json')
+      fs.renameSync(file, saved)
+      if (!symlink_or_skip(t, saved, file)) return
+    }
+    assert.throws(() => L.read_settings(repo), /Symlink path refused/)
+  }
+})
+
+test('unresolved custom configs and symlinks never silently select defaults', t => {
+  const { repo } = fixture([['a.txt']])
+  const file = path.join(repo, '.agentflow/ag.json')
+  fs.renameSync(file, path.join(repo, '.agentflow/saved.json'))
+  fs.mkdirSync(path.join(repo, 'custom'))
+  const custom = path.join(repo, 'custom/ag.json')
+  fs.writeFileSync(custom, '{ invalid')
+  assert.throws(() => L.read_settings(repo), /No canonical.*custom\/ag.json/)
+  fs.renameSync(custom, path.join(repo, 'custom/saved.json'))
+  if (!symlink_or_skip(t, path.join(repo, 'custom/saved.json'), custom)) return
+  assert.throws(() => L.read_settings(repo), /Symlink path refused/)
+})
+
+
+test('CRLF task and closeout readers preserve original bytes and reject mixed duplicate headings', () => {
+  const { root, repo } = fixture([['T-001', 'T-002']])
+  const q = read(root), group = q.groups[0], task = group.tasks[0]
+  const file = path.join(root, group.file)
+  const source = fs.readFileSync(file, 'utf8').replace(/\r?\n/g, '\r\n')
+  fs.writeFileSync(file, source)
+  const hash = q.request_sha256
+  L.validate(q, root)
+  const expected = source.slice(source.indexOf(`## ${task.id}\r\n`)).split(/\r\n## /)[0]
+  assert.equal(L.task_text(root, group, task), expected)
+  assert.equal(q.request_sha256, hash)
+  fs.appendFileSync(file, `\n## ${task.id}\nDuplicate\n`)
+  assert.throws(() => L.validate(q, root), /duplicate task section/)
+  assert.throws(() => L.task_text(root, group, task), /duplicate/)
+  fs.mkdirSync(path.join(repo, '.aglite-records'))
+  fs.writeFileSync(path.join(repo, '.aglite-records/devlog.md'), '# → Ask / A-001\r\n\r\n# → Reply / A-001\r\n\r\nClosed\r\n\r\n# → Ask / A-002\r\n')
+  assert.equal(L.ordinary_closeout(repo, {}), 1)
+})
+
+test('reserved task directories are case insensitive while Unix filenames stay valid', () => {
+  const S = require('./looper-state')
+  for (const name of ['a:b', 'x.', 'x ', 'CON.txt', 'com¹.log', 'LPT9', 'CONIN$', 'bad?', 'bad\x01'])
+    assert.equal(S.windows_component(name), false, name)
+  for (const name of ['normal.txt', 'GIT~1', 'context', 'com10', '~1']) assert.equal(S.windows_component(name), true, name)
+  const { root, repo } = fixture([['T-001']])
+  const q = read(root)
+  for (const name of ['.GIT/x', '.Wts/x', '.AGLITE-records/x']) {
+    q.groups[0].tasks[0].allowed_paths = [name]
+    assert.throws(() => L.validate(q, root), /Reserved task path/)
+  }
+  if (process.platform !== 'win32')
+    for (const name of ['a:b', 'x.', 'x ', 'CON.txt', 'GIT~1']) assert.equal(S.safe_path(repo, name), path.join(repo, name))
+})
+
+test('Windows executable resolution preserves wrapper argv and refuses ambiguous logic/cwd lookup', () => {
+  const { resolve_command } = require('./looper-agent')
+  // Independent fixture for cmd-shim's generated template, not a fake native CLI.
+  const wrapper = '@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n\r\nIF EXIST "%dp0%\\node.exe" (\r\n  SET "_prog=%dp0%\\node.exe"\r\n) ELSE (\r\n  SET "_prog=node"\r\n  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n)\r\n\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%" "%dp0%\\node_modules\\tool\\cli.js" %*\r\n'
+  const files = new Map([['C:\\bin\\tool.CMD', wrapper], ['C:\\bin\\node_modules\\tool\\cli.js', ''], ['C:\\node\\node.exe', ''], ['C:\\cwd\\planted.EXE', '']])
+  const options = { platform: 'win32', env: { Path: '.;C:\\bin;C:\\node', PATHEXT: '.EXE;.CMD' }, cwd: 'C:\\work', exists: name => files.has(name), read: name => files.get(name), node: 'C:\\known\\node.exe' }
+  const argv = ['a b', '"quoted"', '& echo bad', '%PATH%', '繁體\n😀']
+  assert.deepEqual(resolve_command(['tool', ...argv], options), ['C:\\known\\node.exe', 'C:\\bin\\node_modules\\tool\\cli.js', ...argv])
+  files.set('C:\\bin\\node.exe', '')
+  assert.equal(resolve_command(['tool'], options)[0], 'C:\\bin\\node.exe')
+  assert.deepEqual(resolve_command(['C:\\explicit\\entry.js', ...argv], options), ['C:\\known\\node.exe', 'C:\\explicit\\entry.js', ...argv])
+  const local = wrapper.replace('node_modules\\tool\\cli.js', '..\\tool\\cli.js').replace('"%_prog%" "', '"%_prog%"  "')
+  files.set('C:\\work\\node_modules\\.bin\\tool.cmd', local)
+  files.set('C:\\work\\node_modules\\tool\\cli.js', '')
+  assert.deepEqual(resolve_command(['./node_modules/.bin/tool.cmd', ...argv], options), ['C:\\known\\node.exe', 'C:\\work\\node_modules\\tool\\cli.js', ...argv])
+  const current = local.replace('  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n', '')
+    .replace('& "%_prog%"', '& set PATHEXT=%PATHEXT:;.JS;=;% & "%_prog%"')
+  files.set('C:\\work\\node_modules\\.bin\\tool.cmd', current)
+  assert.equal(resolve_command(['./node_modules/.bin/tool.cmd'], options)[1], 'C:\\work\\node_modules\\tool\\cli.js')
+  assert.deepEqual(resolve_command(['./verify.js', ...argv], options), ['C:\\known\\node.exe', 'C:\\work\\verify.js', ...argv])
+  assert.throws(() => resolve_command(['C:verify.js'], options), /Drive-relative/)
+  files.set('C:\\bin\\tool.CMD', wrapper.replace('%*', '--hidden %*'))
+  assert.throws(() => resolve_command(['tool'], options), /Unsupported Windows wrapper.*native .exe/)
+  files.set('C:\\bin\\npm.CMD', '@echo off\r\ncall npm-prefix.js\r\n')
+  assert.throws(() => resolve_command(['npm'], options), /prefix\/custom wrapper logic is unsupported/)
+  assert.throws(() => resolve_command(['planted'], options), /not found/)
+  for (const name of ['C:\\bin\\custom.bat', 'C:\\bin\\custom.ps1', 'C:\\bin\\extensionless']) {
+    files.set(name, 'echo surprise')
+    assert.throws(() => resolve_command([name], options), /Unsupported Windows wrapper/)
+  }
+})
+
+test('Windows ancestry compares full creation ticks and retains evidence on malformed enumeration', () => {
+  const { observe_descendants } = require('./looper-agent')
+  const tracked = new Map(), tick = '638000000000000001'
+  const scan = snapshot => observe_descendants(10, tracked, `win32:${tick}`, { platform: 'win32', snapshot })
+  const children = scan(`10 1 0 ${tick}\r\n11 10 0 638000000000000000\r\n12 10 0 ${tick}\r\n13 12 0 638000000000000002\r\n14 12 0 638000000000000000`)
+  assert.deepEqual(children.map(child => child.pid), [12, 13])
+  const before = [...tracked]
+  assert.throws(() => scan(`10 1 0 ${tick}\nmalformed`), error => error.unsettled === true)
+  assert.deepEqual([...tracked], before)
+  assert.throws(() => scan(''), error => error.unsettled === true)
+  assert.deepEqual([...tracked], before)
+})
+
+test('process enumeration failure makes execution unsettled and preserves recorded process evidence', async () => {
+  const { execute } = require('./looper-agent')
+  const S = require('./looper-state')
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-process-unknown-')))
+  const claim_file = path.join(root, 'claim.json'), claim = S.acquire_claim(claim_file)
+  const process_file = path.join(root, 'process.json')
+  await assert.rejects(execute({ command: [process.execPath, '-e', 'setTimeout(() => {}, 150)'], cwd: root,
+    log: path.join(root, 'transcript.log'), on_launch: identity => S.write_json(process_file, identity),
+    observe: () => { throw Error('injected query timeout') } }), error => error.unsettled === true)
+  assert.equal(S.read_json(claim_file).token, claim.token)
+  const primary = S.read_json(process_file)
+  assert.ok(primary.started_at)
+  for (let i = 0; i < 100 && S.process_alive(primary) !== false; i++) await new Promise(resolve => setTimeout(resolve, 20))
+  assert.equal(S.process_alive(primary), false, 'test-owned child is proved stopped before test completion')
+  assert.ok(fs.existsSync(path.join(root, 'transcript.log')))
+})
+
+test('directory junctions are refused as task paths', () => {
+  const S = require('./looper-state')
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-junction-')))
+  fs.mkdirSync(path.join(root, 'target'))
+  fs.symlinkSync(path.join(root, 'target'), path.join(root, 'alias'), 'junction')
+  assert.throws(() => S.safe_path(root, 'alias/file'), /Symlink path refused/)
+})
+
+
+test('unknown and reused descendant identities are never signalled', () => {
+  const { signal_descendants } = require('./looper-agent')
+  const tracked = new Map([1, 2, 3, 4].map(pid => [pid, { pid, started_at: pid === 4 ? null : 'win32:100' }]))
+  const sent = []
+  signal_descendants(tracked, 'SIGKILL', { identify: pid => pid === 1 ? null : pid === 2 ? 'win32:101' : 'win32:100', send: (...args) => sent.push(args) })
+  assert.deepEqual(sent, [[3, 'SIGKILL']])
+  assert.equal(tracked.size, 4, 'unknown identities remain recorded')
+})
+
+
+test('omitted known Windows processes require independent stop proof; closed root is handle evidence only', () => {
+  const { observe_descendants } = require('./looper-agent')
+  const item = { pid: 12, started_at: 'win32:638000000000000002' }
+  const snapshot = '0 0 0 ?\r\n4 0 0 ?\r\n10 1 0 638000000000000001\r\n13 12 0 638000000000000003'
+  const tracked = new Map([[12, item]])
+  const base = { platform: 'win32', snapshot }
+  assert.throws(() => observe_descendants(10, tracked, 'win32:638000000000000001', { ...base, alive: () => 'unknown' }), error => error.unsettled === true)
+  assert.deepEqual([...tracked.values()], [item])
+  assert.deepEqual(observe_descendants(10, tracked, 'win32:638000000000000001', { ...base, alive: () => true }).map(row => row.pid), [13])
+  assert.equal(tracked.has(12), true)
+  observe_descendants(10, tracked, 'win32:638000000000000001', { ...base, alive: () => false })
+  assert.equal(tracked.has(12), false)
+  assert.throws(() => observe_descendants(99, new Map(), null, { platform: 'win32', snapshot: '99 1 0 638000000000000001', alive: () => true }), error => error.unsettled === true)
+  assert.deepEqual(observe_descendants(99, new Map(), null, { platform: 'win32', snapshot: '0 0 0 ?\n4 0 0 ?', root_stopped: true,
+    alive: () => { throw Error('closed own root must not be mistaken for an unknown live PID') } }), [])
+})
+
+
+test('POSIX process group cleanup survives immediate leader exit before ancestry polling', { skip: process.platform === 'win32' ? 'POSIX process-group guarantee; Windows uses identified descendants' : false }, async () => {
+  const { execute } = require('./looper-agent')
+  const S = require('./looper-state')
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-orphan-group-')))
+  const pid_file = path.join(root, 'child.json')
+  const source = `const { spawn } = require('node:child_process'); const fs = require('node:fs'); const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' }); fs.writeFileSync(${JSON.stringify(pid_file)}, JSON.stringify({ pid: child.pid })); child.unref()`
+  let observation
+  try { observation = await execute({ command: [process.execPath, '-e', source], cwd: root, log: path.join(root, 'transcript.log') }) }
+  catch (error) { assert.equal(error.unsettled, true) }
+  const child = JSON.parse(fs.readFileSync(pid_file))
+  for (let i = 0; i < 50 && S.process_identity(child.pid); i++) await new Promise(resolve => setTimeout(resolve, 20))
+  assert.equal(S.process_identity(child.pid), null, 'orphan in the owned process group must be stopped')
+  if (observation) assert.equal(observation.exit_code, 0)
+})
+
+test('CRLF Git exclude rules are recognized without rewriting or appending bytes', () => {
+  const G = require('./looper-integration')
+  const { q } = fixture([['a.txt']])
+  q.expected_head = q.base_commit
+  const group = q.groups[0], cwd = G.prepare_group(q, group, () => {})
+  const exclude = path.resolve(cwd, G.git(cwd, ['rev-parse', '--git-path', 'info/exclude']))
+  const original = Buffer.from('# owner excludes\r\n/.aglite-records/\r\n/.aglite-records/.devlog.md.owner\r\n')
+  fs.writeFileSync(exclude, original)
+  G.prepare_group(q, group, () => {})
+  G.prepare_group(q, group, () => {})
+  assert.deepEqual(fs.readFileSync(exclude), original)
+})
+
+test('ordinary closeout proves localized phase sequence without reading labels', () => {
+  const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-locale-closeout-')))
+  fs.mkdirSync(path.join(cwd, '.aglite-records'))
+  const file = path.join(cwd, '.aglite-records/devlog.md')
+  for (const [ask, reply] of [['Ask', 'Reply'], ['提問', '回覆'], ['質問', '回答']]) {
+    const first = `# → ${ask} / A-001 (owner)`
+    const answer = `# → ${reply} / A-001`
+    const next = `# → ${ask} / A-002`
+    const valid = [first, answer, next]
+    for (const newline of ['\n', '\r\n']) {
+      fs.writeFileSync(file, valid.join(newline + newline) + newline)
+      assert.equal(L.ordinary_closeout(cwd, {}), 1)
+      assert.throws(() => L.ordinary_closeout(cwd, { previous_round: 1 }))
+    }
+    for (const invalid of [
+      [first, next], [first, answer], [first, first, next], [first, answer, answer, next],
+      [first, answer, next, `# → ${ask} / A-3`],
+      [first, answer, `# → ${ask} / A-003`],
+      [first, next, answer], [first, answer, next, answer],
+      [first, answer, `# → ${reply} / A-002`],
+      [first, '```md', answer, '```', next],
+      [first, '~~~', answer, '~~~', next],
+      [first, `> ${answer}`, next], [first, `    ${answer}`, next]
+    ]) {
+      fs.writeFileSync(file, invalid.join('\n\n'))
+      assert.throws(() => L.ordinary_closeout(cwd, {}), invalid.join(' | '))
+    }
+  }
+})
+
+test('real Git localized task host creates its notebook and receives exact ownership facts', { timeout: 30000 }, async () => {
+  const { root, repo } = fixture([['a.txt']])
+  const config = path.join(repo, '.agentflow/ag.json')
+  const settings = JSON.parse(fs.readFileSync(config))
+  settings.switches = { 'use-lang': 'zh-TW' }
+  fs.writeFileSync(config, JSON.stringify(settings))
+  git(repo, 'add', '.agentflow/ag.json'); git(repo, 'commit', '-m', 'locale fixture')
+  const q = read(root); q.base_commit = git(repo, 'rev-parse', 'HEAD'); write(root, q)
+  // Call the real runner directly: the fake task host performs its own rendering.
+  assert.equal(await real_run(root, { checks, agent: async args => {
+    if (args.role !== 'task') return result(args.attempt)
+    const file = path.join(args.cwd, '.aglite-records/devlog.md')
+    assert.equal(fs.existsSync(file), false, 'coordinator creates no English scaffold')
+    assert.equal(args.attempt.previous_round, 0)
+    assert.ok(args.prompt.includes(`UUID ${args.attempt.id}`))
+    assert.ok(args.prompt.includes(`project fixture/G1; notebook .aglite-records/devlog.md`))
+    assert.ok(args.prompt.includes(`checkout ${args.cwd}; branch ${git(args.cwd, 'branch', '--show-current')}.`))
+    assert.match(args.prompt, /switches.use-lang/)
+    fs.writeFileSync(file, `# 狀態\n\n專案：fixture/G1\n\n筆記本：.aglite-records/devlog.md\n\n工作目錄：${args.cwd}\n\n分支：${git(args.cwd, 'branch', '--show-current')}\n\n目前：A-002\n\n已證實：A-001\n\n下一步：等待任務\n\n已封存時期：無\n\n# → 提問 / A-001\n\n# → 回覆 / A-001\n\n已完成。\n\n# → 提問 / A-002\n`)
+    fs.writeFileSync(path.join(args.cwd, '.aglite-records/.devlog.md.owner'), JSON.stringify({ session: args.attempt.id }))
+    fs.writeFileSync(path.join(args.cwd, 'a.txt'), '完成\n')
+    return result(args.attempt)
+  } }), 0)
+  assert.equal(read(root).groups[0].tasks[0].round, 1)
+})
+
+test('saved task with a missing notebook blocks resume without recreating or dispatching', { timeout: 30000 }, async () => {
+  const { root } = fixture([['a.txt']])
+  assert.equal(await L.run(root, { checks, agent: async args => {
+    fs.mkdirSync(args.attempt_dir, { recursive: true })
+    const response = result(args.attempt)
+    fs.writeFileSync(path.join(args.attempt_dir, 'exit.json'), JSON.stringify({ exit_code: 0 }))
+    fs.writeFileSync(path.join(args.attempt_dir, 'result.json'), JSON.stringify(response))
+    fs.writeFileSync(path.join(args.cwd, 'a.txt'), 'product completed\n')
+    return response // Deliberately leaves ordinary closeout unfinished.
+  } }), 2)
+  const saved = read(root)
+  const file = path.join(saved.groups[0].workspace.worktree, '.aglite-records/devlog.md')
+  fs.renameSync(file, file + '.preserved')
+  answer(root, saved.questions[0], 'host')
+  let dispatched = false
+  await assert.rejects(real_run(root, { checks, agent: async () => { dispatched = true; throw Error('must not dispatch') } }), /Active isolated notebook is missing/)
+  assert.equal(dispatched, false)
+  assert.equal(fs.existsSync(file), false)
+  assert.equal(read(root).groups[0].attempt.id, saved.groups[0].attempt.id)
+})
+
+for (const native of [false, true]) test(`lost initialized ${native ? 'native' : 'CLI'} notebook cannot be recreated by an owner answer`, { timeout: 30000 }, async () => {
+  const { root } = fixture([['a.txt']], native ? { task: { ...selection, kind: 'native' } } : {})
+  let calls = 0
+  const worker = async args => { calls++; return result(args.attempt, 'needs_owner') }
+  assert.equal(await L.run(root, { checks, agent: worker }), 2)
+  if (native) {
+    const handoff = read(root).handoffs[0]
+    render_notebook(handoff.cwd)
+    fs.mkdirSync(path.join(root, 'inbox'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'inbox', `${handoff.id}.json`), JSON.stringify({ ...result({ id: handoff.id }, 'needs_owner'), writer_stopped: true }))
+    assert.equal(await L.run(root, { checks, agent: worker }), 2)
+  }
+  const saved = read(root)
+  const file = path.join(saved.groups[0].workspace.worktree, '.aglite-records/devlog.md')
+  fs.renameSync(file, file + '.preserved')
+  if (!native) { delete saved.groups[0].notebook_initialized; write(root, saved) } // Existing CLI record without the new observation fact.
+  answer(root, saved.questions[0]) // Omitted source follows the ordinary owner inbox path.
+  await assert.rejects(real_run(root, { checks, agent: async () => { calls++; throw Error('must not redispatch') } }), /Active isolated notebook is missing/)
+  assert.equal(calls, native ? 0 : 1)
+  assert.equal(fs.existsSync(file), false)
+  assert.equal(read(root).groups[0].attempt.id, saved.groups[0].attempt.id)
+})
+
+test('native initial pending absence is valid, but observed initialized notebook loss blocks waiting', { timeout: 30000 }, async () => {
+  const { root } = fixture([['a.txt'], ['b.txt']], { task: { ...selection, kind: 'native' }, max_workers: 1 })
+  assert.equal(await real_run(root, { checks }), 2)
+  const initial = read(root), handoff = initial.handoffs[0]
+  const file = path.join(handoff.cwd, '.aglite-records/devlog.md')
+  assert.equal(fs.existsSync(file), false)
+  assert.equal(fs.statSync(path.dirname(file)).isDirectory(), true)
+  assert.equal(await real_run(root, { checks }), 2)
+  assert.equal(read(root).groups[0].state, 'native')
+  render_notebook(handoff.cwd)
+  assert.equal(await real_run(root, { checks }), 2) // Coordinator observes initialization.
+  fs.renameSync(file, file + '.preserved')
+  assert.equal(await real_run(root, { checks }), 2)
+  assert.equal(read(root).groups[0].state, 'blocked')
+  assert.match(read(root).questions.at(-1).question, /Active isolated notebook is missing/)
+  assert.match(read(root).handoffs[0].error, /Active isolated notebook is missing/)
+  assert.match(L.status(root), /Native .*Active isolated notebook is missing/)
+  assert.equal(read(root).handoffs[0].completed, false)
+  assert.equal(read(root).handoffs.length, 1)
+  assert.equal(read(root).groups[1].workspace, undefined, 'unsettled native handoff keeps its worker slot while blocked')
+  assert.equal(fs.existsSync(file), false)
+  fs.renameSync(file + '.preserved', file)
+  assert.equal(await real_run(root, { checks }), 2)
+  assert.equal(read(root).groups[0].state, 'blocked', 'restoring bytes does not answer the recovery question')
+  assert.equal(read(root).handoffs[0].error, null)
+  answer(root, read(root).questions.at(-1), 'host')
+  assert.equal(await real_run(root, { checks }), 2)
+  assert.equal(read(root).groups[0].state, 'native', 'explicit recovery reuses its reserved slot')
+  assert.equal(read(root).handoffs.length, 1)
+  assert.equal(read(root).groups[1].workspace, undefined)
+  task_edit({ cwd: handoff.cwd, prompt: fs.readFileSync(handoff.assignment, 'utf8') })
+  fs.mkdirSync(path.join(root, 'inbox'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'inbox', `${handoff.id}.json`), JSON.stringify({ ...result({ id: handoff.id }), writer_stopped: true }))
+  assert.equal(await real_run(root, { checks }), 2)
+  assert.equal(read(root).groups[0].state, 'done')
+  assert.equal(read(root).groups[0].tasks[0].result.attempt_id, handoff.id)
+})
+
+test('native saved completed round proves missing notebook even without initialization flag', { timeout: 30000 }, async () => {
+  const { root } = fixture([['a.txt']], { task: { ...selection, kind: 'native' } })
+  assert.equal(await real_run(root, { checks }), 2)
+  const saved = read(root)
+  saved.groups[0].attempt.previous_round = 1
+  delete saved.groups[0].notebook_initialized
+  write(root, saved)
+  assert.equal(await real_run(root, { checks }), 2)
+  const blocked = read(root)
+  assert.equal(blocked.groups[0].state, 'blocked')
+  assert.match(blocked.handoffs[0].error, /Active isolated notebook is missing/)
+  assert.equal(blocked.handoffs[0].completed, false)
+  assert.equal(blocked.handoffs.length, 1)
+})
+
+test('owner answer to a pre-workspace task blocker still permits first notebook creation', { timeout: 30000 }, async () => {
+  const { root, q } = fixture([['a.txt']])
+  const question = { id: crypto.randomUUID(), group_id: 'G1', kind: 'task', requires_owner: false, question: 'Worktree setup requires correction.' }
+  q.groups[0].state = 'blocked'
+  q.questions = [question]
+  write(root, q)
+  answer(root, question)
+  assert.equal(await L.run(root, { checks, agent }), 0)
+})
+
+for (const replacement of [false, true]) test(`startup notebook inspection leaves ${replacement ? 'unrelated replacement' : 'missing recorded worktree'} untouched`, { timeout: 30000 }, async () => {
+  const { root } = fixture([['a.txt']])
+  assert.equal(await L.run(root, { checks, agent: async args => result(args.attempt, 'needs_owner') }), 2)
+  const cwd = read(root).groups[0].workspace.worktree
+  fs.renameSync(cwd, cwd + '.preserved')
+  if (replacement) {
+    fs.mkdirSync(cwd)
+    fs.writeFileSync(path.join(cwd, 'unrelated.txt'), 'preserve exactly\n')
+  }
+  let dispatched = false
+  assert.equal(await real_run(root, { checks, agent: async () => { dispatched = true; throw Error('must not dispatch') } }), 2)
+  assert.equal(dispatched, false)
+  assert.equal(fs.existsSync(path.join(cwd, '.aglite-records')), false)
+  if (replacement) {
+    assert.deepEqual(fs.readdirSync(cwd), ['unrelated.txt'])
+    assert.equal(fs.readFileSync(path.join(cwd, 'unrelated.txt'), 'utf8'), 'preserve exactly\n')
+  } else assert.equal(fs.existsSync(cwd), false)
 })

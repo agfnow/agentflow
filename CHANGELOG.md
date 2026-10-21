@@ -1,5 +1,17 @@
 # Changelog
 
+## 9.0.0-beta.1 — 2026-10-21
+
+- Reduced the default skill entrypoint and moved detailed procedures behind task-specific loading. Reviewed every machine prompt for conflicts, duplication and lost safeguards.
+
+- Rewrote current English and Traditional Chinese user guidance in short passages. Added append-tasks as an exact append-rounds alias and made human template text follow use-lang.
+
+- Added guarded, demand-loaded migration for recognized Agentflow8 projects, including configuration conversion, current STATUS and proven old project integration retirement. Existing schema9/10/11 mappings preserve real skip-wip values; ambiguous ownership or lost intent remains a decision.
+
+- Expanded explicit worker routing with Copilot/native bindings and schema 12 settings. Preserved localized looper closeout and interrupted-work recovery; Windows and provider-specific limits remain explicit.
+
+- Published as an Agentflow9 beta prerelease. The GitHub stable Latest release is retained.
+
 ## 0.3.1 — 2026-10-20
 
 - Added optional looper task execution with `prepare-tasks`, `run-tasks`, `handle-tasks` and the dependency-free `agf loop run/status` launcher. Groups use fresh task sessions, checked serial integration, recoverable attempts and optional earlier-group dependencies. Native work requires the live host; configured CLI work can continue while the coordinator runs.

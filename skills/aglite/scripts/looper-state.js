@@ -17,6 +17,8 @@ const object = (value) =>
 
 // Check every existing component, including the root's ancestors. A lexical
 // containment check alone would permit an ancestor symlink to redirect writes.
+const windows_component = part => !/[<>:"|?*\x00-\x1f]/.test(part) && !/[. ]$/.test(part) &&
+  !/^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³]|CONIN\$|CONOUT\$)(?:\.|$)/i.test(part)
 const inspect_path = (absolute) => {
   const parsed = path.parse(absolute)
   let current = parsed.root
@@ -24,6 +26,7 @@ const inspect_path = (absolute) => {
     .slice(parsed.root.length)
     .split(path.sep)
     .filter(Boolean)) {
+    require_value(process.platform !== 'win32' || windows_component(part), 'Unsafe Windows path component')
     current = path.join(current, part)
     try {
       require_value(
@@ -113,6 +116,13 @@ const write_json = (file, value) => {
 }
 
 let linux_boot_id
+const powershell = () => {
+  // Never resolve a privileged process query through a task-controlled cwd/PATH.
+  const root = process.env.SystemRoot || process.env.WINDIR
+  require_value(root && path.win32.isAbsolute(root), 'Windows system root unavailable')
+  return path.win32.join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+}
+const powershell_options = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000, maxBuffer: 4 * 1024 * 1024, windowsHide: true }
 const process_identity = (pid) => {
   if (!Number.isInteger(pid) || pid <= 0) return null
   try {
@@ -122,8 +132,8 @@ const process_identity = (pid) => {
       return `linux:${linux_boot_id}:${stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19]}`
     }
     if (process.platform === 'win32') {
-      const start = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}').CreationDate.ToUniversalTime().Ticks`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-      return start ? `win32:${start}` : null
+      const start = execFileSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `(Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}').CreationDate.ToUniversalTime().Ticks`], { ...powershell_options, maxBuffer: 4096 }).trim()
+      return /^\d+$/.test(start) ? `win32:${start}` : null
     }
     const start = execFileSync('ps', ['-p', String(pid), '-o', 'lstart='], {
       encoding: 'utf8',
@@ -224,5 +234,5 @@ const takeover_claim = (file, expected_token, children = []) => {
   return acquire_claim(file, identity)
 }
 
-module.exports = { write_json, read_json, safe_path, checked_file, inspect_path,
+module.exports = { windows_component, powershell, powershell_options, write_json, read_json, safe_path, checked_file, inspect_path,
   acquire_claim, verify_claim, release_claim, process_identity, process_alive, writer_stopped, takeover_claim }

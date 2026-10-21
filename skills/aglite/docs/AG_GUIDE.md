@@ -1,209 +1,240 @@
-# aglite 0.3.1 — everyday guide
+# aglite 9.0.0-beta.1 — everyday guide
 
 English · [繁體中文](AG_GUIDE.zh-tw.md)
 
-Release 0.3.1 (2026-10-20). For installation and switching from the Agentflow plugin, see the [package README](https://github.com/agfnow/aglite#switch-from-agentflow-in-claude-code). Known predecessor configuration is migrated without resetting valid choices; history and installation replacement remain separate.
+Version `9.0.0-beta.1`. The skill is named `aglite`; this is the beta name for Agentflow 9.
 
-Run records and worktrees remain after completion. Ignored `.aglite-records/` notebooks are not included in product integration; preserve them before any separately authorized cleanup. For file purposes, released claims and archive requirements, see [retained files](../references/looper.md#retained-files).
+Give the agent a goal, examples of success and anything it must preserve. Aglite keeps your request, answer and recovery notes together so you can return to unfinished work in another session.
 
-## Run groups with looper
+The [cheatsheet](CHEATSHEET.md) lists every command, advisor and setting. This guide shows how to use them in everyday work.
 
-Configure transport/provider/catalog once in `ag.json` under `looper-routes.task`, `repair`, `acceptance`. Task/repair reuse the existing `implementation` tier; review and renewed acceptance reuse `acceptance`.
+## Finish your first task
 
-Models stay in `model-family`; limits live in `looper-limits` (defaults: 3 task groups, 2 repairs). Bundled routes are empty; configure them before running.
+Load the installed `aglite` skill, then send a request such as:
 
-The queue stores progress and actual per-attempt selections as evidence. Resumed attempts keep their selection; new attempts use that invocation’s settings. See [settings](../references/configuration.md#looper-settings).
+```text
+godev fix the broken installation link in README.md
+```
 
-Give the host a numbered work list with outcomes, examples and things to preserve. `prepare-tasks <request>` prepares groups in `<ag-dir>/artifacts/A-NNN-<name>/planned/group-NNN.md` with `queue.json` and preparation-time request text in `request.md`. Queue schema 2 stores only the relative request path and its SHA-256 digest; changed/missing/unsafe input blocks execution or resume. The host links that root from Current and stops. You do not need to write technical JSON.
+The agent checks the project, does the authorized work and checks its result. Small tasks usually need only the development notebook, called the devlog; larger work may also need a design and task tracker.
 
-Use `run-tasks` to execute the linked queue, or `run-tasks <run-root>` for another prepared queue. `handle-tasks <request>` prepares and runs it. The host starts the coordinator; no second owner terminal is required. See the [execution contract](../references/looper.md).
+On first setup, aglite adds missing guidance to root `AGENTS.md` so the owner-facing agent can load the skill automatically in later sessions. Your existing instructions stay intact. Delegated workers follow their assignment without starting another aglite workflow.
 
-Groups use separate stable worktrees, up to 3 at once by default. Each group runs fresh ordinary task workers sequentially, preserving workflow/review settings. Optional `depends_on` lists earlier groups: a dependent group waits without a worker slot until they are checked and integrated, then starts from the latest checked target. Status lists unmet dependencies; started worktrees retain their bases.
+Your host must support and honor that instruction. If automatic loading does not happen, load the skill and use `godev` yourself; a missing skill is reported rather than installed silently.
 
-Native sessions need the live host; CLI sessions support Codex/Claude. Closing the host blocks native dispatch rather than switching providers.
+A fresh folder can use aglite without Git. Before setup writes in a folder without Git, the agent asks whether you want a repository there.
 
-Ready groups enter one FIFO integration lane. Clean merges run combined checks without another agent; repair retains review and acceptance, with 2 attempts by default.
+If you choose Git, it creates and verifies an empty first commit before continuing, unless you explicitly forbid commits. Your existing files stay out of that commit; approving Git setup does not approve a remote or publication.
 
-Questions block only their group: answer the host and it passes your response to the coordinator.
+If setup fails, the agent reports the blocker and preserves the partial state for your recovery choice. After setup started without a task, it asks for your next request.
 
-Group task records stay in `.aglite-records/`, excluded from product integration.
+## Return to unfinished work
 
-For shell access, install with `npm install -g <resolved-skill>`, then use `agf loop run [run-root]` or `agf loop status [run-root]`. A missing shell root means cwd; a missing queue errors.
+Open the same project and send `godev`. The agent reads the active request and linked recovery notes, then checks the live files and any running operations before continuing.
 
-Status shows saved progress and questions.
+You do not need to reconstruct the previous conversation. If a required record is missing or no longer matches the work, the agent reports that gap rather than treating the old result as proved.
 
-Resume through `run-tasks`; it reconciles previous writers and Git effects while preserving unfinished work. No separate promotion, cleanup, push or release follows.
+If there is no unfinished work, the agent asks for your next request. Idle activation does not schedule backlog work or create another round of records.
 
-## Optional browfield development
+Notebook ownership prevents two cooperating agents from writing the same notebook at once. If another session owns it, ask for a handoff; age or silence alone does not let the agent clear someone else's claim.
 
-For an authorized feature in unfamiliar existing code, use `browfield <task>` or ask for the eight-step brownfield procedure. Bare `browfield` uses a clear active task or asks which task. The host may also select it for a named material discovery or regression-protection need. Existing-repository work alone does not activate it; ordinary tasks keep the ordinary workflow.
+See [start and recovery](../references/session.md#activate-and-recover) and [notebook ownership](../references/session.md#notebook-ownership) for exact rules.
 
-The [bundled reference](../references/browfield.md) guides discovery, rule tracing, impact/risk ranking, baseline characterization, specification, implementation, verification and preservation. It saves gate outcomes before advancing, ranks risks by consequence/likelihood and checks process compliance separately from feature results.
+## Find your answer and records
 
-Aglite still owns task modes, approvals, records, planning, review and delivery. Applicable advisor methods are reused without requiring eight advisor runs or another workflow. Fast-lane retains its advisor/record-creation waivers and necessary checks; an explicitly requested guided walkthrough pauses at each gate. Install only aglite; no separate brownfield skill is needed.
+The completed answer normally goes into the devlog's **Reply**, rather than chat. The default chat receipt looks like this:
 
-## Start and resume
+```text
+→ Updated: A-001 | .agentflow/example.devlog.md
+  (/path/to/example)
+```
 
-For first use, load aglite and send `godev` with your request. Setup, or the next work session in an existing project, adds a directive to root `AGENTS.md` for the owner-facing host to use `aglite` by default at session start, discovering, loading and following it through that agent's supported skill mechanism, without fixing a host, path or installation scope. If unavailable, report the missing skill without assuming a path or installing it automatically; delegated workers/reviewers keep their bounded assignment without activation. Later owner sessions load/resume aglite automatically when the host honors it; explicit owner activation/opt-out instructions prevail. `godev` remains a manual start/resume command. Small tasks need only the notebook when ordinary inspection and checks suffice. Larger tasks may get a design and tracker; task documents are created only when needed or explicitly required. Return with `godev` in a fresh session to recover the active Ask and its linked records. Keep technical verification, check/review results, invariant accounting and debugging logs out of the devlog, including STATUS, RUN/WIP and Reply; preserve historical records. Omit unnecessary detail; save useful new proof in `<ag-dir>/.tmp/A-NNN.md`, linked from Current and its producing Ask before Reply. Trackers retain task/recovery state and link proof rather than repeat it. Other notebooks use `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md` with notebook/Ask identity; verify namespace association and choose a safe unused location on collision. Explicit destinations and established evidence locations remain unchanged. Devlogs retain concise outcomes, recovery pointers, required milestones/notices, answers, Questions and decision-changing blockers/limits. Before interruption/handoff, Current links directly to resume-critical evidence or to a tracker whose Recovery section links it; identify its purpose and next safe action, and keep STATUS Current linked to that canonical recovery while work remains. Honor existing Ask links without repeating them in new Asks. For multiple unfinished threads, use one tracker, or labelled Current links to existing evidence when tracker creation is waived. Restart/resume reads these links before dependent work, checks notebook/Ask identity and live state, and leaves missing/mismatched proof unproved; no guessing from `.tmp` filenames. These Markdown records remain durable while linked, despite `.tmp`; no automatic deletion or ignore rule. Check Git ignores before creating/linking; use an unused nonignored artifacts path if needed and include evidence in authorized delivery. Reuse established records, create no empty per-round file and keep each fact once. Lifecycle recovery keeps notebook/Ask identity, authorized operation/cleanup scope, exact retry-prevention refs, last proven result and next safe action; link existing proof, retaining pending gates/path updates and necessary failure/check/review/decision detail. Fresh safety checks remain required; create no new record location or durable drop record. Preserve historical notes. Replies keep the answer and decision-changing limits; a separate owner-facing verification report requires your request. See [Round evidence](../SKILL.md#round-evidence).
+Open the named notebook to read the answer and saved questions. To receive full answers in chat, ask to set `inline-reply: on`, or explicitly request a particular answer in chat or the terminal.
 
-Trackers put a brief goal and overall progress first, then **Tasks**, **Recovery**, and evidence links/update details. Each task starts with a bracketed status, for example `- [DOING] T-1 — Improve tracker readability`, followed by labelled nested details. Statuses are `TODO` (not started), `DOING` (in progress, including pending checks/review/delivery), `BLOCKED` (cannot proceed; blocker named), and `DONE` (proved complete). Tasks stay in stable ID order; Recovery identifies the current item and next action.
+Required notices, blockers and actual feature handoffs can still appear in chat with `inline-reply: off`. A request about future output or the words “show me” alone do not change the answer destination.
 
-New projects default to `.agentflow/<short-dirname>.devlog.md`, e.g. directory `a002/` → `.agentflow/a002.devlog.md`. The name comes from the physical checkout root (session folder outside Git), not a Git subdirectory; existing explicit names and history are preserved. STATUS records current recovery facts; each round has Ask, enabled RUN/WIP, Reply and the next Ask. Every new Ask heading starts after a standalone `---` with one blank line before and after, including initial and feature notebooks; existing history stays unchanged. The owner can write into the next Ask and activate it. Answers to saved questions belong in chat or the question's `ans:` field. Empty answers and suggested defaults are not approval. Historical records are preserved; above 750 lines or on request, older completed rounds append to one adjacent `<notebook-stem>.archive.md`, preserving prior archive content, unresolved work and the latest completed round. Eras never split into numbered files. An explicit notebook rename also renames that archive (`devlog.archive.md` → `notes.archive.md`); preflight all destinations, preserve history bytes and update live links. Ambiguous custom archives or historical links needing changes require your decision.
+New projects normally keep their notebook at `.agentflow/<short-dirname>.devlog.md`. The name comes from the checkout folder; existing names and history are preserved.
 
-Results normally appear in the saved Reply. For completed work with `inline-reply: off`, chat shows only `→ Updated: A-NNN | <notebook>`, then the parenthesized working directory on a new line with two leading spaces; completion explanations stay in saved records. Answers, examples and questions stay saved unless you explicitly request display in chat/terminal; “show me”, “what will be displayed” and future-output changes do not authorize it. Tool readback verifies silently without printing answers. Explicitly displayed answers and `inline-reply: on` end with the same two-line receipt. Required notices, unfinished-work reports and actual feature handoffs retain their operational rules; hypothetical handoffs stay saved. In a verified existing checkout/folder with neither the selected notebook nor configured ag-dir and no history or prior retirement, activation proactively initializes aglite. Before setup writes outside Git, the host asks in chat whether you also want a Git repository, even with `inline-reply: off`, unless you already explicitly chose for that folder. Yes initializes Git there and immediately creates and verifies an empty initial commit before further setup or handoff, even with `auto-commit: off`, unless you explicitly forbid commits; staged and pre-existing files stay out. The same bootstrap rule applies to an explicit Git initialization request; recovery reuses an existing HEAD. If commits are forbidden, the host skips this commit and reports that feature worktrees need a commit. Commit failure stops setup with its blocker reported. On success the host refreshes identity/routing; no continues setup without Git; no answer waits. On failure, the host inspects partial Git state without deleting it and waits for your recovery choice; continuing without Git requires verified non-Git identity. Git approval does not authorize committing pre-existing unrelated files, creating a remote or publication. After setup delivery, the host asks for the next request in chat instead of the short receipt. Off-record and feature rules still apply. Other bare idle activation reads only enough to confirm no task or pending recovery, asks for the next request and writes no notebook/config/claim.
+The notebook holds your **Ask**, the saved **Reply**, and **STATUS** with a **Current** link for unfinished work. You can write a request in the next Ask and activate it, or answer saved questions in chat or their `ans:` fields.
 
-Owner requests retain their contents except credential redactions. Prefix each blank-line-delimited prose paragraph with `+ `; related paragraphs about one matter may share a prefix on the first paragraph. Preserve code-block interiors and existing `+ ` prefixes; leave a blank line between groups. Add no standalone `--`, blockquote prefixes or closing separator. Existing history keeps its formatting unless the owner requests a correction.
+Designs and trackers live under the configured record directory when needed. A tracker shows the goal, task progress and a **Recovery** section with the next safe action.
 
-Every Codex `spawn_agent` call explicitly uses `fork_turns: "none"`, with all necessary context supplied in its task message; no inherited host conversation, even without model/effort overrides.
+Task labels are `TODO`, `DOING`, `BLOCKED` and `DONE`. Work awaiting checks, review or delivery remains `DOING`; `DONE` means completion has been proved.
 
-Shared safeguards live in the skill’s [project-rule baseline](../references/project-rules.md), backed by its existing backlog/invariant requirements. Every project agent/reviewer reads that baseline and applicable project overrides; this does not activate a workflow. Root `AGENTS.md` gets only missing activation and discovery instructions, preserving yours; broken existing project-relative skill targets are reported with a proposed correction, not silently accepted or rewritten. Reading the baseline alone still does not activate aglite. The baseline comes from the installed skill, a verified checkout-local reference or exact host-supplied text; unavailable baseline defers shared-record writes and invariant/review acceptance; report the gap and continue independent authorized work. Owner-authored deviations override defaults; preserved generated boilerplate follows current skill definitions. Local `<ag-dir>/rules.md` is optional, holds project exceptions and is never generated or overwritten by setup. Existing authoritative/custom paths and directives stay intact; missing referenced contracts require reconciliation. Main/root setup pre-creates missing backlog and empty registry scaffolds plus `artifacts/`, `features/` and `.tmp/` with `.gitkeep` placeholders from bundled assets. Adapt configuration at checkout root and the notebook at its resolved path; never copy over live records. Reuse existing/custom authoritative records, reject unsafe paths and create files exclusively. Empty scaffolds grant no task or invariant authority. Outside setup, create missing backlog/registry only for the first trackable item/accepted guarantee. Archives, round documents and actual feature worktrees remain on demand. Managed feature initialization creates only its config/notebook and reuses inherited shared records. Creating an empty registry still gets the invariant notice heading, stating that no accepted IDs exist. Foreign backlogs are deduplication sources unless you designate one. Record paths use configured ag-dir, independently of notebook/feature location; no automatic migration.
+Useful check results and debugging evidence are linked separately, normally from `.agentflow/.tmp/`. Despite that directory's name, linked evidence is durable: do not delete it merely because it looks temporary.
 
-Actionable future work raised in discussion/questions is tracked in `backlog.md` as **proposed**; accepted work you defer is **deferred**. Entries retain source, outcome, open reason and expected effort or next decision, and grant no implementation authority. Newly added/materially changed entries are disclosed with ID/status/reason/link. The host reconciles relevant entries during actual task recovery, relevant decisions/corrections/deferrals and before closeout, adding/deduplicating or updating them while preserving other open work. Proved completion or explicit owner cancellation is recorded in the notebook before removing an entry; age/silence never cancels work. No idle or timed sweep.
+The devlog keeps the answer, important limits and recovery pointers; it does not repeat technical check logs. See [round evidence](../references/session.md#round-evidence) for other notebooks, custom destinations and exact retention rules.
 
-Reminders follow decisions: recovery surfaces relevant dependencies/overlaps; backlog reminders in closeout Questions cover only unresolved choices affecting active work, with a B-NNN link and suggested default. Unchanged entries are not repeated solely as reminders. Ask for a backlog review or next-work suggestions to see short prioritized candidates with reasons, dependencies and effort; choose before anything is scheduled. Idle activation never scans/schedules backlog. Timed reminders require your explicit request.
+Older completed rounds can move into one adjacent archive when the notebook grows beyond 750 lines, or when you request it. Unresolved work and the latest completed round stay available; renaming a notebook also includes its archive.
 
-At the first task read, retain each authoritative registry’s physical path and independent exact-byte/SHA-256 baseline (or absence); preserve the original across recovery. Save needed baseline bytes or a retrievable snapshot reference in existing recovery evidence before interruption. Compare before shared-record writes and at closeout; inspect all changed bytes, including formatting, and record accepted diffs without replacing the baseline. Reconcile foreign changes without overwriting or silently adopting them. Missing baseline/bytes is a disclosed proof limit, never evidence of no change; a hash proves only byte equality. No self-hash, sidecar, hook or runtime is added. See [invariant policy](../references/invariants.md#discover-and-reconcile).
+Future ideas may appear in `backlog.md` as proposed or deferred work. A backlog entry is a reminder, not permission to implement it; ask for a backlog review and choose what to do next.
 
-Any system-registry content edit produces a dedicated **System invariant changes** heading explaining affected IDs, changes and reasons in the saved Reply and chat, even with `inline-reply: off`. The heading is a fixed identifier. Saved Reply and chat report path-only relocation under **System invariant relocation**; notices precede the exact short receipt and accompany feature handoffs.
+## Steer current work or save a later batch
 
-## Add later batches
+Ordinary follow-up messages correct or extend the current task. State the change directly, including any constraint that should replace an earlier one.
 
-While work is active, start a separate message with `append-rounds <work>` for each later batch. One message is one batch, even if it contains several tasks. For example, send `append-rounds Update the installation guide`, then another message `append-rounds Check the updated examples`. Ordinary messages still correct or extend the active task; quoted examples do not schedule work, and a bare command asks what to add.
+To save work for later, begin a separate message with:
 
-The host appends to the same Current-linked pending section until it is empty, preserving each batch's input/order in the existing tracker, outside the active Ask; without a tracker, it uses a Current-linked evidence record. Stable arrival numbers and the receiving Ask distinguish identical batches; corrections stay with their targeted batch until capture. It finishes the active batch's Reply, gates and authorized delivery before moving the next batch into its own Ask. Ask IDs and artifact folders are assigned when reached. Each Reply is saved immediately on completion. Pending work stays linked from STATUS Current; `godev` resumes it, reconciling already-captured input before creating another round. Gates, blockers and missing authority pause advancement. An off-record batch request is neither staged nor executed; resend without the marker for later work. A batch requesting a feature lifecycle command is also neither staged nor executed; resend any remaining work as `append-rounds <work>` without the lifecycle request and send that lifecycle command separately when ready. Commands/modes inside ordinary staged work take effect only when reached. With no active work, pending batch or unsettled delivery, and an empty trailing Ask, the request starts there directly; otherwise it is staged. Direct owner input already in the next Ask runs before pending batches. Cancellation is captured in the active Ask before removing the pending entry. Pending feature batches prevent merge until resolved; an explicit drop abandons them with the inspected feature data.
+```text
+append-rounds Update the installation examples
+```
 
-For each reached append-rounds batch, including small or directly captured batches, prefer a fresh bounded native implementation worker for separable work unless fast-lane or an explicit executor choice applies. The host keeps the queue, claims, notebook/input capture, decisions, verification, integration, delivery and host-only bookkeeping. Use the [bounded assignment](../references/review.md#give-one-bounded-assignment) with that batch’s captured input/corrections and needed context, without inherited conversation or the whole queue. Delegating one bounded batch alone needs no tracker; other creation criteria, explicit requests and gates still apply. Unavailable native transport permits direct host work with a recorded reason unless explicit executor/independence requirements forbid it. Invalid or unsupported selected settings require an owner decision under existing worker rules; never silently substitute a model or the host.
+One message creates one later batch, even if it contains several tasks. `append-tasks` means exactly the same thing; neither command adds work to a looper queue.
 
-With `inline-reply: off`, chat ends with a receipt naming the latest completed Ask. With `on`, it shows all newly completed Replies in order, then that receipt; required notices from every newly completed batch appear in batch order. Pending batches do not wake a stopped host or create extra final chat turns. See [batch rules](../SKILL.md#append-rounds).
+The agent finishes the current answer, approval gates and authorized delivery before starting the next batch in its own Ask/Reply round. Use `godev` to resume pending batches after an interruption; they do not wake a stopped host.
 
-## Readable answers and focused checks
+Send feature creation, merge or drop commands separately. A batch containing one of those commands is neither staged nor executed; resend the remaining ordinary work without it.
 
-Replies identify each question using only its first paragraph, capped at 100 characters (including spaces/punctuation), with `...` for omitted text. Full input remains in Ask; every question/correction still gets answered.
+See [batch rules](../references/batches.md#append-rounds) for cancellation, ordering and recovery.
 
-[Writing guidance](../references/writing.md) makes ultimate comprehension the highest writing goal: the intended reader must understand the essential result without guessing or opening links. Brevity, formatting and terminology serve that goal.
+## Keep one exchange off the record
 
-Make writing easy to read and quick to scan: use short prose paragraphs or list items, one concept per block, usually 1–3 short sentences, with blank lines between them. Start each block with its main point; split long or multi-concept blocks before delivery. A dense paragraph still fails when made into one long bullet.
+Include an unquoted `nolog:`, `noop:`, `off:` or `skip:` in your message to keep that exchange out of workflow records, including later summaries.
 
-Machine-only documents, including skill prompts, may be aggressively compressed while retaining requirements, exceptions, safeguards, precision and correctness; mixed documents follow each audience’s rule.
+These markers still allow the requested work to execute. In particular, `noop:` does not mean “do nothing.” Your next unmarked message records normally.
 
-Before every delivery, check whether the reader can explain the result, who does what, why it matters and any decision/action needed; clarify or rewrite applicable gaps.
+An off-record append request is neither saved for later nor executed. Resend it without the marker if you want a later batch.
 
-Put the conclusion/action first, use plain language and short prose or list items, and preserve important limits. Cut repetition.
+Quoted examples do not activate these markers or other task modes. See [routing rules](../SKILL.md#route-before-records).
 
-List several document references as nested `-` items with blank lines.
+## Choose the help your task needs
 
-Every report opens with its conclusions, key findings, applicable recommendations or decisions, and material limits, so readers can get the essential result without reading the detail. Postmortems and root-cause reports also put causes and prevention recommendations there. Split rather than cut required content; keep the opening complete across short blocks.
+Use `fast-lane <task>` for direct work by the host. For that task, it skips advisors, ordinary delegation, new design/tracker creation, ordinary separate review and routine progress entries.
 
-Hosts pass this guidance to delegated report authors.
+The agent still captures your request, checks and reviews its result, keeps recovery usable and delivers the authorized work. Explicit plans or reviews, configured approval gates and feature requirements still apply.
 
-Before a consequential choice, including any choice changing an accepted outcome, guarantee or owner-chosen design, the host must explain the requested/current approach and each proposed alternative: who does what, what stays, what changes or is lost, and how that affects your goal.
+Use `skip-review <task>` when you want the host to review its own work while keeping the ordinary planning and execution steps. It waives ordinary separate review for that task, including the normal risk-boundary requirement.
 
-It names rule conflicts and separates tested behavior from assumptions or illustrations; settled decisions remain settled. If an unfamiliar reader cannot retell the work and consequence, it must rewrite before asking.
+Both modes follow one identified task through follow-ups and resume, then expire at completion. They change no project settings; a bare command needs clear unfinished work.
 
-Planning checks adequacy and accepted scope before minimality: fewer components do not justify losing an outcome, purpose or safeguard. Additions need authority; removals need a preserved guarantee, replacement and proving example, accounting for host attention and recovery too. Missing proof stays explicit while authorized checks proceed; only unresolved authority, outcome or constraint choices need a decision. Settled decisions are not reopened without new conflicting evidence. For consequential architecture changes, inspect a compact responsibility flow and one lifecycle against the original request before a costly pilot, and use a check the inadequate alternative cannot pass. Executable-loop permission, dispatch while the host is absent and who controls ordinary task events are separate decisions. Reviewers receive original requirements, explicit deltas and labelled constraints, recommendations and assumptions. You supply goals, known constraints and examples; technical intake fields are optional. The host derives grouping, paths, dependencies, baseline and checks from evidence and asks only material unknowns. These checks reuse existing records/review; routine edits gain no mandatory alternatives or approval stage. See [planning rules](../SKILL.md#records-and-review) and [review](../references/review.md#inspect-the-finished-result).
+`skip-review` replaces earlier review requests for that work. A review explicitly requested in the same message or later still applies.
 
-Unfinished work, authorization and recovery stay in the tracker, or Current without one; STATUS Current links canonical recovery, while new Asks stay empty apart from owner input. Existing Ask links remain valid. [Git delivery](../references/configuration.md#git-delivery) retains claim/retry/failure safeguards.
+Use `grill-me <topic>` for an interview before committing to a direction. The agent first inspects context, then asks connected questions about the outcome, assumptions and strongest relevant challenge.
 
-- **Windows:** Load [Windows guidance](../references/windows.md) for affected platform work. Cleanup requires policy-compatible Trash/Recycle Bin behavior with recovery proof; permanent deletion is no fallback.
+The interview includes at least one round for you to confirm or correct its understanding. It authorizes discussion, not implementation, and can be requested even during fast-lane work.
 
-- **Browser:** Default to Stagehand for automation code and Browserbase's `browse` CLI ([official browser skill](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)) for Chrome operations; owner/project preferences override. [Browser testing](../references/browser-testing.md) supplies owned local/headless sessions, access safeguards and actual journey evidence for host verification/acceptance.
+Use `advisors: requirements, explore` to request focused advice. Advisors answer named questions; selecting them does not authorize their proposed changes or require a separate worker for every role.
 
-- **Security:** The existing [security-scan advisor](../references/advisors/security-scan.md) selects relevant source/dependency/secret checks, records reproducible evidence and separates suspected/confirmed findings and unavailable coverage. Runtime/source-upload authority remains separate; no financial-compliance claim.
+The [cheatsheet's advisor list](CHEATSHEET.md#commands--alphabetical) helps you choose a role. [Advisor guidance](../references/ag.md) explains how the agent limits and stops an investigation.
 
-## Ask for the mode you need
+For a feature in unfamiliar existing code, `browfield <task>` selects an eight-step path from discovery through verification and preservation. It helps uncover existing rules and protect behavior before changes; it does not replace aglite's approvals, records or review.
 
-- **Direct work:** `fast-lane fix the typo in README.md` applies to one identified task and persists through follow-ups/resume until completion. It skips advisors, ordinary delegation, new design/tracker, ordinary separate review and routine RUN/WIP. The host still reviews and checks the result, records input/Reply and respects explicit plans/reviews, configured gates and feature requirements. Existing recovery records remain current. Bare `fast-lane` needs an unfinished task; it does not close an empty Ask.
+Simply working in an existing repository does not select that path. See the [brownfield procedure](../references/browfield.md) when you need it.
 
-- **Host review for one task:** `skip-review fix the typo in README.md` waives ordinary separate review, including the skill’s risk-boundary requirement, for one identified task. Other steps and settings stay intact. It replaces earlier owner review requests for the same work; same-message/later explicit review requirements prevail. The override survives follow-ups/resume and expires at completion. Bare invocation uses unambiguous unfinished work; ambiguity asks, no work waits without persisting an override. Quoted examples do not activate it; live reviewers must be settled before switching.
+## Plan and review in proportion to the work
 
-Advisor selection, record creation, planning routes and model settings answer different questions. Creation rules determine whether records are needed; `plan-order` governs how an already-needed plan is authored. Advice alone does not require a design/tracker. Mandatory design content remains in [host rules](../SKILL.md#records-and-review); the final-review checklist remains in [review.md](../references/review.md#inspect-the-finished-result). Spec investigates a named contract gap; acceptance applies that same review pass.
+Say “plan first and wait” when you want to approve the approach before implementation. Say “plan and implement” when both are authorized, subject to any unresolved material decision or configured gate.
 
-- **Focused advice:** The host names material questions needing structured investigation as the request or evidence raises them, then selects relevant advisors before dependent work. `advisors: requirements, explore` explicitly selects roles. Available names: `requirements`, `codewalk`, `explore`, `spike`, `spec`, `security-scan`, `acceptance`, `final-audit`, `learn`, `product-docs`. Ordinary tasks load no advisor prompts; selection grants advice within the task, not new implementation authority. The host chooses the smallest useful investigation and stops when evidence settles the question.
+Ordinary planning starts with the required outcome and accepted scope, then looks for the simplest adequate approach. You supply goals, constraints and examples; the agent derives technical paths and checks from the project and asks about material unknowns.
 
-- **Final audit:** Use `advisors: final-audit` or ask to audit an identified candidate before release. The host may also select it for a named readiness gap within accepted release work; project size/completion alone does not trigger it. The [final-audit advisor](../references/advisors/final-audit.md) examines system interactions and the actual distribution after ordinary checks and candidate assembly. Earlier focused advice returns findings, coverage and limits for that gap, without a readiness verdict. Ordinary review requests remain result review. It reuses `acceptance` worker settings and a matching required review, retaining uncovered obligations. Missing required artifact rehearsal stays unproved/NO-GO; GO grants no publication authority. No new command, mandatory stage or switch.
+By default, plans are created when useful. The `plan-mode` setting can require a design and tracker before task edits, or prevent new designs while still allowing needed trackers.
 
-- **Adaptive interview:** When material intent needs exploration, the requirements role inspects context and repository evidence first, then the host asks connected rounds, usually one to three questions with alternatives, consequences and a recommendation. Your answers guide follow-ups and concrete challenges to contradictions. Decisions stay in existing records; no duplicate interview log. Stop when implementation/checks need no guessed material intent; silence/defaults never approve work. `grill-me [topic]` explicitly requests this process even without a detected gap. It requests at least one owner round confirming or correcting the inferred outcome, key assumptions and strongest relevant challenge, then stops at readiness. Bare invocation uses a clear active topic or asks for one without persisting a mode; quoted examples do not activate it. It selects the interview despite fast-lane’s advisor skip, retaining other fast-lane rules; no persistent switch, required worker/document or extra implementation authority. Questions use existing answer locations: with `inline-reply: off`, read and answer them in the saved notebook/design. See [requirements](../references/advisors/requirements.md).
+Creating a plan and choosing who writes it are separate decisions. `plan-order` controls an already-needed plan; it does not create another planning stage.
 
-- **Claude-first planning:** `3ways` lets Claude write the main plan, including a simpler adequate alternative, with your complete request, decisions, evidence and read access to approved source/prior plans. Codex challenges requirements, facts and feasibility; the host keeps Claude’s plan unless a high-confidence defect is proved. Stylistic alternatives do not replace it. No three-agent quota or implementation approval.
+Use `3ways <request>` for Claude to write the main plan and Codex to challenge concrete defects. The host keeps the main plan unless the challenge proves a high-confidence problem; this command does not approve implementation.
 
-Already-needed plans, specifications, planning advice and prepare-tasks grouping follow `plan-order`, default `external`. Planning advice means advice that authors or revises a plan; interviews and evidence gathering retain ordinary advice rules. This creates no extra plan or advisor stage. Fast-lane uses the host for retained/requested plans unless you explicitly select another task planning route; skip-plan and approval gates retain their rules.
+The other planning routes use an external CLI, a fresh native agent or the host directly. If a route is unavailable, the host reports the permitted fallback honestly; explicit provider, model, effort or independence constraints still apply.
 
-Choose `external` for Claude CLI authoring without an automatic Codex challenge, `native` for a fresh native planner, or `host` for the active host directly without worker probes. Native prefers Claude only when supported; other authorship is labelled honestly.
+Changed code, operational prompts, product artifacts and implementation-ready contracts normally receive result review after host checks. Ordinary questions and illustrative examples receive host review.
 
-If a selected route is unavailable, the host records why and degrades from that position: `3ways → external → native → host`, `external → native → host`, or `native → host`; `host` is terminal. Here `native` means an internal agent. It reuses a usable plan and skips duplicate failed probes. Invalid selected settings require a decision; explicit provider, model, effort, independence and read-only constraints block incompatible fallback. A degraded route does not claim a completed cross-family challenge. See [planning routes](../references/review.md#planning-routes).
+`review-order` selects the ordinary review route. Where separate review is required, the agent prefers a different model family from the known principal planner when supported; repeated or unknown family has a disclosed limit.
 
-- **Off-record exchange:** Include unquoted `nolog:`, `noop:`, `off:` or `skip:` to exclude that exchange's input, progress and answer from workflow records, including later summaries. Quoted examples do not trigger it; the next unmarked message records normally.
+A fallback cannot satisfy a requirement for independence if it is not independent. Missing required checks remain unproved even if a reviewer likes the result.
 
-Say “plan first and wait” to require a review checkpoint, or “plan and implement” to authorize both unless a material decision remains. Ideas and reviewer suggestions do not authorize adjacent changes, publishing, external messages or cleanup.
+`gate-design` adds approval before implementing a design. `gate-tracker` adds approval of checked results before final delivery when a tracker exists.
 
-The owner-facing host reads top-level `ag.json` `next_update_date` (UTC `YYYY-MM-DD`; missing/null means due). Before that date it makes no release request; when due it checks only the [Agentflow stable feed](https://github.com/agfnow/agentflow/releases), then schedules the next check two calendar days later even if lookup fails. Delegates/isolated looper sessions and off-record exchanges do neither. Aglite is the beta name for Agentflow 9; Agentflow 8.x is never its upgrade. Replacement, including the 9+ transition, still requires approval and preserves source WIP. See [release checks](../references/configuration.md#session-release-check).
+An empty answer or elapsed time never supplies approval. See the [settings reference](CHEATSHEET.md#agjson--switches--alphabetical), [planning rules](../references/planning.md) and [review rules](../references/review.md).
 
-## Configure a project
+## Work on a separate feature
 
-`ag.json` lives at the Git root, or the original folder outside Git. When supplied, schema-version must be the JSON integer `9`; unsupported schemas stop dependent work. Missing plan-order defaults to `external`; missing review-order defaults to `external`. Known predecessor settings migrate automatically on each host read, preserving valid owner choices and unknown/comment keys. Unknown/newer schemas or ambiguous/lossy changes stop dependent work for a decision; missing new keys keep following defaults. Repeated current reads write nothing. See [migration](../references/configuration.md#automatic-migration). Future schema revisions increment the integer, independently of package version. Missing keys use defaults; invalid recognized values stop dependent work. Ask the host to change named settings, or edit the file deliberately. [Configuration](../references/configuration.md) is authoritative.
+Send `new-feature <name>` to prepare a branch and Git worktree, a separate checkout where you can work without changing main's files. The usual paths are `feature/<name>` and `.wts/ft-<name>`.
 
-- **Paths:** `ag-dir` defaults to `.agentflow`; `notebook-name` is a basename beneath it, default `<short-dirname>.devlog.md`. Lowercase ASCII, replace non-alphanumeric runs with `-`, trim, cap the stem at 32 characters and trim trailing `-`; empty stem → `devlog.md`. Setup persists the generated name in new configuration. Unsafe names/paths are rejected. Explicit notebook selection and feature routing retain their own rules; active relocation requires authorized handoff.
+Follow the returned numbered handoff. In Codex or Claude Code, it includes `/cd <feature-checkout>` followed by `godev`, plus the actual feature-notebook path to open; other hosts reopen at that location.
 
-- **Output/language:** `inline-reply: off`, `skip-asker: on`; `use-lang` defaults to the observed OS locale, then `en-us`. All agent-authored chat/writing follows the configured locale regardless of input language; only an explicit response/target-language instruction overrides it. The installed template uses `en-us`, replaced with the detected locale on first initialization.
+Running shell `cd` alone does not move the host session. Creating the feature also does not authorize unspecified implementation.
 
-- **Progress:** `skip-run: on`, `skip-wip: on` are missing-key defaults. The bundled template sets `skip-run: on` and `skip-wip: off`, omitting routine RUNs while enabling ten-active-minute WIP checkpoints for newly initialized projects. Suppressing them retains required recovery facts elsewhere.
+Send `merge-feature <name>` when the feature is ready to verify and integrate. The branch and checkout remain unless you explicitly add “and cleanup.”
 
-- **Plans/review:** `skip-plan: off`. Plans are proportional; code, operational prompts, product artifacts and implementation-ready contracts require result review after host checks. Q&A and illustrative examples use host checks.
+Send `drop-feature <name>` to abandon it. The agent first inspects local work, then moves the checkout to verified Trash or Recycle Bin and deletes its branch; permanent deletion is not a fallback.
 
-`review-order: external` (default) tries counterpart CLI → fresh-context native → labelled host fallback; `native` reverses the separate routes; `host` uses host directly without worker probes.
+You may drop from inside the feature checkout, omitting the name when unambiguous. Follow the resulting main-checkout handoff for future work; partial failures include their exact recovery action.
 
-For an already-required separate review with a known principal planner, the host prefers a different model family, then another supported configured model, before ordinary route/tier defaults; task-level hard constraints still prevail. Same-family/model review remains allowed with the limitation disclosed. See [planner diversity](../references/review.md#inspect-the-finished-result).
+Creation and merge use feature records; drop reports in chat. All three avoid main's root notebook and claim.
 
-Stop at the first usable permitted route; record availability failures before fallback. Invalid or unsupported selected model/effort requires a decision.
+Main's unrelated edits remain protected. Real Git conflicts and target-feature ownership still matter.
 
-Required independence (including the skill’s unwaived risk-boundary rule) and explicit review requirements prevail over every order; same-message/later explicit requests prevail over the `skip-review` command; incompatible fallback stays pending. Use `skip-review [task]` for one-task host review.
+A merged or dropped feature is retired. For cleanup limits, handoff templates and recovery, see [feature rules](../references/features.md).
 
-- **Checkpoints:** `gate-design: off`, `gate-tracker: off`. Turning them on adds the documented approval gates; an empty answer or elapsed time never supplies approval.
+## Run prepared groups with the optional looper
 
-- **Git:** `auto-commit: on`, `auto-push: on`. Verified task changes and owner edits are committed separately; push applies when a safe remote/branch exists. Ask for both `off` if you want neither. These controls do not authorize deployment or changes to unrelated repositories. Non-Git first-time setup asks before creating a repository; declining keeps Branch N/A and skips Git delivery. Later ordinary non-Git work does not initialize Git without an explicit request.
+Use looper when you want a prepared work list divided into groups and executed in isolated worktrees. Ordinary tasks do not require it.
 
-- **Worker models:** `pipeline-roles` selects a tier for already-selected work; `model-family.<provider>.<tier>` holds one `model/effort` string, split at the final slash. Catalog names are extensible (`gemini`, `openrouter` or custom names); select from observed host/provider configuration or explicit owner choice. Codex/openai and Claude Code/claude are bundled examples, not a host allowlist; external profiles reference that same catalog using `model-family` and retain their CLI command separately. Tier values live in the bundled configuration. Planning uses the selected advisor role, otherwise `threeways`; challenges use `threeways`, and result review/final-audit use `acceptance`. The project/template include `product-docs: better`; absent roles inherit transport defaults. Missing/ambiguous/unsupported selected values block dispatch without substitution; explicit owner fields override corresponding values. Configured pairs need host controls honoring both model and effort; unconfigured roles inherit host defaults. Settings launch no work. See [worker settings](../references/configuration.md#worker-settings).
+Give the host outcomes, examples and things to preserve. `prepare-tasks <request>` saves a linked queue, the original request and group plans, then stops for you to inspect them.
 
-For actual work, notebook ownership is required: the host exclusively creates a per-notebook `.owner` marker using its session identity. A foreign, malformed or mismatched claim stops task execution. Never delete someone else's marker based on age or process silence; ask for an explicit clearing/handoff when needed. This coordinates cooperating agents, not unrestricted editors. A verified Reply plus next Ask permits claim release at yield after workers/operations settle and any unfinished authority, identities and next action are saved. Open-round pauses and feature-lifecycle exceptions keep their existing rules; release grants neither completion nor approval. Preserve session identity through compaction, and request explicit handoff for lost identity or activation mismatch. See [ownership and refusal details](../SKILL.md#notebook-ownership).
+`run-tasks` starts or resumes that linked queue. `run-tasks <run-root>` selects another prepared queue, and `handle-tasks <request>` combines preparation and execution.
 
-Review copies are conditional: use a disposable checkout without a remote when reviewer tools could modify originals, or freeze source when a stable snapshot is needed. Enforced read-only access or tools-disabled exact text avoids redundant copies. External tool access must exclude sensitive/unapproved files; use approved copied source or exact text when direct access cannot enforce that boundary. Recheck source identities before accepting/reusing review; changed paths need rechecking. Record the reason, source identity and actual controls; copies protect originals, not credentials/network, and are not an OS sandbox.
+Configure looper routes before running; the bundled routes are empty. Routes choose the transport, provider and model catalog, while model choices remain in the shared model settings.
 
-Retain evidence only for a concrete recovery step, review obligation or consequential decision; omit routine success detail reproducible from source, preserving required proof and existing linked history.
+When choosing task routes, prefer an external CLI. An explicit native choice is retained; native dispatch needs the live host and does not silently switch providers when the host closes.
 
-## Separate feature work
+Groups run in separate worktrees. Tasks within a group run sequentially in fresh sessions; groups with dependencies wait for their earlier groups to be checked and integrated.
 
-Use `new-feature <name>` for a Git worktree on `feature/<name>` under `.wts/ft-<name>`. Every Codex/Claude Code surface must follow the localized three-step creation template in order: created branch/worktree, `/cd <relative-feature-checkout>` then `godev`, and an editor-open suggestion with the actual configured feature-notebook path. Paths are relative to the verified source session directory, with an absolute fallback when needed; other hosts reopen there. Its notebook is `.agentflow/features/<name>/<name>.devlog.md`, subject to configuration. The preparation command does not authorize unspecified feature implementation. All three feature commands bypass main’s root notebook/archive/claim entirely, including this session’s claim; absent, busy or unresolved root records never block them. No lifecycle input, retirement entry, Reply or substitute ledger is written there. Real Git conflicts/locks and target-feature ownership still apply. Git inventory replaces a feature ledger/index; preparation and handoff close in the feature notebook, with supplied implementation in its next Ask. A partial pair without a notebook needs an explicit repeated `new-feature`, never inferred work; existing retired feature records cannot be reopened. Claims/records cover only the target feature, including its integrated copy; no main root-history scan or permanent tombstone is required once old objects are gone.
+Ready groups enter one integration lane in arrival order. Questions pause only their group, so answer through the host while independent groups continue.
 
-`merge-feature <name>` verifies and integrates completed work; it retains the worktree/branch unless cleanup is explicit. “and cleanup” authorizes retiring that verified checkout and deleting its merged local branch. `drop-feature <name>` abandons the named feature after inspecting unmerged/local work; it moves the checkout to verified Trash/Recycle Bin under owner policy and deletes its branch.
+Queue progress and actual attempt choices are saved. Resume preserves unfinished work and reconciles previous writers before starting replacements; changed or missing preparation input blocks execution rather than changing the job silently.
 
-Creation and merge state stay in feature-specific records; drop results and partial-cleanup instructions stay in chat without a durable retirement record. A missing feature notebook does not block drop.
+Group notebooks stay in `.aglite-records/` and are excluded from product integration. Run records and worktrees remain after completion; preserve ignored records before any separately authorized cleanup.
 
-Run drop inside the feature worktree, optionally omitting its name: the host removes its own checkout using commands rooted in main, then provides `/cd <absolute-main-checkout>` and `godev`. No pre-drop directory switch or restart is required.
+Looper does not grant later cleanup, push or release authority. See the [looper contract](../references/looper.md), [retained files](../references/looper.md#retained-files) and [complete CLI/settings reference](CHEATSHEET.md#looper-cli--alphabetical).
 
-Merge excludes root-notebook/archive/claim changes and preserves main’s working/index state. Configured final gates precede destructive cleanup.
+## Change configuration deliberately
 
-A merged or dropped feature is retired.
+Project configuration lives at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the usual record directory. Ask the agent to change named settings, or edit the file deliberately.
 
-In Codex/Claude Code, enter `/cd <absolute-main-checkout>` then `godev` for future work, or the exact command for pending authorized cleanup; other hosts reopen in main.
+The [cheatsheet](CHEATSHEET.md#agjson--switches--alphabetical) owns the complete settings list, accepted values and defaults. [Configuration rules](../references/configuration.md#discovery-and-validation) own discovery, validation and language behavior.
 
-Merge/drop must give numbered result and next-action steps. Step 1 may contain short indented paragraphs or sub-items, preserving required facts and step order.
+Use `use-lang` to choose the language of new agent-written chat and documents, including human template labels and receipts. An explicit target-language request overrides it; the language you happen to type does not.
 
-A successful validated merge’s editor suggestion points to main’s configured root notebook, verified by metadata without reading or changing it; drop’s appears only for a verified surviving feature notebook outside Trash.
+Original input, history, machine syntax and established artifact languages stay intact. Changing the language setting does not translate your project's past.
 
-Main-rooted sessions explicitly say to remain in main; partial cleanup gives its exact recovery command and failed merges stay in the current checkout.
+Use `saving-mode: on` for minimum sufficient prose and fewer optional records. Requested detail, comprehension, required checks, approval gates and usable recovery still take priority; it does not change models or routes.
 
-Never shorten to a bare command block; other hosts keep numbered steps with restart instructions.
+Check Git delivery settings before relying on automatic commits or pushes. `auto-commit` and `auto-push` are separate controls; ask for both to be `off` if you want neither.
 
-Destination recovery requires verified host directory context, Git identity, configuration and notebook ownership. See [feature rules](../references/features.md) before lifecycle actions.
+Verified task changes and your own edits are committed separately. These settings do not authorize deployment, publication, external messages or unrelated changes.
 
-## Install, update and limits
+Model settings select models and effort for already-chosen work; they launch nothing by themselves. Selected settings must be supported rather than silently replaced.
 
-Install from the public repository with `npx skills add agfnow/aglite --skill aglite`; select host and scope, then open a new session. Update a Skills CLI installation with `npx skills update aglite`, adding `-g` or `-p` for scope. The current [Skills CLI reference](https://github.com/vercel-labs/skills#skills-update) documents those commands. Claude Code's alternative plugin route and update controls are in the [public README](https://github.com/agfnow/aglite#install) and [official plugin docs](https://code.claude.com/docs/en/discover-plugins). Choose one route per host.
+For Copilot, use the [Copilot guide](../references/copilot.md) to distinguish native editor controls from CLI capabilities. A successful CLI run does not prove native editor support.
 
-No setup command, hooks, publisher program or scheduler is required. Completion and recovery depend on host compliance; missing checks stay unproved. Symlink/file validation does not prove automatic discovery or unattended operation on every host/platform.
+### Migration and installation
 
-## Product documentation
+When the host encounters a recognized Agentflow 8 project, it loads the separate migration procedure. Safe mappings run automatically; old approval policies, ownership conflicts or unsupported restrictions wait for your decision.
 
-Accepted changes update affected maintained user, contributor and maintainer guidance in the same change, including fast-lane/skip-review. Reuse existing overview, manual/quick reference, technical entry point and agent instructions across project types; no fixed suite or no-impact record. Each changing fact has one owner and checked dependents, including translations and tutorials. A multi-doc suite may reuse an index or use configured `<ag-dir>/doc-ledger.md` (default `.agentflow/doc-ledger.md`); keep private maps out of shipped links.
+The host updates the project configuration and current STATUS, and removes only confirmed old project hook or startup units. It keeps your conversation history, foreign settings and a recoverable private backup.
 
-Use `advisors: product-docs` for a named product-map, first-time suite, handover or substantial drift gap. Selection requests advice, not a broad rewrite or publication. Bundled role: `better`; missing role inherits host defaults. Check affected contradictions, links, examples and necessary journeys/distribution; unavailable required proof stays unproved. No continuous synchronization guarantee or mandatory audit. See [maintenance](../references/product-docs.md) and [advisor](../references/advisors/product-docs.md).
+Known aglite schemas 9, 10 and 11 also upgrade to schema 12. For example, `skip-wip: off` keeps its meaning as `omit-wip: off`; it does not become the missing-key default.
+
+Review the saved migration result and restart the host when old integrations were loaded. Existing v8 queues or active streams need a handoff before their runtime is retired; they are not new looper queues.
+
+See [legacy migration (legacy-migration.md, line 1)](../references/legacy-migration.md) for supported mappings and recovery, and [configuration upkeep (upkeep.md, line 5)](../references/upkeep.md#automatic-migration) for later formats. Replacing an installed skill still needs your explicit permission.
+
+Install using the public [package README](https://github.com/agfnow/aglite#install). Choose one installation route per host and open a new session afterward; follow that route's update instructions when updating.
+
+Release checks consult the Agentflow stable feed when due. Agentflow 8.x is not an upgrade from this Agentflow 9 beta, and discovering an update does not authorize replacement or publication.
+
+See [release checks](../references/configuration.md#session-release-check) for timing and [upkeep](../references/upkeep.md) for replacement boundaries.
+
+## Know what still needs proof
+
+Aglite relies on the host following its instructions. Installed files and valid paths alone do not prove automatic discovery, unattended operation or support on every host.
+
+The optional looper has its own runtime requirements. For Windows work, follow [Windows guidance](../references/windows.md); successful tests on another platform do not prove native Windows execution.
+
+For browser journeys, the agent checks actual behavior under [browser testing rules](../references/browser-testing.md). Your project's tool preferences override the bundled browser defaults.
+
+Accepted behavior changes also update affected maintained documentation and translations. Ask for `advisors: product-docs` when you need focused help with a documentation map, handover or substantial drift gap; the advice does not authorize publication.
+
+System invariants are accepted guarantees the project must preserve. Changes to their registry produce a dedicated notice in both the saved answer and chat, even with short chat receipts; a path-only move produces a relocation notice.
+
+For exact authority, start with the [skill](../SKILL.md), [shared project rules](../references/project-rules.md), [invariant policy](../references/invariants.md) and [delivery rules](../references/delivery.md). The [cheatsheet](CHEATSHEET.md) provides the complete command, advisor and setting lookup without turning this guide into a second contract.

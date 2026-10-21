@@ -1,6 +1,6 @@
 {
   "name": "aglite",
-  "description": "Resumable development with the aglite skill.",
+  "description": "Keep development work resumable with aglite.",
   "owner": {
     "name": "agfnow"
   },
@@ -8,7 +8,7 @@
     {
       "name": "aglite",
       "source": "./",
-      "description": "Host-driven development with a resumable project notebook."
+      "description": "Project notebooks, proportionate plans and checked results."
     }
   ]
 }

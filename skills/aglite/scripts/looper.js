@@ -17,29 +17,78 @@ function worker(selection) {
   insist(selection && ['cli', 'native'].includes(selection.kind), 'Worker kind must be cli or native')
   insist(text(selection.provider) && text(selection.model) && text(selection.effort), 'Explicit worker provider/model/effort required')
   if (selection.kind === 'cli') {
-    insist(['codex', 'claude'].includes(selection.provider), 'Unsupported CLI provider')
-    const efforts = selection.provider === 'codex'
-      ? ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] : ['low', 'medium', 'high', 'xhigh', 'max']
+    insist(['codex', 'claude', 'copilot'].includes(selection.provider), 'Unsupported CLI provider')
+    const efforts = selection.provider === 'claude'
+      ? ['low', 'medium', 'high', 'xhigh', 'max']
+      : ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', ...(selection.provider === 'copilot' ? ['max'] : [])]
     insist(efforts.includes(selection.effort), 'Unsupported selected effort; no substitution')
   }
 }
+// Fresh launches own separate contexts; Copilot can serve multiple model families.
+// Catalog/provider labels never prove family diversity; explicit host constraints still apply.
+function counterpart(repair, review) {
+  return repair.provider !== review.provider || repair.provider === 'copilot'
+}
 function read_settings(repo) {
-  const file = S.safe_path(repo, 'ag.json', { must_exist: true })
-  S.checked_file(file)
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
-  let source
-  try { source = fs.readFileSync(fd, 'utf8') } finally { fs.closeSync(fd) }
-  let config
-  try { config = JSON.parse(source) } catch (error) { throw Error(`${file}: ${error.message}`) }
-  insist(config && typeof config === 'object' && !Array.isArray(config), 'ag.json must be an object')
-  insist(config['schema-version'] === undefined || config['schema-version'] === 9, 'ag.json schema-version: migrate to integer 9 via the host')
+  const canonical = [], legacy = [], other = [], uncertain = []
+  // Probe the former fixed locations for unsafe components, even when a custom
+  // canonical config exists. Never follow links during the filename inventory.
+  for (const relative of ['ag.json', '.agentflow/ag.json']) S.safe_path(repo, relative)
+  function walk(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (['.git', 'node_modules', '.aglite-records'].includes(entry.name)) continue
+      const file = path.join(directory, entry.name)
+      const relative = path.relative(repo, file).split(path.sep).join('/')
+      if (entry.isSymbolicLink()) {
+        insist(entry.name !== 'ag.json', `Symlink path refused: ${file}`)
+        uncertain.push(relative)
+        continue
+      }
+      if (entry.name !== 'ag.json') {
+        if (entry.isDirectory() && !fs.existsSync(path.join(file, '.git'))) walk(file)
+        continue
+      }
+      S.checked_file(file)
+      const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+      let source
+      try { source = fs.readFileSync(fd, 'utf8') } finally { fs.closeSync(fd) }
+      let config
+      try { config = JSON.parse(source) } catch (error) {
+        if (['ag.json', '.agentflow/ag.json'].includes(relative)) throw Error(`${file}: ${error.message}`)
+        other.push(relative); continue
+      }
+      if (!config || typeof config !== 'object' || Array.isArray(config) ||
+          (config.switches !== undefined && (!config.switches || typeof config.switches !== 'object' || Array.isArray(config.switches)))) {
+        if (['ag.json', '.agentflow/ag.json'].includes(relative)) throw Error(`${file}: ag.json and switches must be objects`)
+        other.push(relative); continue
+      }
+      const ag_dir = config.switches?.['ag-dir'] === undefined ? '.agentflow' : config.switches['ag-dir']
+      // Validate even a legacy source's declared destination before choosing it.
+      const declared = S.safe_path(repo, ag_dir)
+      const candidate = { file: relative, config, source }
+      if (path.dirname(file) === declared) canonical.push(candidate)
+      else if (relative === 'ag.json' || (relative === '.agentflow/ag.json' &&
+        [undefined, 9, 10, 11, 'aglite-5'].includes(config['schema-version']))) legacy.push(candidate)
+      else {
+        insist(relative !== '.agentflow/ag.json', `Misplaced configuration ${relative}: owner reconciliation required`)
+        other.push(relative)
+      }
+    }
+  }
+  walk(repo)
+  insist(canonical.length + legacy.length <= 1,
+    `Configuration collision: ${[...canonical, ...legacy].map(value => value.file).join(', ')}; owner reconciliation required`)
+  insist(!legacy.length, `Legacy configuration ${legacy[0]?.file}: relocate to <ag-dir>/ag.json via the owner-facing host`)
+  insist(canonical.length === 1, `No canonical <ag-dir>/ag.json; resolve configuration routing${other.length || uncertain.length ? ': ' + [...other, ...uncertain].join(', ') : ''}`)
+  const { config, source, file } = canonical[0]
+  insist(config['schema-version'] === undefined || config['schema-version'] === 12, 'ag.json schema-version: migrate to integer 12 via the host')
   const limits = config['looper-limits'] === undefined ? {} : config['looper-limits']
   insist(limits && typeof limits === 'object' && !Array.isArray(limits), 'ag.json looper-limits must be an object')
   const max_workers = limits['max-workers'] === undefined ? 3 : limits['max-workers']
   const max_repairs = limits['max-repairs'] === undefined ? 2 : limits['max-repairs']
   insist(Number.isSafeInteger(max_workers) && max_workers > 0, 'ag.json looper-limits.max-workers must be positive integer')
   insist(Number.isSafeInteger(max_repairs) && max_repairs >= 0, 'ag.json looper-limits.max-repairs must be nonnegative integer')
-  return { config, digest: crypto.createHash('sha256').update(source).digest('hex'), max_workers, max_repairs }
+  return { config, file, digest: crypto.createHash('sha256').update(source).digest('hex'), max_workers, max_repairs }
 }
 function select(settings, role) {
   insist(['task', 'repair', 'review', 'acceptance'].includes(role), 'Unknown looper role')
@@ -63,7 +112,7 @@ function select(settings, role) {
     selection.executable = value.executable
   }
   try { worker(selection) } catch (error) { throw Error(`${label} (${model_key}): ${error.message}`) }
-  selection.source = { file: 'ag.json', digest: settings.digest, route, tier }
+  selection.source = { file: settings.file, digest: settings.digest, route, tier }
   return selection
 }
 function request_text(queue, root) {
@@ -88,7 +137,7 @@ function validate(queue, root, { verify_request = true } = {}) {
   insist(queue.schema_version === 2, 'Queue schema 2 with request file/digest required; preserve started queues and finish with their matching prior runtime; host may convert verified unstarted queues')
   insist(id(queue.run_id), 'Invalid queue run_id')
   insist(path.isAbsolute(queue.repo) && fs.realpathSync(queue.repo) === queue.repo &&
-    G.git(queue.repo, ['rev-parse', '--show-toplevel']) === queue.repo, 'Physical Git-root repo required')
+    fs.realpathSync.native(G.git(queue.repo, ['rev-parse', '--show-toplevel'])) === queue.repo, 'Physical Git-root repo required')
   G.git(queue.repo, ['check-ref-format', '--branch', queue.target_branch])
   G.oid(queue.repo, queue.base_commit)
   if (queue.expected_head) G.oid(queue.repo, queue.expected_head)
@@ -124,11 +173,21 @@ function validate(queue, root, { verify_request = true } = {}) {
     for (const task of group.tasks) {
       insist(id(task.id) && !tasks.has(task.id), 'Duplicate/invalid task ID')
       tasks.add(task.id)
-      insist(source.split('\n').filter(line => line === `## ${task.id}`).length === 1, `Missing/duplicate task section ${task.id}`)
+      insist(source.split(/\r?\n/).filter(line => line === `## ${task.id}`).length === 1, `Missing/duplicate task section ${task.id}`)
       insist(Array.isArray(task.allowed_paths) && task.allowed_paths.length, 'Task allowed_paths required')
       for (const file of task.allowed_paths) {
         S.safe_path(queue.repo, file)
-        insist(!/^(\.git|\.wts|\.aglite-records)(\/|$)/.test(file), 'Reserved task path')
+        insist(!/^(\.git|\.wts|\.aglite-records)(\/|$)/i.test(file), 'Reserved task path')
+        if (process.platform === 'win32') {
+          const first = path.join(queue.repo, file.split('/')[0])
+          if (fs.existsSync(first)) {
+            const actual = fs.realpathSync.native(first).toLowerCase()
+            for (const name of ['.git', '.wts', '.aglite-records']) {
+              const reserved = path.join(queue.repo, name)
+              insist(!fs.existsSync(reserved) || actual !== fs.realpathSync.native(reserved).toLowerCase(), 'Reserved task path alias')
+            }
+          }
+        }
       }
       checks(task.checks)
     }
@@ -178,29 +237,71 @@ function status(root = process.cwd()) {
 }
 function task_text(root, group, task) {
   const source = fs.readFileSync(path.join(root, group.file), 'utf8')
-  const start = source.indexOf(`## ${task.id}\n`)
-  insist(start >= 0, 'Task section missing')
-  const next = source.indexOf('\n## ', start + 4)
-  return source.slice(start, next < 0 ? undefined : next)
+  const heading = new RegExp(`^## ${task.id}\\r?$`, 'gm')
+  const matches = [...source.matchAll(heading)]
+  insist(matches.length === 1, 'Task section missing/duplicate')
+  const start = matches[0].index
+  const rest = source.slice(start + matches[0][0].length)
+  const next = /\r?\n## /.exec(rest)
+  return source.slice(start, next ? start + matches[0][0].length + next.index : undefined)
 }
-function notebook(cwd, queue, group) {
+function notebook(cwd, group) {
   const dir = path.join(cwd, '.aglite-records')
   S.inspect_path(dir)
-  fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, 'devlog.md')
-  if (!fs.existsSync(file)) fs.writeFileSync(file, `# STATUS\n\nProject: ${queue.run_id}/${group.id}\n\nNotebook: .aglite-records/devlog.md — explicit isolated group\n\nCheckout: ${cwd}\n\nBranch: ${group.workspace.branch}\n\nCurrent: A-001\n\nProven: none\n\nNext: assigned task\n\nArchived eras: none\n\n---\n\n# → Ask / A-001\n`, { flag: 'wx' })
+  S.inspect_path(file)
+  if (fs.existsSync(file)) {
+    S.checked_file(file)
+    group.notebook_initialized = true
+  } else insist(!group.notebook_initialized && !(group.attempt?.previous_round > 0) &&
+    !group.tasks.some(task => task.round > 0), 'Active isolated notebook is missing; explicit recovery required')
   return file
+}
+// Phase comes from the sequence, never from a translated label. Ignore code fences;
+// only actual top-level headings can prove ordinary workflow completion.
+function notebook_rounds(value) {
+  let fence, round, ask_label, reply_label, phase = 0, completed = 0
+  for (const line of value.split(/\r?\n/)) {
+    const boundary = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line)
+    if (boundary) {
+      if (!fence) fence = { char: boundary[1][0], length: boundary[1].length }
+      else if (boundary[1][0] === fence.char && boundary[1].length >= fence.length && !boundary[2].trim()) fence = undefined
+      continue
+    }
+    if (fence) continue
+    const heading = /^# (?:(→) ([^\r\n]+?)|((?:Ask|Reply))) \/ A-(\d{3,})(.*)$/.exec(line)
+    if (!heading) {
+      insist(!/^# (?:→ .+|Ask|Reply) \/ A-/.test(line), 'Malformed ordinary round heading')
+      continue
+    }
+    const label = heading[2] || heading[3]
+    const number = Number(heading[4])
+    const suffix = heading[5]
+    insist(!suffix || /^ \([^\r\n]+\)$/.test(suffix), 'Malformed ordinary round heading')
+    if (round === undefined) { round = number; phase = 1 }
+    else if (number === round && phase === 1) {
+      insist(label !== ask_label, 'Duplicate ordinary Ask heading')
+      insist(!suffix, 'Reply cannot have an asker suffix')
+      if (heading[3]) insist(heading[3] === 'Reply', 'Out-of-order ordinary round heading')
+      reply_label = label
+      phase = 2; completed = round
+      continue
+    } else {
+      insist(number === round + 1 && phase === 2 && label !== reply_label, 'Missing/duplicate/out-of-order ordinary round heading')
+      round = number; phase = 1
+    }
+    ask_label = label
+    if (heading[3]) insist(heading[3] === 'Ask', 'Ordinary round must start with Ask')
+  }
+  return { completed, next: phase === 1 && round === completed + 1 }
 }
 function ordinary_closeout(cwd, attempt) {
   const file = path.join(cwd, '.aglite-records/devlog.md')
   S.checked_file(file)
-  const value = fs.readFileSync(file, 'utf8')
-  const replies = [...value.matchAll(/^# (?:→ )?Reply \/ A-(\d+)$/gm)]
-  const reply = replies.at(-1)
-  insist(reply && Number(reply[1]) > (attempt.previous_round || 0) &&
-    value.slice(reply.index).includes(`# → Ask / A-${String(Number(reply[1]) + 1).padStart(3, '0')}`),
+  const rounds = notebook_rounds(fs.readFileSync(file, 'utf8'))
+  insist(rounds.completed > (attempt.previous_round || 0) && rounds.next,
     'Ordinary task closeout is missing a new Reply/next Ask')
-  return Number(reply[1])
+  return rounds.completed
 }
 function project_context(queue) {
   const paths = uniq(['AGENTS.md', ...(queue.contracts || [])])
@@ -283,6 +384,7 @@ async function run(root = process.cwd(), options = {}) {
     } catch (error) { if (error.unsettled) uncertain = true; else settled(list); throw error }
   }
   const invoke = async (role, cwd, prompt, holder) => {
+    const fresh_attempt = !holder.attempt
     if (!holder.attempt) {
       const selected = select(settings, role)
       if (role === 'repair') {
@@ -290,21 +392,23 @@ async function run(root = process.cwd(), options = {}) {
         insist(group && (group.repairs || 0) < settings.max_repairs, 'Repair budget exhausted')
         const review = select(settings, 'review')
         if (selected.kind === 'cli' && review.kind === 'cli')
-          insist(selected.provider !== review.provider, 'Repair requires counterpart review')
+          insist(counterpart(selected, review), 'Repair requires counterpart review')
       }
       holder.attempt = { id: crypto.randomUUID(), role, selection: selected, expected_head: G.head(cwd), started_at: now() }
       if (role === 'task') {
-        const previous = fs.readFileSync(notebook(cwd, q, holder), 'utf8')
-        holder.attempt.previous_round = Math.max(0, ...[...previous.matchAll(/^# (?:→ )?Reply \/ A-(\d+)$/gm)].map(match => Number(match[1])))
+        const file = notebook(cwd, holder)
+        holder.attempt.previous_round = fs.existsSync(file) ? notebook_rounds(fs.readFileSync(file, 'utf8')).completed : 0
       }
       save()
     }
     const attempt = holder.attempt
     insist(attempt.role === role && attempt.selection, 'Saved attempt role/selection required')
     const selection = attempt.selection
+    if (role === 'task') { notebook(cwd, holder); save() } // Persist observed creation, including pending native work.
     worker(selection)
     const original_prompt = prompt
-    if (role === 'task') prompt += `\nUse generated workflow session UUID ${attempt.id} for this isolated task's notebook ownership. This UUID is assigned before dispatch, not read from a marker. Never take a foreign claim. If a question blocks closeout, preserve the open Ask and this session's marker; the coordinator may archive only this exact mapped marker after proved worker stop for the authorized task handoff.`
+    prompt = `Isolated looper ${role} session: read inherited configuration only at ${path.join(cwd, settings.file)}; missing/unsafe config blocks dependent work, never substitute defaults. No configuration discovery, creation, migration writes, release checks or project adoption; these belong to the owner-facing host. Interpret documented mappings in memory only; unknown/conflicting mappings require owner decisions. Root notebooks, registry and backlog are read-only constraints.\n${prompt}`
+    if (role === 'task') prompt += `\nUse generated workflow session UUID ${attempt.id} for this isolated task's notebook ownership. This UUID is assigned before dispatch, not read from a marker. You alone render/create this isolated notebook from the ordinary notebook asset in configured switches.use-lang before task work; the coordinator creates no human scaffold. STATUS identity facts: project ${q.run_id}/${holder.id}; notebook .aglite-records/devlog.md (explicit isolated group); checkout ${cwd}; branch ${holder.workspace.branch}. Preserve existing history/ownership and exact original input bytes; render mutable STATUS and new human text in the configured locale. Perform no other setup, adoption, backlog/registry writes or config migration. Before starting/resuming a native assignment, inspect its current queue group; a blocked group or handoff recovery error forbids dispatch or notebook recreation. Never take a foreign claim. If a question blocks closeout, preserve the open Ask and this session's marker; the coordinator may archive only this exact mapped marker after proved worker stop for the authorized task handoff.`
     insist(id(attempt.id), 'Invalid saved attempt identity')
     const dir = path.join(root, 'attempts', attempt.id)
     if (selection.kind === 'native') {
@@ -334,6 +438,10 @@ async function run(root = process.cwd(), options = {}) {
       return result
     }
     // Import stopped results after a crash; only an exact answered attempt may renew nonpass work.
+    if (role === 'task') {
+      const file = notebook(cwd, holder)
+      insist(fs.existsSync(file) || fresh_attempt && attempt.previous_round === 0, 'Active isolated notebook is missing; explicit recovery required')
+    }
     if (fs.existsSync(dir)) {
       const exit_file = path.join(dir, 'exit.json')
       const result_file = path.join(dir, 'result.json')
@@ -356,6 +464,7 @@ async function run(root = process.cwd(), options = {}) {
       const result = await (options.agent || A.launch_agent)({ selection, role, cwd, prompt,
         attempt, attempt_dir: dir, signal: abort.signal, on_launch: observe, on_descendant: observe })
       settled(list)
+      if (role === 'task') { notebook(cwd, holder); save() }
       return A.validate_result(result, attempt)
     } catch (error) { if (error.unsettled) uncertain = true; else settled(list); throw error }
   }
@@ -421,6 +530,18 @@ async function run(root = process.cwd(), options = {}) {
       }
       if (group.state === 'uncertain') group.state = group.attempt ? 'working' : 'pending'
       if (group.state === 'working' && !group.attempt) group.state = 'pending'
+      if (group.workspace && group.tasks.some(task => task.state !== 'done')) {
+        try {
+          notebook(group.workspace.worktree, group)
+          const handoff = q.handoffs.find(item => item.id === group.attempt?.id && !item.completed)
+          if (handoff?.error === 'Active isolated notebook is missing; explicit recovery required') handoff.error = null
+          save()
+        } catch (error) {
+          const handoff = q.handoffs.find(item => item.id === group.attempt?.id && !item.completed)
+          if (handoff) handoff.error = error.message
+          question(group, error.message, 'task')
+        }
+      }
     }
     // Only host-supplied answers are inputs; the coordinator alone saves their state.
     const answers = path.join(root, 'inbox', 'answers.json')
@@ -431,9 +552,13 @@ async function run(root = process.cwd(), options = {}) {
       const answer_source = answer.source || 'owner'
       insist(['owner', 'host'].includes(answer_source) && (!item.requires_owner || answer_source === 'owner'),
         'Owner-only question requires an actual owner answer')
+      const group = q.groups.find(entry => entry.id === item.group_id)
+      if (item.kind === 'task' && group.workspace) {
+        const file = notebook(group.workspace.worktree, group)
+        insist(fs.existsSync(file) || group.attempt?.selection.kind !== 'cli', 'Active isolated notebook is missing; explicit recovery required')
+      }
       item.answer = answer.answer
       item.answer_source = answer_source
-      const group = q.groups.find(entry => entry.id === item.group_id)
       group.state = item.kind === 'integration' ? 'ready' : 'pending'
       if (answer_source === 'host' && item.kind === 'task' && group.attempt?.selection.kind === 'cli')
         group.retry_attempt = group.attempt.id
@@ -477,6 +602,10 @@ async function run(root = process.cwd(), options = {}) {
     const completed = []
     const task_job = async group => {
       const cwd = G.prepare_group(q, group, save)
+      notebook(cwd, group) // Check known history before creating the verified checkout's record directory.
+      const records = S.safe_path(cwd, '.aglite-records')
+      if (!fs.existsSync(records)) fs.mkdirSync(records) // Never recreate a vanished checkout root.
+      insist(fs.statSync(records).isDirectory(), 'Isolated records path must be a directory')
       const task = group.tasks.find(item => item.state !== 'done')
       if (!task) return { group, ready: true }
       group.state = 'working'
@@ -515,7 +644,7 @@ async function run(root = process.cwd(), options = {}) {
       }
       const instructions = fs.readFileSync(input_file, 'utf8')
       const prior = q.questions.filter(item => item.group_id === group.id && item.answer)
-      const prompt = `Load ${path.join(skill, 'SKILL.md')}. Original authorized request (context only; execute the selected task): ${original_request}\nExplicit session overrides: notebook ${path.join(cwd, '.aglite-records/devlog.md')}; ag-dir .aglite-records; auto-commit off; auto-push off; no configuration migration writes or release checks in this isolated looper session (owner-facing host upkeep only); interpret documented legacy config mappings in memory without editing ag.json. Root notebooks, registry and backlog are read-only constraints. No project adoption writes. Follow ordinary task workflow and configured review; no mandatory extra verifier or group gates. Do not ask to create a Git repository. Finish the task's ordinary closeout before returning pass; retain exact scaffold headings # → Reply / A-NNN and # → Ask / A-NNN (three-digit increasing IDs).\n${context}\nGroup ${group.id}, task ${task.id}; edit only ${JSON.stringify(task.allowed_paths)}.\n${instructions}\nDeclared checks: ${JSON.stringify(task.checks.map(key => q.checks[key]))}.\nHost-provided answers/corrections: ${JSON.stringify(prior)}\nPreserve any existing unfinished task edits; inspect before continuing.`
+      const prompt = `Load ${path.join(skill, 'SKILL.md')}. Original authorized request (context only; execute the selected task): ${original_request}\nExplicit session overrides: notebook ${path.join(cwd, '.aglite-records/devlog.md')}; ag-dir .aglite-records; auto-commit off; auto-push off; ag-dir .aglite-records is a record-only session override and never relocates config. No project adoption writes. Follow ordinary task workflow and configured review; no mandatory extra verifier or group gates. Do not ask to create a Git repository. Finish the task's ordinary closeout before returning pass; render headings as # → <localized label> / A-NNN (Ask then Reply for each ID, then next consecutive Ask; three-digit increasing IDs, optional parenthesized asker suffix only on Ask); localize all human text using switches.use-lang while preserving machine tokens.\n${context}\nGroup ${group.id}, task ${task.id}; edit only ${JSON.stringify(task.allowed_paths)}.\n${instructions}\nDeclared checks: ${JSON.stringify(task.checks.map(key => q.checks[key]))}.\nHost-provided answers/corrections: ${JSON.stringify(prior)}\nPreserve any existing unfinished task edits; inspect before continuing.`
       const result = await invoke('task', cwd, prompt, group)
       if (!result) return { group, native: true }
       if (result.outcome !== 'pass') {
@@ -601,7 +730,7 @@ async function run(root = process.cwd(), options = {}) {
           const comparison = `Coordinator-observed exact Git evidence: HEAD ${G.head(cwd)}; branch ${G.git(cwd, ['symbolic-ref', '--short', 'HEAD'])}; status ${JSON.stringify(G.git(cwd, ['status', '--porcelain']))}. Diff from base to exact result:\n${G.git(cwd, ['diff', '--binary', attempt.base, attempt.result])}\nObserved check output:\n${JSON.stringify(logs)}\nThese are supplied live coordinator observations; inspect the diff and actual candidate files. Shell/Git re-execution is not required when this evidence suffices. Return repair for concrete code defects; blocked for missing access/proof; needs_owner for owner-only decisions.`
           const review = attempt.attempt?.selection || select(settings, role)
           if (role === 'review' && attempt.repair_selection?.kind === 'cli' && review.kind === 'cli')
-            insist(attempt.repair_selection.provider !== review.provider, 'Repair requires counterpart review')
+            insist(counterpart(attempt.repair_selection, review), 'Repair requires counterpart review')
           const result = await invoke(role, cwd,
             `${context}\n${role === 'review' ? 'Review' : 'Accept or reject'} repaired combined result ${attempt.result} against original request ${original_request}. Base ${attempt.base}. Requirements:\n${requirements}\nChecks: ${JSON.stringify(attempt.checks)}. Read actual diff/files. Missing proof is blocked.\n${comparison}`, attempt)
           if (!result) return { native: true }
@@ -656,8 +785,10 @@ async function run(root = process.cwd(), options = {}) {
           if (q.lane_error) continue
           try { G.target_safe(q) } catch (error) { q.lane_error = error.message; save(); continue }
         }
-        const reserved = q.groups.filter(item => item.state === 'native' && !jobs.has(item.id)).length
-        if (!(group.state === 'native' && group.attempt) && jobs.size + reserved >= settings.max_workers) continue
+        const reserved = q.groups.filter(item => !jobs.has(item.id) && (item.state === 'native' ||
+          q.handoffs.some(handoff => handoff.id === item.attempt?.id && !handoff.completed))).length
+        if (!(group.attempt && (group.state === 'native' || q.handoffs.some(item => item.id === group.attempt.id && !item.completed))) &&
+            jobs.size + reserved >= settings.max_workers) continue
         if (group.state === 'native' && group.attempt &&
             (invalid_native.has(group.attempt.id) || !fs.existsSync(path.join(root, 'inbox', `${group.attempt.id}.json`)))) continue
         const job = task_job(group).then(result => completed.push(result), error => completed.push({ group, error }))
@@ -704,4 +835,4 @@ async function run(root = process.cwd(), options = {}) {
   }
 }
 
-module.exports = { run, status, load, validate, task_text, ordinary_closeout, read_settings, select }
+module.exports = { run, status, load, validate, task_text, ordinary_closeout, read_settings, select, counterpart }

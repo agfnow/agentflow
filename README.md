@@ -1,69 +1,118 @@
-# aglite v0.3.1
+# aglite v9.0.0-beta.1
 
 **English** · [繁體中文](README.zh-tw.md)
 
-Give your coding assistant a project notebook so a fresh session can resume your work. aglite keeps requests, decisions, evidence and results in readable files, with proportionate plans, optional advisors and result review.
+Give your coding assistant a project notebook. It saves your requests, decisions and answers so another session can pick up unfinished work.
 
-The ordinary workflow follows host-agent Markdown instructions. Optional [looper](skills/aglite/references/looper.md) adds an explicitly authorized Node.js coordinator for independent task groups; no hooks or publisher are included. Aglite is the development beta name for the forthcoming Agentflow 9.
-
-Looper routes and limits live in `ag.json`; queues retain instructions/progress and actual attempt selections as evidence.
-
-Task/repair reuse `implementation`; review/renewed acceptance reuse `acceptance`. Configure the empty bundled routes before running; see [looper settings](skills/aglite/references/configuration.md#looper-settings).
-
-Optional [brownfield guidance](skills/aglite/references/browfield.md) provides an eight-step procedure for authorized features in unfamiliar existing code. Use `browfield <task>`, ask for the eight-step procedure, or let the host select it for a named material discovery/regression-protection need; an existing repository alone does not activate it. It follows ordinary aglite modes, gates and records and reuses advisor methods as needed. No separate skill installation is required.
-
-## Optional parallel groups
-
-[Looper](skills/aglite/references/looper.md) runs ready groups in parallel, with fresh ordinary task workers running sequentially within each group. Use `prepare-tasks <request>` to prepare `queue.json`, `planned/request.md` and `planned/group-NNN.md`, then stop; `run-tasks` executes the Current-linked queue, and `handle-tasks <request>` combines both. The host derives technical inputs from your outcomes and repository evidence.
-
-Default concurrency is 3 groups and repair budget is 2. Ready groups enter one FIFO integration lane; clean checked merges add no agents, while repairs retain review and acceptance. Ordinary workflow/review settings remain.
-
-Optional `depends_on` lists earlier groups; downstream work starts after their checked integrations, with their files visible. Waiting uses no task slot; started worktrees keep their bases.
-
-
-Native dispatch needs the live host; CLI task sessions support Codex/Claude.
-
-Questions block their group while independent groups continue; answer the host to resume.
-
-Group records stay isolated from product integration.
-
-Install the zero-dependency launcher with `npm install -g <resolved-skill>`.
-
-The host starts `agf loop run [run-root]`; `agf loop status [run-root]` reads saved progress/questions.
-
-Shell root defaults to cwd and missing queue errors; chat `run-tasks` resolves Current instead.
-
-Recovery preserves work and reconciles old writers/Git effects.
-
-No daemon, separate promotion, cleanup, push or release authority follows. Read the execution contract before running.
+aglite is the beta name for Agentflow 9. This is a prerelease; installing from this repository’s default branch selects the beta even while GitHub keeps an earlier stable release marked Latest.
 
 ## Install
 
-Use an assistant with file and command tools. The [Skills CLI](https://github.com/vercel-labs/skills) can install for Codex, Claude Code and other hosts:
+Use an assistant that can read and edit files and run commands. Choose one installation route per host to avoid loading duplicate copies.
+
+With the [Skills CLI](https://github.com/vercel-labs/skills), run:
 
 ```sh
 npx skills add agfnow/aglite --skill aglite
 ```
 
-Choose your assistant and project/global scope. Node.js is required by that installer and optional looper; ordinary notebook work does not require it. Git is needed for versioned delivery and feature worktrees; ordinary notebook work can use an existing folder without Git.
+Choose your assistant when prompted. Installation defaults to this project; add `-g` for global scope.
 
-For the Claude Code plugin route, use its [marketplace commands](https://code.claude.com/docs/en/discover-plugins):
+The [Skills CLI installer](https://github.com/vercel-labs/skills#install-a-skill) requires Node.js 22.20 or later. Ordinary notebook work has no aglite runtime to install.
+
+For the [Claude Code plugin route](https://code.claude.com/docs/en/discover-plugins), enter these commands in Claude Code:
 
 ```text
 /plugin marketplace add agfnow/aglite
 /plugin install aglite@aglite
 ```
 
-Start a new assistant session after installation or updates. Install through one route per host to avoid duplicate discovery. Then send:
+Open a new assistant session after installation or an update. Your host must support and honor skill instructions; installing files alone does not prove automatic loading on every host.
+
+## Start with one task
+
+Open your project and send:
 
 ```text
-godev
-Improve the welcome page. Keep its links; let me review before publishing.
+godev Improve the welcome page. Keep its links and let me review before publishing.
 ```
 
-## Switch from Agentflow in Claude Code
+On first use, aglite creates the missing settings and records. It preserves existing files and asks before initializing Git in a non-Git folder.
 
-Finish or checkpoint active Agentflow work first. In Claude Code, run:
+Setup also adds missing root `AGENTS.md` instructions for the owner-facing agent to load aglite in later sessions. Your existing rules stay intact; delegated workers keep their bounded assignment.
+
+Next time, open the same project and send `godev`. The agent resumes unfinished work, waits at an actual approval or asks for your next request when idle.
+
+By default, complete answers are saved in the notebook. Chat ends with a receipt such as:
+
+```text
+→ Updated: A-001 | .agentflow/example.devlog.md
+  (/path/to/example)
+```
+
+Open that file to read the answer. Set `inline-reply: on` for full saved answers in chat, or explicitly request a particular answer there. Human labels and receipts follow `use-lang`.
+
+## Everyday choices
+
+- Send an ordinary follow-up to steer the current task.
+
+- Start a message with `append-rounds <work>` or its exact alias `append-tasks <work>` to save a later batch. Each batch gets its own Ask/Reply round after current work and delivery finish.
+
+- Use `fast-lane <task>` for direct host work, or `skip-review <task>` for host review. Required checks and explicit approvals still apply.
+
+- Use `grill-me <topic>` for an interview, `3ways <request>` for Claude-led planning with a Codex challenge, or `advisors: <names>` for focused advice. A plan or suggestion does not approve implementation.
+
+- Include unquoted `nolog:`, `noop:`, `off:` or `skip:` to keep one exchange off-record. The requested work still executes; an off-record append request is neither staged nor executed.
+
+The [everyday guide](skills/aglite/docs/AG_GUIDE.md) explains the choices. The [cheatsheet](skills/aglite/docs/CHEATSHEET.md) lists every command, advisor, setting and default.
+
+## Work beside main
+
+`new-feature <name>` prepares an isolated Git worktree. Follow the returned handoff before implementing there.
+
+`merge-feature <name>` verifies and integrates finished work, retaining its branch and checkout unless you add “and cleanup.” `drop-feature <name>` abandons the inspected feature using recoverable cleanup.
+
+Creation and merge use feature records; drop reports in chat. All three avoid main’s root notebook and claim.
+
+Real Git conflicts and another session’s target-feature claim still matter.
+
+See [feature workflows](skills/aglite/references/features.md) for exact handoffs and recovery. Git is required for these operations.
+
+## Optional grouped execution
+
+Give the host a work list with outcomes and examples. `prepare-tasks <request>` groups the work and saves a linked queue, then stops for inspection.
+
+`run-tasks` executes or resumes that queue. `handle-tasks <request>` combines preparation and execution.
+
+Groups use separate worktrees, and each task runs in a fresh session. Earlier-group dependencies wait for checked integration; ready groups merge through one serial lane.
+
+Configure routes first: the bundled routes are empty. Settings live in `ag.json`, including concurrency (default 3) and repair budget (default 2); queues keep progress and immutable attempt evidence.
+
+Prefer CLI task routes when choosing a route. An explicit native route needs the live host; closing it never silently selects CLI instead.
+
+The optional looper needs Node.js 20+ and Git. To register its zero-dependency shell launcher, run `npm install -g <resolved-skill>`, then use `agf loop run [run-root]` or `agf loop status [run-root]`.
+
+Questions pause their group while independent groups continue. Retained worktrees and evidence support recovery; cleanup, push and release still need their own authority.
+
+See the [looper contract](skills/aglite/references/looper.md) and [settings](skills/aglite/references/looper.md#looper-settings) before running.
+
+## Upgrade an Agentflow project
+
+Finish or safely hand off active old workers, streams and queues first. Keep their records; old queue files cannot become new looper jobs by renaming them.
+
+When the host encounters a recognized Agentflow 8 project, it loads a separate migration procedure. Safe cases upgrade automatically to schema 12; unsupported restrictions, old consequential-only approval rules or ambiguous ownership wait for a specific decision.
+
+Migration updates project configuration and STATUS, retires confirmed old project hooks/startup units, and retains private recoverable originals. Conversation history and unrelated settings survive.
+
+Known aglite schemas9/10/11 also migrate. In particular, `skip-wip: off` becomes `omit-wip: off`, preserving its meaning.
+
+Shared/global integrations require their own scope authority. Restart the host when old hooks were already loaded, and read the saved result before continuing.
+
+See [migration steps](skills/aglite/docs/AG_GUIDE.md#migration-and-installation) and the [migration prompt](skills/aglite/references/legacy-migration.md). This is project-format migration; replacing an installed skill remains a separate explicit action.
+
+### Switch Claude Code from the old plugin
+
+At the scope where Agentflow is enabled, disable it and install aglite. These are Claude Code session commands:
 
 ```text
 /plugin disable agentflow@agentflow
@@ -71,58 +120,20 @@ Finish or checkpoint active Agentflow work first. In Claude Code, run:
 /plugin install aglite@aglite
 ```
 
-Open `/plugin` → Installed to confirm Agentflow is disabled and aglite is enabled at the intended scope, then start a new session. Plugin installation defaults to user scope; project/local settings can override it. For a specific scope, use shell commands such as `claude plugin disable agentflow@agentflow --scope user` and `claude plugin install aglite@aglite --scope user`, substituting `project` or `local` where needed. See [plugin scopes](https://code.claude.com/docs/en/discover-plugins#choose-an-install-scope).
+Check `/plugin` → Installed for the intended scope, then open a new session. For explicit user scope from a shell, use `claude plugin disable agentflow@agentflow --scope user` and `claude plugin install aglite@aglite --scope user`; substitute `project` or `local` when appropriate.
 
-Disabling the plugin leaves its files and notebook history intact. It does not disable a separate manually installed Agentflow skill or change project instructions that still require Agentflow. Inspect those before using aglite in an existing project; no automatic migration of Agentflow configuration/history or backward compatibility is provided. Keep the old records and explicitly select the notebook to continue. Use one aglite installation route per host.
+A separately installed old skill or shell function may still select Agentflow. Reconcile those integrations before activating a migrated project; disabling one plugin does not remove the other installation.
 
-## Everyday use
+## Configuration and limits
 
-[Command and settings cheatsheet](skills/aglite/docs/CHEATSHEET.md)
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 12 is separate from package version 9.0.0-beta.1.
 
-- `godev` activates the workflow or resumes unfinished work. A verified Git repo with no selected notebook, configured ag-dir, history or prior retirement initializes proactively, even without a task; off-record and feature rules prevail. Other bare idle activation asks for the next request without writes.
+Use `use-lang` for new human-facing text, `plan-mode` for document creation, and `plan-order`/`review-order` for already-needed planning and review. Missing or unsupported selected controls block rather than silently changing the model.
 
-- Read results in the notebook named by the final receipt. By default, chat ends with `Updated: A-NNN | <notebook>` followed by the working directory on the next line; set `inline-reply` to `on` for the saved answer in chat.
+`auto-commit` and `auto-push` default on. Check them before starting if you want local edits only; they grant no publication or deployment authority.
 
-- `fast-lane [task]` keeps one task with the host and skips advisors, new design/tracker, ordinary separate review and routine RUN/WIP. Host review, necessary checks and explicit checkpoints remain.
+Release lookups consult the Agentflow stable feed on their scheduled date. Agentflow 8.x is not a successor to this beta; installation replacement still needs approval.
 
-- `advisors: requirements, codewalk` selects optional reasoning roles. The host loads only relevant prompts; advisors grant no new implementation authority.
+The workflow relies on the host following its instructions. Native Windows, editor and provider behavior require their own evidence; a successful CLI or another platform’s test proves only that surface.
 
-- `3ways` selects Claude-led planning with complete context and approved source/prior-plan read access; Codex challenges/reviews, and only proved high-confidence defects displace Claude’s main plan. It grants no implementation authority. Result review follows `review-order`; required independence still needs separate tools.
-
-- Unquoted `nolog:`, `noop:`, `off:` or `skip:` makes that exchange off-record; the next unmarked message resumes recording.
-
-Current configuration uses JSON integer `schema-version: 9`; configuration schema is independent of the package version. Known predecessor settings migrate on each host read, preserving valid owner values and unknown/comment fields. Unknown/newer schemas or ambiguous/lossy changes need a decision. Missing keys follow current defaults. See [migration](skills/aglite/references/configuration.md#automatic-migration).
-
-Planning defaults to `external`, with downward fallback `external → native → host`; explicit `3ways` starts one level above. Invalid settings and explicit constraints remain blockers. Release checks use `ag.json` `next_update_date` (UTC date), querying only Agentflow when due and scheduling two days ahead after each attempt. Aglite is the beta name for Agentflow 9; 8.x is not an upgrade. Replacement needs approval and preserves WIP. See [release checks](skills/aglite/references/configuration.md#session-release-check).
-
-Already-needed planning, including task grouping and planning advice, follows `plan-order: external` by default.
-
-Choices degrade on recorded unavailability: `3ways` (Claude plan/Codex challenge) → `external` (Claude CLI plan) → `native` (fresh native planner) → `host` (active host, no probes).
-
-Prefer Claude where that route supports it; label other authorship and incomplete challenges honestly. Invalid selected settings and explicit provider/model/effort/independence/read-only constraints still block incompatible fallback. No extra plan or stage follows from a setting.
-
-Defaults include automatic commits/pushes when applicable and notebook ownership for actual work. `review-order: external` (default) tries counterpart CLI → fresh-context native → labelled host fallback; `native` reverses the separate routes; `host` uses host directly without worker probes.
-
-For an already-required separate review with a known principal planner, the host prefers a different model family, then another supported configured model, before ordinary route/tier defaults; task-level hard constraints still prevail. Same-family/model review remains allowed with the limitation disclosed. See [planner diversity](skills/aglite/references/review.md#inspect-the-finished-result).
-
-Stop at the first usable permitted route; record availability failures before fallback. Invalid or unsupported selected model/effort requires a decision.
-
-Required independence (including the skill’s unwaived risk-boundary rule) and explicit review requirements prevail over every order; same-message/later explicit requests prevail over the `skip-review` command; incompatible fallback stays pending.
-
-`skip-review [task]` selects host review for one task, waiving ordinary separate review including the skill’s risk-boundary requirement, while retaining other steps/settings. It replaces earlier owner review requests for the same work; same-message/later explicit review requirements prevail. It persists through follow-ups/resume and expires at completion; it is a command, not a configuration switch. Tell the assistant when you want local changes only. Controls and gates come from project `ag.json`; ideas alone do not authorize implementation, publishing or deletion.
-
-## Updates and limits
-
-For a Skills CLI installation, update by installed name, using `-g` for global scope or `-p` for project scope:
-
-```sh
-npx skills update aglite
-```
-
-Plugin installations follow Claude Code's marketplace/plugin update controls. Maintainer symlinks instead follow their local source checkout.
-
-Ordinary notebook work depends on the host following its instructions. Optional looper can continue selected CLI work while its coordinator runs; native dispatch still requires the live host.
-
-Cooperating sessions use ownership markers, and conflicting claims require an explicit handoff. Missing required tools or checks remain unresolved. No broad host/platform compatibility claim is implied.
-
-Read the [everyday guide](skills/aglite/docs/AG_GUIDE.md), [繁體中文指南](skills/aglite/docs/AG_GUIDE.zh-tw.md), [configuration reference](skills/aglite/references/configuration.md) and [changelog](CHANGELOG.md).
+Read the [English guide](skills/aglite/docs/AG_GUIDE.md), [繁體中文指南](skills/aglite/docs/AG_GUIDE.zh-tw.md), [cheatsheet](skills/aglite/docs/CHEATSHEET.md), [Copilot guidance](skills/aglite/references/copilot.md) and [changelog](CHANGELOG.md) for details.

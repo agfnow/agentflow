@@ -5,7 +5,7 @@ const { spawnSync } = require('node:child_process')
 const { inspect_path } = require('./looper-state')
 
 const git = (cwd, args) => {
-  const result = spawnSync('git', ['-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, '--literal-pathspecs', ...args], {
+  const result = spawnSync(process.platform === 'win32' ? require('./looper-agent').resolve_command(['git.exe'])[0] : 'git', ['-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, '--literal-pathspecs', ...args], {
     cwd,
     encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024,
@@ -127,7 +127,7 @@ function prepare_group(queue, group, save) {
   const exclude = inspect_path(path.resolve(w.worktree, git(w.worktree, ['rev-parse', '--git-path', 'info/exclude'])))
   const existing = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8') : ''
   const rules = ['/.aglite-records/', '/.aglite-records/.devlog.md.owner']
-  const missing = rules.filter(rule => !existing.split('\n').includes(rule))
+  const missing = rules.filter(rule => !existing.split(/\r?\n/).includes(rule))
   if (missing.length) fs.appendFileSync(exclude, `\n${missing.join('\n')}\n`)
   return w.worktree
 }

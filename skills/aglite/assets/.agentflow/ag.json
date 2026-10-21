@@ -1,5 +1,5 @@
 {
-  "schema-version": 9,
+  "schema-version": 12,
   "next_update_date": null,
   "switches": {
     "ag-dir": ".agentflow",
@@ -8,12 +8,13 @@
     "gate-design": "off",
     "gate-tracker": "off",
     "inline-reply": "off",
+    "omit-asker": "on",
+    "omit-run": "on",
+    "omit-wip": "off",
+    "plan-mode": "optional",
     "plan-order": "external",
     "review-order": "external",
-    "skip-asker": "on",
-    "skip-plan": "off",
-    "skip-run": "on",
-    "skip-wip": "off",
+    "saving-mode": "off",
     "use-lang": "en-us"
   },
   "pipeline-roles": {

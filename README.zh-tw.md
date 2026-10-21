@@ -1,67 +1,118 @@
-# aglite v0.3.1
+# aglite v9.0.0-beta.1
 
 [English](README.md) · **繁體中文**
 
-讓程式開發助理用專案筆記保留需求、決策、驗證證據與結果，換一個工作階段也能接續。aglite 依任務需要使用計畫、顧問與成果審查。
+讓程式代理把需求、決定與答案留在專案裡。下次開啟對話時，就能從紀錄接著做，不必重新交代所有背景。
 
-一般工作流程由主代理遵循 Markdown 指示。選用的 [looper](skills/aglite/references/looper.md) 提供經明確授權、依已登錄任務佇列運作的 Node.js 協調程式；不含 hooks 或發佈程式。aglite 是開發期間的 beta 名稱，正式版將成為 Agentflow 9。
-
-Looper 的路由與上限統一放在 `ag.json`；佇列保存指令、進度與每次嘗試實際採用的設定證據。task／repair 共用 `implementation`；review 與再次驗收共用 `acceptance`。範本的路由是空的，執行前須先設定；詳見[設定規則](skills/aglite/references/configuration.md#looper-settings)。
-
-選用的 [brownfield 指引](skills/aglite/references/browfield.md)提供八步驟，協助在不熟悉的既有程式碼中新增已授權功能。可輸入 `browfield <任務>` 或明確要求採用，或由主代理針對明確且重要的探索／回歸保護需求選用；僅因專案已有程式碼，不會自動啟用。仍遵循 aglite 原有模式、核准與紀錄，按需重用顧問方法，不必另裝 skill。
-
-## 選用的平行群組執行
-
-[Looper](skills/aglite/references/looper.md) 平行處理就緒群組，各組依序啟動新的普通任務代理。`prepare-tasks <request>` 準備 `queue.json`、`planned/request.md` 與 `planned/group-NNN.md` 後停止；`run-tasks` 執行 Current 連結的佇列；`handle-tasks <request>` 結合準備與執行。主代理從你的預期成果及專案證據推導技術細節。
-
-預設同時處理 3 組，修復預算為 2 次。就緒群組依先後順序進入單一整合通道；乾淨且檢查通過的合併不另啟代理，修復仍須審查與驗收。普通工作流程及審查設定保留。
-
-可用 `depends_on` 列出較早群組；下游等它們檢查並整合完成，才帶著前置產出啟動。等待不占工作名額，已啟動工作樹保留原始基底。
-
-
-原生派工需要在線的主代理；CLI 任務工作階段支援 Codex／Claude。
-
-問題只阻擋所屬群組，其他獨立群組繼續；回答主代理即可交回協調程式。
-
-群組紀錄與產品整合隔離。
-
-以 `npm install -g <resolved-skill>` 安裝零相依套件啟動器。
-
-主代理啟動 `agf loop run [run-root]`；`agf loop status [run-root]` 讀取已儲存的進度與問題。
-
-shell 根目錄預設為目前目錄，缺少佇列會報錯；聊天指令 `run-tasks` 則解析 Current。
-
-復原會保留工作，核對舊寫入者與 Git 效果。
-
-沒有常駐服務、另設提升步驟，也不因此授權清理、推送或發佈。執行前請讀執行契約。
+aglite 是 Agentflow 9 的 beta 名稱。這是預發佈版本；從本 repo 的預設分支安裝會取得這個 beta，即使 GitHub 的 Latest 仍指向先前穩定版。
 
 ## 安裝
 
-使用能讀寫檔案與執行指令的助理。[Skills CLI](https://github.com/vercel-labs/skills) 支援 Codex、Claude Code 等主機：
+使用能讀寫檔案、執行命令的程式助理。每個主機選一種安裝方式，避免同時載入多份。
+
+使用 [Skills CLI](https://github.com/vercel-labs/skills) 時，在終端機執行：
 
 ```sh
 npx skills add agfnow/aglite --skill aglite
 ```
 
-選擇助理與專案／全域安裝範圍。安裝工具及選用的 looper 需要 Node.js；一般筆記工作不需要。版本管理與功能 worktree 需要 Git；一般筆記也可用在既有非 Git 資料夾。
+依提示選擇助理。預設安裝在目前專案；要讓各專案共用，請加上 `-g`。
 
-Claude Code 也可用[外掛市集指令](https://code.claude.com/docs/en/discover-plugins)：
+[Skills CLI 安裝工具](https://github.com/vercel-labs/skills#install-a-skill)需要 Node.js 22.20 以上版本。一般筆記工作沒有額外的 aglite 執行程式要安裝。
+
+要用 [Claude Code 外掛](https://code.claude.com/docs/en/discover-plugins)，在 Claude Code 輸入：
 
 ```text
 /plugin marketplace add agfnow/aglite
 /plugin install aglite@aglite
 ```
 
-安裝或更新後，開啟新的助理工作階段。每個主機選一種安裝方式，避免重複載入。接著輸入：
+安裝或更新後，重新開啟助理對話。助理本身要支援並遵守 skill 指示；檔案安裝成功不代表每個主機都已驗證能自動載入。
+
+## 先交代一件小事
+
+在專案目錄開啟助理，輸入：
 
 ```text
-godev
-改善歡迎頁，保留既有連結；發佈前先讓我審閱。
+godev 改善歡迎頁面。保留現有連結，發佈前先讓我檢查。
 ```
 
-## Claude Code 從 Agentflow 改用 aglite
+首次使用時，aglite 會補上缺少的設定與紀錄，保留既有檔案。資料夾還不是 Git 專案時，會先問你要不要建立 Git repo。
 
-先完成或保存目前 Agentflow 工作的接續狀態，再於 Claude Code 輸入：
+初始化也會在根目錄 `AGENTS.md` 補上主代理預設載入 aglite 的指示。原有規則會保留；受委派的代理只處理自己的限定任務。
+
+下次開啟同一個專案，輸入 `godev` 即可接續。有未完成工作就繼續，有核准關卡就等你決定，沒有工作就請你提出下一個需求。
+
+預設完整答案保存在筆記裡，聊天只留下收據，例如：
+
+```text
+→ 已更新: A-001 | .agentflow/example.devlog.md
+  (/path/to/example)
+```
+
+開啟收據中的檔案就能看答案。想在聊天看到完整答案，可設定 `inline-reply: on`，或明確要求這次把答案貼在聊天；人類閱讀的標籤與收據依 `use-lang` 顯示。
+
+## 常用選擇
+
+- 一般追加訊息會調整目前工作，直接說明要改什麼即可。
+
+- 用 `append-rounds <工作>` 或完全相同的別名 `append-tasks <工作>`，把一批工作排到後面。目前工作與交付完成後，每批會有自己的提問與回覆。
+
+- `fast-lane <工作>` 由主代理直接處理；`skip-review <工作>` 由主代理自行審查。必要檢查與你明確要求的核准仍保留。
+
+- `grill-me <主題>` 讓代理先訪談；`3ways <需求>` 由 Claude 主導規劃、Codex 挑戰具體缺陷；`advisors: <名稱>` 取得聚焦建議。提出計畫或建議不代表已核准實作。
+
+- 訊息含未加引號的 `nolog:`、`noop:`、`off:` 或 `skip:`，這一輪就不留下流程紀錄，但工作仍可執行。帶這些標記的追加批次不會排入，也不會執行。
+
+[日常使用指南](skills/aglite/docs/AG_GUIDE.zh-tw.md)說明怎麼選；[速查表](skills/aglite/docs/CHEATSHEET.md)列出完整指令、顧問、設定與預設值。
+
+## 與 main 分開開發
+
+`new-feature <名稱>` 會準備獨立的 Git worktree。依回傳的交接步驟切換後，再開始實作。
+
+`merge-feature <名稱>` 驗證並整合成果，預設保留分支與工作目錄；要清理時，明確加上 `and cleanup`。`drop-feature <名稱>` 則是在檢查本機工作後，以可復原方式放棄該功能。
+
+建立與合併使用功能自己的紀錄；放棄功能只在聊天回報。三個指令都不存取 main 的根筆記與認領。
+
+實際 Git 衝突與其他工作階段對目標功能的認領仍須處理。
+
+詳見[功能流程](skills/aglite/references/features.md)。這些操作需要 Git。
+
+## 選用的批次執行
+
+把想完成的結果與例子交給主代理。`prepare-tasks <需求>` 會分組、保存佇列並停下來，讓你先看規劃。
+
+`run-tasks` 執行或接續那份佇列；`handle-tasks <需求>` 則把準備與執行接在一起。
+
+每組使用獨立 worktree，組內每個任務都開新的工作階段。相依組別會等前面的整合通過；準備好的組別則依序進入同一條整合通道。
+
+執行前先設定路由，附帶範本的路由是空的。設定都放在 `ag.json`，包括同時工作組數（預設3）與修復次數（預設2）；佇列只保存進度及每次嘗試實際採用的設定。
+
+選擇新任務路由時，優先考慮 CLI。你明確選定的原生路由仍保留；關掉主代理後，不會默默改用 CLI。
+
+選用 looper 需要 Node.js 20+ 與 Git。要使用 shell 入口，可執行 `npm install -g <resolved-skill>`，再用 `agf loop run [run-root]` 或 `agf loop status [run-root]`。
+
+問題會暫停所屬組別，其他獨立組別可繼續。保留的 worktree 與證據可供復原；清理、推送與發佈仍各自需要授權。
+
+執行前請看[looper 規則](skills/aglite/references/looper.md)與[設定](skills/aglite/references/looper.md#looper-settings)。
+
+## 升級 Agentflow 專案
+
+先完成或安全交接舊版仍在跑的代理、stream 與佇列，並保留它們的紀錄。舊佇列不能只改檔名就當成新 looper 任務。
+
+遇到可辨識的 Agentflow 8 專案時，主代理才載入獨立遷移提示。可安全對照的內容會自動升成 schema 12；無法直接保留的限制、舊核准規則或不明認領，會先請你做具體決定。
+
+遷移會更新專案設定與目前狀態，移除確認屬於舊版的專案 hooks 或啟動指示，並留下可還原的私人備份。對話歷史與其他工具的設定會保留。
+
+aglite 的 schema 9、10、11 也能升級。例如 `skip-wip: off` 會變成 `omit-wip: off`，保留原本意思。
+
+共用或全域整合需要先確認授權範圍。若目前工作階段已載入舊 hooks，請重開助理，讀完保存的遷移結果再接續。
+
+詳見[日常遷移說明](skills/aglite/docs/AG_GUIDE.zh-tw.md#舊設定安裝更新與平台限制)與[遷移提示](skills/aglite/references/legacy-migration.md)。這是專案格式遷移；替換已安裝的 skill 仍是另一項明確操作。
+
+### 從 Claude Code 舊外掛切換
+
+在 Agentflow 實際啟用的範圍停用它，再安裝 aglite。以下是 Claude Code 對話指令：
 
 ```text
 /plugin disable agentflow@agentflow
@@ -69,58 +120,20 @@ godev
 /plugin install aglite@aglite
 ```
 
-開啟 `/plugin` → Installed，確認 Agentflow 已停用、aglite 已在預期範圍啟用，再開新的工作階段。外掛預設安裝於 user 範圍，project／local 設定可能覆蓋它。若要指定範圍，可在 shell 執行 `claude plugin disable agentflow@agentflow --scope user` 與 `claude plugin install aglite@aglite --scope user`；需要時將 `user` 換成 `project` 或 `local`。詳見[外掛範圍](https://code.claude.com/docs/en/discover-plugins#choose-an-install-scope)。
+到 `/plugin` → Installed 確認外掛與範圍，再重開對話。若要在 shell 指定使用者範圍，可用 `claude plugin disable agentflow@agentflow --scope user` 與 `claude plugin install aglite@aglite --scope user`；需要時將 `user` 換成 `project` 或 `local`。
 
-停用外掛會保留其檔案與筆記歷史，不會停用另行手動安裝的 Agentflow skill，也不會改寫仍要求 Agentflow 的專案指示。既有專案請先檢查這些項目；不提供 Agentflow 設定／歷史的自動遷移或向下相容。保留舊紀錄，明確指定要接續的筆記。每個主機只選一種 aglite 安裝方式。
+另行安裝的舊 skill 或 shell function 仍可能指向 Agentflow。啟用已遷移的專案前，先處理這些整合；停用一個外掛不會連另一份安裝一起移除。
 
-## 日常使用
+## 設定與限制
 
-[指令與設定速查（英文）](skills/aglite/docs/CHEATSHEET.md)
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 12，與套件版本 9.0.0-beta.1 分開。
 
-- `godev` 啟用工作流程或接續未完成工作；已確認的 Git repo 若無指定筆記、設定的 ag-dir、歷史或退役紀錄，即主動初始化，無需先提供任務；不留紀錄與 feature 規則優先。其他閒置啟用請使用者提出下個請求，不寫入檔案。
+`use-lang` 控制新寫的文字；`plan-mode` 決定何時建立規劃文件；`plan-order`、`review-order` 則決定已需要的規劃或審查由誰處理。已選控制不受支援時會停下來，不默默換模型。
 
-- 到結尾收據指向的筆記閱讀結果。預設聊天結尾為 `Updated: A-NNN | <notebook>`，下一行為工作目錄；將 `inline-reply` 設為 `on` 可在聊天顯示已儲存的完整回覆。
+`auto-commit`、`auto-push` 預設都是 `on`。想只保留本機修改，開始前先確認這兩項；它們不代表可發佈或部署。
 
-- `fast-lane [task]` 讓一個任務由主代理直接完成，略過顧問、新增設計／追蹤文件、一般獨立審查與例行 RUN/WIP；仍保留主代理審查、必要驗證及明確檢查點。
+版本查詢依排定日期查看 Agentflow 穩定版。Agentflow 8.x 不是這個 beta 的後繼版本；替換安裝內容仍須取得同意。
 
-- `advisors: requirements, codewalk` 選用推理顧問；只載入相關提示，不會因此取得額外實作授權。
+流程依賴主代理遵守指示。Windows、編輯器與提供者各自需要實測；另一個平台或 CLI 成功，不代表全部都已通過。
 
-- `3ways` 指定 Claude 根據完整脈絡與可唯讀存取的核准原始碼／既有計畫主導規劃，Codex 負責挑戰／審查；只有經證據確認的高信心缺陷才改動 Claude 主軸。不代表實作授權。成果審查依 `review-order`，必要獨立性仍需獨立工具。
-
-- 未加引號的 `nolog:`、`noop:`、`off:` 或 `skip:` 讓該次交流不留工作流程紀錄；下一則未標記訊息恢復記錄。
-
-目前設定使用 JSON 整數 `schema-version: 9`，設定 schema 與套件版本分開。每次讀取時自動遷移已知舊設定，保留有效的使用者選擇、未知欄位與註解鍵。未知／較新 schema、有歧義或會遺失設定的變更須先取得決定；缺少的欄位沿用最新預設值。詳見[遷移規則](skills/aglite/references/configuration.md#automatic-migration)。
-
-規劃預設為 `external`，依 `external → native → host` 降級；明確指定 `3ways` 則從上一階開始。無效設定與明確限制仍優先。版本檢查使用 `ag.json` 的 UTC 日期 `next_update_date`，到期才查 Agentflow，查詢後排至兩天後。aglite 是 Agentflow 9 的 beta 名稱，8.x 不視為更新。覆寫前須核准並保留 WIP。詳見[版本檢查](skills/aglite/references/configuration.md#session-release-check)。
-
-已有需要的規劃（含任務分組與規劃建議）預設遵循 `plan-order: external`。
-
-路徑無法使用時，先記錄原因，再依 `3ways`（Claude 計畫／Codex 挑戰）→ `external`（Claude CLI 計畫）→ `native`（全新原生規劃代理）→ `host`（目前主代理、不探查 worker）降級。
-
-各路徑在確實支援時優先採 Claude；其他作者與未完成的挑戰須如實標示。所選設定無效，或違反明確提供者／model／effort／獨立性／唯讀限制時，仍須停止相依工作。設定本身不新增計畫或階段。
-
-預設包含適用時自動提交／推送，以及實際工作所需的筆記所有權。`review-order: external`（預設）依序使用另一家 CLI → 全新脈絡原生代理 → 明確標示的 host 自審；`native` 交換兩條獨立路徑的順序；`host` 直接由 host 審查，不探查 worker。
-
-已有需要的獨立審查若已知主要計畫作者，host 會先選不同模型家族，再選其他受支援的已設定模型，優先於一般路徑／等級預設；任務明訂的硬性限制仍優先。同家族／模型仍可審查，但須揭露限制。詳見[規劃與審查模型多樣性](skills/aglite/references/review.md#inspect-the-finished-result)。
-
-選到第一條可用且符合要求的路徑即停止；fallback 前記錄路徑不可用的原因。所選 model／effort 設定無效或不受支援時，須取得決定。
-
-必要獨立審查（含 skill 未豁免的風險邊界規則）與使用者明確要求的審查限制優先於所有順序；同則或後續訊息的明確要求優先於 `skip-review` 指令；無相容路徑時，審查維持待處理。
-
-`skip-review [task]` 指定一個任務只用 host 審查，豁免一般獨立審查，包含 skill 的風險邊界要求；其他步驟／設定維持。此指令取代同一工作先前的使用者審查要求；同則或後續訊息的明確審查要求優先。覆蓋包含後續訊息與復原，完成即失效；這是指令，不是設定開關。若只要本機修改，請告訴助理。控制項與檢查點由專案 `ag.json` 設定；想法本身不代表實作、發佈或刪除授權。
-
-## 更新與限制
-
-Skills CLI 安裝以技能名稱更新；全域範圍加 `-g`，專案範圍加 `-p`：
-
-```sh
-npx skills update aglite
-```
-
-外掛安裝依 Claude Code 的市集／外掛更新設定處理；維護者符號連結則跟隨本機原始碼。
-
-一般筆記工作仰賴主代理遵守指示。選用的 looper 可在協調程式持續運作時接續已選定的 CLI 工作；原生代理派工仍需在線的主代理。
-
-協作工作階段使用所有權標記；衝突需明確交接。缺少必要工具或驗證仍屬未解決，不代表已保證各主機／平台相容。
-
-請讀[日常使用指南](skills/aglite/docs/AG_GUIDE.zh-tw.md)、[英文指南](skills/aglite/docs/AG_GUIDE.md)、[設定參考](skills/aglite/references/configuration.md)與[更新紀錄](CHANGELOG.md)。
+更多內容：[繁體中文指南](skills/aglite/docs/AG_GUIDE.zh-tw.md)、[English guide](skills/aglite/docs/AG_GUIDE.md)、[速查表](skills/aglite/docs/CHEATSHEET.md)、[Copilot 指引](skills/aglite/references/copilot.md)、[更新紀錄](CHANGELOG.md)。
