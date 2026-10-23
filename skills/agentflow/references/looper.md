@@ -15,7 +15,7 @@ Optional `looper-limits` holds `max-workers` (positive integer, default 3) and `
 
 ## Looper execution exception
 
-[Looper](looper.md) uses `queue.json` schema 2, separate from `ag.json` schema 12. Retain ordinary workflow, review routing and executor/provider/model/effort choices; unavailable selected controls block without substitution. Settings alone grant no execution authority. Native work requires the live host’s dispatch/result mailbox; CLI ordinary task sessions support Codex/Claude/Copilot. No absent-host CLI fallback.
+[Looper](looper.md) uses `queue.json` schema 2, separate from `ag.json` schema 13. Retain ordinary workflow, review routing and executor/provider/model/effort choices; unavailable selected controls block without substitution. Settings alone grant no execution authority. Native work requires the live host’s dispatch/result mailbox; CLI ordinary task sessions support Codex/Claude/Copilot. No absent-host CLI fallback.
 
 Read settings once per run invocation; save each new attempt’s resolved selection and source digest/route/tier as immutable evidence. Outstanding attempts retain their selections on resume; new attempts use that invocation’s settings. Lowered limits restrict new dispatch; outstanding native task/repair results still import before future routes are resolved. Status reads scheduling state without requiring valid current worker settings. Task records live in each group worktree’s `.aglite-records/`, excluded from product integration. The coordinator alone writes queue state and integrates against the protected target. Groups may register earlier-group dependencies under the execution contract; waiting needs no worker slot and launch follows checked predecessor integration. No group gates, waves, final gate or promotion setting remains. No unrelated helper, shared-record write, publication, cleanup or owner-only decision authority follows.
 
@@ -38,7 +38,7 @@ Require Git, Node.js and supported configured task providers. Resolve installed 
 
 ## Queue and records
 
-`ag.json` owns editable settings; `queue.json` schema 2 owns instructions, scheduling/progress/recovery and immutable attempt evidence. `ag.json` uses schema 12. Markdown carries task instructions, not scheduling state. Reject unregistered handwritten groups. Registered task text may change before starting; do not silently revise started work. No `groups.json`, `state.json`, fingerprints, dependency waves or promotion command.
+`ag.json` owns editable settings; `queue.json` schema 2 owns instructions, scheduling/progress/recovery and immutable attempt evidence. `ag.json` uses schema 13 and requires switches.saving-mode on|off; the coordinator refuses missing/invalid values before claims, leaving migration to the host. Markdown carries task instructions, not scheduling state. Reject unregistered handwritten groups. Registered task text may change before starting; do not silently revise started work. No `groups.json`, `state.json`, fingerprints, dependency waves or promotion command.
 
 ### Schema and inputs
 

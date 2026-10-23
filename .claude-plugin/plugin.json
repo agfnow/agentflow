@@ -1,6 +1,6 @@
 {
-  "name": "aglite",
-  "version": "9.0.0-beta.1",
+  "name": "agentflow",
+  "version": "9.0.0",
   "description": "Save project requests, decisions and answers so another session can resume the work.",
   "author": {
     "name": "agfnow"

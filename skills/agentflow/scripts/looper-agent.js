@@ -480,7 +480,7 @@ async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir
   const task = role === 'task'
   const editing = task || role === 'repair'
   const boundary = task
-    ? 'You are the ordinary aglite task host for the isolated assignment below. Load the supplied aglite SKILL.md and follow ordinary planning, verification, review and closeout with the specified session overrides. Do not add whole-group/wave/final gates. You may use ordinary task review only as allowed by the supplied settings. The coordinator owns product commits and integration.'
+    ? 'You are the ordinary Agentflow task host for the isolated assignment below. Load the supplied Agentflow SKILL.md and follow ordinary planning, verification, review and closeout with the specified session overrides. Do not add whole-group/wave/final gates. You may use ordinary task review only as allowed by the supplied settings. The coordinator owns product commits and integration.'
     : `You are a fresh bounded ${role} session, not the original owner host. ${editing ? 'Repair only assigned product paths.' : 'Read-only inspection of the exact combined candidate and supplied evidence.'} Do not start a workflow or other agents. Do not decide owner-only questions.`
   const final_instruction = selection.provider === 'copilot'
     ? `Return exactly one raw JSON object matching this schema, without Markdown fences or prose: ${JSON.stringify(schema)}${task ? '\nReturn pass only after completing the actual ordinary notebook Reply and next Ask closeout in this worktree.' : ''}`

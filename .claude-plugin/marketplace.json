@@ -1,12 +1,12 @@
 {
-  "name": "aglite",
-  "description": "Keep development work resumable with aglite.",
+  "name": "agentflow",
+  "description": "Keep development work resumable with agentflow.",
   "owner": {
     "name": "agfnow"
   },
   "plugins": [
     {
-      "name": "aglite",
+      "name": "agentflow",
       "source": "./",
       "description": "Project notebooks, proportionate plans and checked results."
     }

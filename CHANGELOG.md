@@ -1,5 +1,19 @@
 # Changelog
 
+## 9.0.0 — 2026-10-23
+
+- Released stable Agentflow 9 under the `agentflow` skill/plugin/package identity at `agfnow/agentflow`, preserving v8 at `agfnow/agentflow-v8`. Existing beta/v8 installations require deliberate source/version selection; publication does not replace them.
+
+- Shipped the public v8 comparison and aligned English/Traditional Chinese guides, cheatsheets and installation guidance with current prompts and schema 13.
+
+- Required valid `saving-mode: on|off`, preserving existing values and adding off only when absent during setup/migration. Repaired private legacy-migration backups, residual v8-field detection and predecessor-effective planner tiers.
+
+- Extended the empty-bootstrap contract to eligible existing repositories without commits and protected pre-existing owner contents through first delivery. Explicit prohibitions and safe retry boundaries remain.
+
+- Applied the approved 440-byte planning-route consolidation without changing its requirements. Ordinary work remains host-driven; the optional dependency-free looper retains its bounded runtime and stored identifiers.
+
+- Release evidence covers recorded package tests and representative macOS host journeys. Native Windows, editor and provider availability remain separately stated limits, not universal support claims.
+
 ## 9.0.0-beta.1 — 2026-10-21
 
 - Reduced the default skill entrypoint and moved detailed procedures behind task-specific loading. Reviewed every machine prompt for conflicts, duplication and lost safeguards.

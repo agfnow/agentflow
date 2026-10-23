@@ -1,6 +1,8 @@
-# aglite cheatsheet
+# Agentflow cheatsheet
 
-The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG_GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
+English · [繁體中文](CHEATSHEET.tw.md)
+
+The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG-GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
 
 Owner-input capture: prefix each prose paragraph with `+ `; related paragraphs may share one first prefix. Preserve code interiors, existing prefixes and history; blank lines separate groups, with no standalone `--`. [Capture rule (session.md, line 5)](../references/session.md#activate-and-recover).
 
@@ -42,7 +44,7 @@ Never abbreviate to a bare command block. Other hosts keep the numbered template
 
 Use `browfield <task>` or ask for the eight-step brownfield procedure when a feature needs structured discovery of unfamiliar existing code. The host may also select it for a named material discovery/regression-protection need; an existing repository alone does not activate it.
 
-Once selected, the [bundled reference (browfield.md, line 1)](../references/browfield.md) supplies discovery, rule tracing, impact/risk ranking, baseline characterization, specification, implementation, verification and preservation. Existing aglite modes, gates, records and review remain; advisor methods are reused only as needed. No separate skill installation or eight-advisor sequence.
+Once selected, the [bundled reference (browfield.md, line 1)](../references/browfield.md) supplies discovery, rule tracing, impact/risk ranking, baseline characterization, specification, implementation, verification and preservation. Existing agentflow modes, gates, records and review remain; advisor methods are reused only as needed. No separate skill installation or eight-advisor sequence.
 
 ## Commands — alphabetical
 
@@ -86,9 +88,9 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 - **`append-tasks <work>`** — Exact alias of `append-rounds`: all batch rules apply, and captured input keeps the spelling you typed. It adds later Ask/Reply batches, not tasks to a looper queue. [Batch rules (batches.md, line 1)](../references/batches.md#append-rounds).
 
-- **`browfield [task]`** — Select the optional eight-step brownfield path within aglite for authorized features in unfamiliar existing code. Bare invocation uses a clear active task or asks which task; no persistent setting or invented work. [Procedure (browfield.md, line 1)](../references/browfield.md).
+- **`browfield [task]`** — Select the optional eight-step brownfield path within agentflow for authorized features in unfamiliar existing code. Bare invocation uses a clear active task or asks which task; no persistent setting or invented work. [Procedure (browfield.md, line 1)](../references/browfield.md).
 
-- **`devlog`** — Activate aglite; prefer `godev` for start/resume.
+- **`devlog`** — Activate agentflow; prefer `godev` for start/resume.
 
 - **`drop-feature <name>`** — Abandon feature; inspect local work, move checkout to verified Trash/Recycle Bin, delete branch. Run inside the target worktree (name optional there); remove it before handing off with `/cd <absolute-main-checkout>` then `godev`.
 
@@ -109,6 +111,8 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 - **`merge-feature <name>`** — Verify/merge with feature-specific records/claims only; exclude main root-notebook/archive/claim changes. Retain checkout/branch; `and cleanup` retires both after required gates. Main’s notebook/claim never blocks it; Git conflicts/locks still apply.
 
 - **`new-feature <name>`** — Prepare `.wts/ft-<name>` on `feature/<name>` without accessing main’s root notebook/archive/claim, even this session’s; no main checkpoint/release or retirement ledger.
+
+  Main without HEAD may receive only the [empty bootstrap](../references/setup.md#empty-bootstrap); prohibition/failure stops preparation. Preserve unrelated staged/untracked contents; no main notebook access or push.
 
   Record preparation in the feature notebook, then show the exact localized three-step creation handoff on every Codex/Claude Code surface (other hosts keep numbered steps with restart instructions). Git inventory replaces a ledger/index. No unspecified implementation.
 
@@ -140,13 +144,13 @@ Install with `npm install -g <resolved-skill>`; the zero-dependency package regi
 
 - **`agf loop status [run-root]`** — Read saved group/task totals, current tasks, completion/ready/integration state and questions without dispatch or mutation; also observe coordinator live/dead-or-uncertain/absent.
 
-Shell root defaults to cwd; missing `queue.json` errors. Chat `run-tasks` resolves Current instead. Queue schema 2 is separate from `ag.json` schema 12.
+Shell root defaults to cwd; missing `queue.json` errors. Chat `run-tasks` resolves Current instead. Queue schema 2 is separate from `ag.json` schema 13.
 
 `request` is a run-root-relative file path (normally `request.md`); required `request_sha256` preserves its exact preparation-time UTF-8 request. Commit the file with preparation. Missing/empty/unsafe/changed inputs block run/resume before claims; status reports input errors alongside progress. Schema 1 inline requests need explicit conversion, never silent adoption.
 
 The owner-facing host reads top-level `ag.json` `next_update_date` (UTC `YYYY-MM-DD`; missing/null means due). Before that date it makes no release request; when due it checks only the [Agentflow stable feed](https://github.com/agfnow/agentflow/releases), then schedules the next check two calendar days later even if lookup fails.
 
-Delegates/isolated looper sessions and off-record exchanges do neither. Aglite is the beta name for Agentflow 9; Agentflow 8.x is never its upgrade. Replacement, including the 9+ transition, still requires approval and preserves source WIP. See [release checks (configuration.md, line 29)](../references/configuration.md#session-release-check).
+Delegates/isolated looper sessions and off-record exchanges do neither. Agentflow 9 is the stable successor to the aglite beta; Agentflow 8.x is never an upgrade for either. Replacement, including the 9+ transition, still requires approval and preserves source WIP. See [release checks (configuration.md, line 29)](../references/configuration.md#session-release-check).
 
 Queue JSON alone owns scheduling/progress; `ag.json` alone owns editable settings.
 
@@ -200,6 +204,8 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Proactive setup requires no selected notebook, configured ag-dir, history or retirement. [Setup (setup.md, line 9)](../references/setup.md#first-time-setup) creates missing main/root backlog/empty registry and `artifacts/`, `features/`, `.tmp/` placeholders; adapts root config/resolved notebook, preserves existing/custom records and rejects unsafe paths. Managed feature initialization reuses shared records and creates only config/notebook.
 
+  Approved Git initialization or eligible setup in an existing repository without commits creates one empty bootstrap, preserving staged/untracked contents even with auto-commit off. Explicit prohibitions skip it; other refs, unsafe Git state or commit failure stop. Existing HEAD is reused. First delivery excludes unrelated pre-existing contents unless separately authorized; bootstrap alone grants no push. See [empty bootstrap](../references/setup.md#empty-bootstrap).
+
   Empty registry creation still gets an invariant notice with no accepted IDs. Archives, round documents and actual worktrees remain on demand. Off-record/feature rules prevail; no automatic Git initialization or rules.md copy.
 
 - **Registry comparison:** Retain each authoritative registry’s physical path and original exact-byte/SHA-256 baseline (or absence) at first task read; preserve across recovery, saving needed bytes/retrievable snapshot reference in existing evidence before interruption.
@@ -210,7 +216,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Project rules:** Read the [shared baseline (project-rules.md, line 1)](../references/project-rules.md) plus optional local rules before work/review; no workflow activation by reading.
 
-  Setup or an existing project’s next work session adds missing host-only default session-start use of the `aglite` skill, discovered, loaded and followed through that agent's supported skill mechanism, without fixing a host, path or installation scope; if unavailable, report the missing skill without assuming a path or auto-installing.
+  Setup or an existing project’s next work session adds missing host-only default session-start use of the `agentflow` skill, discovered, loaded and followed through that agent's supported skill mechanism, without fixing a host, path or installation scope; if unavailable, report the missing skill without assuming a path or auto-installing.
 
   Preserve owner overrides; report broken existing project-relative skill targets with a proposed correction, never silently accept/rewrite them; delegated workers/reviewers never activate from this directive. Later owner sessions need no `godev` when the host honors activation.
 
@@ -262,21 +268,25 @@ Below: **values → effect; missing-key default**. Edit named keys explicitly. C
 
 Settings can contain private values. The host inspects them locally and reports needed nonsecret fields or hashes/status; it does not print whole configuration or hook files.
 
-Supplied `schema-version` must be JSON integer `12`; future revisions increment it independently of the package version. Missing fields use defaults; current reads write nothing.
+Supplied `schema-version` must be JSON integer `13`; future revisions increment it independently of the package version. Required `saving-mode` accepts `on|off`; setup/migration adds `off` only when missing, preserves valid values and stops on invalid values. Other missing fields use defaults; complete current reads write nothing. The installed [bundled template](../assets/.agentflow/ag.json) defines the target; higher schemas stop, independently of remote releases.
 
 Known predecessors migrate on owner-facing host reads, preserving valid choices and unknown/comment keys. Unknown/newer schemas and ambiguous or lossy changes require a decision.
 
 A sole legacy config at the root or old default location can relocate safely to the configured ag-dir under owned migration. Multiple sources or candidates stop migration, even when identical.
 
+Legacy fields also require mapping/reconciliation under supported current stamps; unknown/newer stamps still stop. Infer missing V8 defaults only with proven V8 provenance: absent `threeways` becomes `better`, explicit tiers survive. Originals stay in private backups outside Git/discovery; evidence holds safe references only.
+
 Recognized Agentflow 8 configurations use the separate [legacy migration (legacy-migration.md, line 1)](../references/legacy-migration.md); only lossless, authorized cases proceed automatically. Unsupported old approval/restriction, ownership, queue or integration decisions pause the affected migration.
 
-Schemas 9/10/11 and `aglite-5` migrate to 12. Old omission keys map to the corrected names; 11 → 12 changes only the schema stamp.
+Schemas 9/10/11/12 and `aglite-5` migrate to 13 with required saving-mode; old omission keys retain their meaning.
 
 Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which permits needed trackers. See [migration (upkeep.md, line 5)](../references/upkeep.md#automatic-migration).
 
 - **`ag-dir`** — Safe checkout-relative directory → configuration and record location; default `.agentflow`. No `..`/symlink escape. Explicit edits relocate config safely; records need separate move authority.
 
-- **`auto-commit`** — `on`: commit verified work, owner edits separately; `off`: no automatic delivery commits. Git initialization approval still authorizes one immediate empty initial commit unless explicitly forbidden. Default `on`.
+- **`auto-commit`** — `on`: commit verified work, owner edits separately; `off`: no automatic delivery commits. Default `on`.
+
+  Eligible first setup or explicit main-rooted new-feature also authorizes one empty bootstrap in a verified repository without commits, even when off; explicit commit prohibitions prevail. Bootstrap alone grants no push.
 
 - **`auto-push`** — `on`: push authorized commits to verified remote/branch; `off`: no automatic push. Default `on`; does not enable commits.
 
@@ -324,7 +334,7 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   - `host` — Host directly; no worker probes.
 
-- **`saving-mode`** — `on`: load [saving mode (saving-mode.md, line 1)](../references/saving-mode.md) for minimum sufficient prose/records, fewer optional documents and valid-proof reuse; `off`/absent: normal behavior (default `off`). Routine 100–200 words is a soft target; explicit detail, comprehension, safeguards, required records/checks/review, gates and deliverables prevail. No model/route changes or retroactive restoration.
+- **`saving-mode`** — `on`: load [saving mode (saving-mode.md, line 1)](../references/saving-mode.md) for minimum sufficient prose/records, fewer optional documents and valid-proof reuse; `off`: normal behavior. Required; setup/migration default `off`, existing values preserved. Routine 100–200 words is a soft target; explicit detail, comprehension, safeguards, required records/checks/review, gates and deliverables prevail. No model/route changes or retroactive restoration.
 
 - **`use-lang`** — Locale tag, e.g. `en-us`, `zh-TW` → language for every new human string, including template/scaffold labels, notices and receipt `Updated`; default detected OS locale, then `en-us`. English prompts/assets supply meaning.
 

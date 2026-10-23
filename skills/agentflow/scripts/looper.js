@@ -7,6 +7,7 @@ const S = require('./looper-state')
 const G = require('./looper-integration')
 const A = require('./looper-agent')
 const skill = path.resolve(__dirname, '..')
+const current_schema = require('../assets/.agentflow/ag.json')['schema-version']
 const now = () => new Date().toISOString()
 const insist = (ok, message) => { if (!ok) throw Error(message) }
 const text = value => typeof value === 'string' && value.trim() && !value.includes('\0')
@@ -68,7 +69,8 @@ function read_settings(repo) {
       const candidate = { file: relative, config, source }
       if (path.dirname(file) === declared) canonical.push(candidate)
       else if (relative === 'ag.json' || (relative === '.agentflow/ag.json' &&
-        [undefined, 9, 10, 11, 'aglite-5'].includes(config['schema-version']))) legacy.push(candidate)
+        (config['schema-version'] === undefined || config['schema-version'] === 'aglite-5' ||
+          (Number.isInteger(config['schema-version']) && config['schema-version'] >= 9 && config['schema-version'] < current_schema)))) legacy.push(candidate)
       else {
         insist(relative !== '.agentflow/ag.json', `Misplaced configuration ${relative}: owner reconciliation required`)
         other.push(relative)
@@ -81,7 +83,10 @@ function read_settings(repo) {
   insist(!legacy.length, `Legacy configuration ${legacy[0]?.file}: relocate to <ag-dir>/ag.json via the owner-facing host`)
   insist(canonical.length === 1, `No canonical <ag-dir>/ag.json; resolve configuration routing${other.length || uncertain.length ? ': ' + [...other, ...uncertain].join(', ') : ''}`)
   const { config, source, file } = canonical[0]
-  insist(config['schema-version'] === undefined || config['schema-version'] === 12, 'ag.json schema-version: migrate to integer 12 via the host')
+  insist(config['schema-version'] === undefined || config['schema-version'] === current_schema, `ag.json schema-version: migrate to integer ${current_schema} via the host`)
+  const saving = config.switches?.['saving-mode']
+  insist(saving !== undefined, 'ag.json switches.saving-mode missing: migrate via the owner-facing host')
+  insist(saving === 'on' || saving === 'off', 'ag.json switches.saving-mode must be on or off')
   const limits = config['looper-limits'] === undefined ? {} : config['looper-limits']
   insist(limits && typeof limits === 'object' && !Array.isArray(limits), 'ag.json looper-limits must be an object')
   const max_workers = limits['max-workers'] === undefined ? 3 : limits['max-workers']

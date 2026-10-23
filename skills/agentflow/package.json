@@ -1,0 +1,15 @@
+{
+  "name": "@agfnow/agentflow",
+  "version": "9.0.0",
+  "private": true,
+  "description": "Host-driven Agentflow tasks with a small optional group coordinator",
+  "bin": {
+    "agf": "scripts/agf.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test scripts/looper.test.js scripts/looper-copilot.test.js"
+  }
+}

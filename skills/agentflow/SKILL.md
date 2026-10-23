@@ -1,11 +1,11 @@
 ---
-name: aglite
+name: agentflow
 description: Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, fast-lane, grill-me, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature.
 metadata:
-  version: "9.0.0-beta.1"
+  version: "9.0.0"
 ---
 
-# aglite 9.0.0-beta.1
+# Agentflow 9.0.0
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
@@ -39,7 +39,7 @@ Finish authorized work; keep development resumable with one devlog and proportio
 
 - [Looper](references/looper.md): before `prepare-tasks`, `run-tasks`, `handle-tasks`, execution or recovery. Preparation saves the Current-linked queue/planned files and stops; run executes it; handle combines both. Only this feature permits its scoped Node coordinator/`agf` launcher. Preserve ordinary task settings, isolation, native live-host/mailbox requirements and owner-only boundaries; no CLI substitution, cleanup/push/release authority follows.
 
-- [Windows](references/windows.md): Windows or explicit portability work. Specialized advisor, brownfield, browser and product-document references load at the triggers in work/review; do not load all references routinely. With `saving-mode: on`, read [saving mode](references/saving-mode.md) before authoring; off/absent preserves normal behavior.
+- [Windows](references/windows.md): Windows or explicit portability work. Specialized advisor, brownfield, browser and product-document references load at the triggers in work/review; do not load all references routinely. With `saving-mode: on`, read [saving mode](references/saving-mode.md) before authoring; off preserves normal behavior; missing saving-mode follows configuration migration.
 
 Keep scope tied to accepted input/corrections; proposals and reviewer suggestions add no authority. Inspect external operation identity before retrying an unknown result. Stop named work/descendants when asked; settle task-owned workers/mutating processes before yielding and release only the verified own closed-round claim under session rules. Never promise unsupported background continuation.
 

@@ -3,6 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const current_schema = require('../assets/.agentflow/ag.json')['schema-version']
 const crypto = require('node:crypto')
 const os = require('node:os')
 const path = require('node:path')
@@ -77,7 +78,7 @@ function fixture(groups, options = {}) {
   fs.writeFileSync(path.join(repo, 'owner.txt'), 'owner baseline\n')
   fs.writeFileSync(path.join(repo, 'shared.txt'), 'baseline\n')
   const { task = selection, repair, acceptance, max_workers = 2, max_repairs = 2, ...queue_options } = options
-  const config = { 'schema-version': 12, 'pipeline-roles': { implementation: 'basic', acceptance: 'better' }, 'model-family': {}, 'looper-routes': {}, 'looper-limits': { 'max-workers': max_workers, 'max-repairs': max_repairs } }
+  const config = { 'schema-version': current_schema, switches: { 'saving-mode': 'off' }, 'pipeline-roles': { implementation: 'basic', acceptance: 'better' }, 'model-family': {}, 'looper-routes': {}, 'looper-limits': { 'max-workers': max_workers, 'max-repairs': max_repairs } }
   for (const [role, value] of Object.entries({ task, repair, acceptance })) if (value) {
     config['looper-routes'][role] = { kind: value.kind, provider: value.provider, 'model-family': role }
     if (value.executable) config['looper-routes'][role].executable = value.executable
@@ -1045,13 +1046,13 @@ test('request mutation after a native pause blocks resume while status preserves
 test('coordinator requires host migration for old configuration schema without rewriting it', () => {
   const { repo } = fixture([['a.txt']])
   const file = path.join(repo, '.agentflow/ag.json'), config = JSON.parse(fs.readFileSync(file))
-  for (const version of ['aglite-5', 8, 9, 10, 11, '12', 13]) {
+  for (const version of ['aglite-5', 8, 9, 10, 11, 12, String(current_schema), current_schema + 1]) {
     config['schema-version'] = version; fs.writeFileSync(file, JSON.stringify(config))
     const before = fs.readFileSync(file)
-    assert.throws(() => L.read_settings(repo), /migrate to integer 12 via the host/)
+    assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema} via the host`))
     assert.deepEqual(fs.readFileSync(file), before)
   }
-  config['schema-version'] = 12; fs.writeFileSync(file, JSON.stringify(config))
+  config['schema-version'] = current_schema; fs.writeFileSync(file, JSON.stringify(config))
   assert.doesNotThrow(() => L.read_settings(repo))
   delete config['schema-version']; fs.writeFileSync(file, JSON.stringify(config))
   assert.doesNotThrow(() => L.read_settings(repo))
@@ -1234,7 +1235,7 @@ test('configuration discovery selects deeply nested ag-dir and passes its exact 
   const relative = 'docs/agent/records/one/two/notes/ag.json'
   const old = path.join(repo, '.agentflow/ag.json'), file = path.join(repo, relative)
   const config = JSON.parse(fs.readFileSync(old))
-  config.switches = { 'ag-dir': path.posix.dirname(relative) }
+  config.switches = { ...config.switches, 'ag-dir': path.posix.dirname(relative) }
   fs.mkdirSync(path.dirname(file), { recursive: true })
   git(repo, 'mv', '.agentflow/ag.json', relative)
   fs.writeFileSync(file, JSON.stringify(config))
@@ -1273,10 +1274,10 @@ test('configuration collisions and legacy locations fail before claims or writes
   fs.writeFileSync(canonical, JSON.stringify(config))
   await assert.rejects(L.run(root, { agent, checks }), /Legacy configuration.*relocate to <ag-dir>/)
   fs.mkdirSync(path.join(repo, 'notes'))
-  config['schema-version'] = 12
+  config['schema-version'] = current_schema
   fs.writeFileSync(path.join(repo, 'notes/ag.json'), JSON.stringify(config))
   await assert.rejects(L.run(root, { agent, checks }), /Configuration collision/)
-  config['schema-version'] = 12
+  config['schema-version'] = current_schema
   fs.writeFileSync(canonical, JSON.stringify(config))
   await assert.rejects(L.run(root, { agent, checks }), /Misplaced configuration.*owner reconciliation/)
   // Both canonical candidates also conflict even if each is valid independently.
@@ -1286,13 +1287,13 @@ test('configuration collisions and legacy locations fail before claims or writes
   assert.deepEqual(fs.readFileSync(path.join(root, 'queue.json')), queue)
 })
 
-test('current config requires schema 12 and safe ag-dir, without rewriting source', () => {
+test('current config requires the bundled schema and safe ag-dir, without rewriting source', () => {
   const { repo } = fixture([['a.txt']])
   const file = path.join(repo, '.agentflow/ag.json'), original = fs.readFileSync(file)
-  for (const version of [9, 10, 11, 'aglite-5', '12', 13]) {
+  for (const version of [9, 10, 11, 12, 'aglite-5', String(current_schema), current_schema + 1]) {
     const config = JSON.parse(original); config['schema-version'] = version
     const bytes = JSON.stringify(config); fs.writeFileSync(file, bytes)
-    assert.throws(() => L.read_settings(repo), /migrate to integer 12/)
+    assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema}`))
     assert.equal(fs.readFileSync(file, 'utf8'), bytes)
   }
   for (const value of ['../escape', '/absolute', '', null, 42]) {
@@ -1302,6 +1303,31 @@ test('current config requires schema 12 and safe ag-dir, without rewriting sourc
   }
   const config = JSON.parse(original); delete config['schema-version']
   fs.writeFileSync(file, JSON.stringify(config)); assert.doesNotThrow(() => L.read_settings(repo))
+})
+
+test('saving-mode accepts exact on/off and refuses missing or invalid values before claims', async () => {
+  const { root, repo } = fixture([['a.txt']])
+  const file = path.join(repo, '.agentflow/ag.json'), original = fs.readFileSync(file)
+  const queue = fs.readFileSync(path.join(root, 'queue.json'))
+  for (const value of ['on', 'off']) {
+    const config = JSON.parse(original); config.switches['saving-mode'] = value
+    const bytes = JSON.stringify(config); fs.writeFileSync(file, bytes)
+    assert.equal(L.read_settings(repo).config.switches['saving-mode'], value)
+    assert.equal(fs.readFileSync(file, 'utf8'), bytes)
+  }
+  for (const value of [undefined, null, true, false, '', 'ON', 'auto', 0]) {
+    const config = JSON.parse(original)
+    if (value === undefined) delete config.switches['saving-mode']
+    else config.switches['saving-mode'] = value
+    const bytes = JSON.stringify(config); fs.writeFileSync(file, bytes)
+    await assert.rejects(L.run(root, { agent: async () => assert.fail('must not dispatch'), checks }),
+      value === undefined ? /saving-mode missing.*migrate/ : /saving-mode must be on or off/)
+    assert.equal(fs.readFileSync(file, 'utf8'), bytes)
+    assert.deepEqual(fs.readFileSync(path.join(root, 'queue.json')), queue)
+    assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
+    assert.equal(fs.readdirSync(path.join(repo, '.git')).filter(name => /^aglite-target-.*\.owner$/.test(name)).length, 0)
+    assert.equal(fs.existsSync(path.join(repo, '.wts')), false)
+  }
 })
 
 test('canonical configuration refuses symlinked directories and files', t => {
@@ -1530,7 +1556,7 @@ test('real Git localized task host creates its notebook and receives exact owner
   const { root, repo } = fixture([['a.txt']])
   const config = path.join(repo, '.agentflow/ag.json')
   const settings = JSON.parse(fs.readFileSync(config))
-  settings.switches = { 'use-lang': 'zh-TW' }
+  settings.switches = { ...settings.switches, 'use-lang': 'zh-TW' }
   fs.writeFileSync(config, JSON.stringify(settings))
   git(repo, 'add', '.agentflow/ag.json'); git(repo, 'commit', '-m', 'locale fixture')
   const q = read(root); q.base_commit = git(repo, 'rev-parse', 'HEAD'); write(root, q)

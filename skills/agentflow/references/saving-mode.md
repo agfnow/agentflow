@@ -1,6 +1,6 @@
 # Saving mode
 
-Apply only with `switches.saving-mode: on` (default off). Minimize writing and repeated context preserving comprehension, outcomes and safeguards; explicit owner detail/deliverable requests prevail. Pass this guidance to delegated report authors.
+Apply only with required `switches.saving-mode: on` (default off; missing key follows configuration migration). Minimize writing and repeated context preserving comprehension, outcomes and safeguards; explicit owner detail/deliverable requests prevail. Pass this guidance to delegated report authors.
 
 - Lead with the result, necessary limits and next action. Routine answers aim at 100–200 words; this is a soft target, never a cap. Expand for complex reports, complete answers or requested detail. Omit background, repeated conclusions, routine success summaries and unsolicited examples/alternatives unless decision-relevant.
 
@@ -12,4 +12,4 @@ Apply only with `switches.saving-mode: on` (default off). Minimize writing and r
 
 Preserve exact owner input/history, accepted outcomes/scope, authorization, required checks/review, applicable invariants, affected product docs, recovery, `plan-mode`, gates, explicit deliverables and answer destinations/notices. Change no model/effort/delegation/review route; waive no required record/stage. Comprehension and safeguards prevail over brevity. Promise no token-saving percentage without paired observations, including correction/recovery cost; add no measurement program.
 
-Off/absent removes this extra minimum-writing preference and keeps ordinary minimality rules; it neither restores omitted material nor creates documents retroactively.
+Off removes this extra minimum-writing preference and keeps ordinary minimality rules; it neither restores omitted material nor creates documents retroactively.

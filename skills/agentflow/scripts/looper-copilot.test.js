@@ -2,6 +2,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const current_schema = require('../assets/.agentflow/ag.json')['schema-version']
 const os = require('node:os')
 const path = require('node:path')
 const { parse_copilot_result, copilot_environment, copilot_tools, launch_agent } = require('./looper-agent')
@@ -170,7 +171,7 @@ test('Copilot catalog selection preserves exact pairs, schema boundaries and leg
   const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-copilot-selection-')))
   fs.mkdirSync(path.join(repo, '.agentflow'))
   const file = path.join(repo, '.agentflow/ag.json')
-  const config = { 'schema-version': 12, 'pipeline-roles': { implementation: 'basic' },
+  const config = { 'schema-version': current_schema, switches: { 'saving-mode': 'off' }, 'pipeline-roles': { implementation: 'basic' },
     'model-family': { selected: { basic: 'exact-model/high' } },
     'native-workers': { implementation: { 'model-family': 'unused-native' } },
     'looper-routes': { task: { kind: 'cli', provider: 'copilot', 'model-family': 'selected' } } }
@@ -186,10 +187,10 @@ test('Copilot catalog selection preserves exact pairs, schema boundaries and leg
   assert.throws(() => L.select(L.read_settings(repo), 'task'), /Unsupported selected effort/)
   config['schema-version'] = 11; save()
   const bytes = fs.readFileSync(file)
-  assert.throws(() => L.read_settings(repo), /migrate to integer 12/)
+  assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema}`))
   assert.deepEqual(fs.readFileSync(file), bytes)
-  config['schema-version'] = 13; save()
-  assert.throws(() => L.read_settings(repo), /migrate to integer 12/)
+  config['schema-version'] = current_schema + 1; save()
+  assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema}`))
   assert.equal(L.counterpart({ provider: 'copilot', model: 'same' }, { provider: 'copilot', model: 'same' }), true)
   assert.equal(L.counterpart({ provider: 'codex' }, { provider: 'codex' }), false)
   assert.equal(L.counterpart({ provider: 'claude' }, { provider: 'claude' }), false)

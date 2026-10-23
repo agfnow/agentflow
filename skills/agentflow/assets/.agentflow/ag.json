@@ -1,5 +1,5 @@
 {
-  "schema-version": 12,
+  "schema-version": 13,
   "next_update_date": null,
   "switches": {
     "ag-dir": ".agentflow",
