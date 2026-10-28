@@ -191,8 +191,4 @@ test('Copilot catalog selection preserves exact pairs, schema boundaries and leg
   assert.deepEqual(fs.readFileSync(file), bytes)
   config['schema-version'] = current_schema + 1; save()
   assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema}`))
-  assert.equal(L.counterpart({ provider: 'copilot', model: 'same' }, { provider: 'copilot', model: 'same' }), true)
-  assert.equal(L.counterpart({ provider: 'codex' }, { provider: 'codex' }), false)
-  assert.equal(L.counterpart({ provider: 'claude' }, { provider: 'claude' }), false)
-  assert.equal(L.counterpart({ provider: 'codex' }, { provider: 'claude' }), true)
 })

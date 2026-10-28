@@ -36,7 +36,7 @@ Outside fast-lane, prefer bounded native workers for substantial implementation 
 
 - Every change must trace to the Ask or repair a concrete failure preventing an accepted outcome. Keep adjacent improvements as proposals; neither they nor reviewer suggestions authorize implementation. Implement the whole accepted job, including later corrections.
 
-- When accepted work changes a fact in maintained user/contributor/maintainer guidance, read [documentation maintenance](product-docs.md) and update affected owners/dependents with the change, including fast-lane/skip-review. No doc impact means no doc record; a first-time suite requires an authorized documentation/handover outcome. Preserve scope, plan-only, gates and waived stages.
+- When accepted work changes a fact in maintained user/contributor/maintainer guidance or authorizes documentation authoring/handover, read [documentation guidance](product-docs.md), including its scoped authoring trigger; update affected owners/dependents alongside behavior, including fast-lane/skip-review. No doc impact means no doc record; a first-time suite requires an authorized documentation/handover outcome. Preserve scope, plan-only, gates and waived stages.
 
 - Reproduce executable bugs before fixing; then check affected behavior and ordinary user journeys, including rendered output, saved data or actual receipt when requested. Reuse passing evidence until relevant source, inputs or environment change; name the uncovered risk before expanding checks. Unit tests, provider acceptance, receipt and deployment prove different things. For affected web journeys/requested end-to-end checks, read [browser testing](browser-testing.md).
 

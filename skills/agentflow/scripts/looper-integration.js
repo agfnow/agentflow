@@ -4,7 +4,7 @@ const crypto = require('node:crypto')
 const { spawnSync } = require('node:child_process')
 const { inspect_path } = require('./looper-state')
 
-const git = (cwd, args) => {
+const git = (cwd, args, trim = true) => {
   const result = spawnSync(process.platform === 'win32' ? require('./looper-agent').resolve_command(['git.exe'])[0] : 'git', ['-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, '--literal-pathspecs', ...args], {
     cwd,
     encoding: 'utf8',
@@ -15,7 +15,7 @@ const git = (cwd, args) => {
     throw new Error(
       `git ${args[0]} failed: ${result.error?.message || result.stderr || result.stdout}`
     )
-  return result.stdout.trimEnd()
+  return trim ? result.stdout.trimEnd() : result.stdout
 }
 const head = (cwd) => git(cwd, ['rev-parse', 'HEAD'])
 const oid = (cwd, value) => {
@@ -142,22 +142,79 @@ function commit_task(cwd, expected, allowed, message, recovering = false) {
   if (files.length) commit(cwd, message)
   return head(cwd)
 }
+function target_identity(queue) {
+  return { branch: git(queue.repo, ['rev-parse', '--abbrev-ref', 'HEAD']), head: head(queue.repo) }
+}
 function target_safe(queue) {
-  if (git(queue.repo, ['symbolic-ref', '--short', 'HEAD']) !== queue.target_branch ||
-      head(queue.repo) !== queue.expected_head)
-    throw Error('Target moved outside the integration lane')
+  const actual = target_identity(queue)
+  if (actual.branch !== queue.target_branch || actual.head !== queue.expected_head)
+    throw Error(`Target moved: expected ${queue.target_branch}@${queue.expected_head}; actual ${actual.branch}@${actual.head}`)
   no_operation(queue.repo)
 }
-function prepare_integration(queue, group, save) {
+function adopt_target(queue, save, reason) {
+  let adopted = false
+  while (true) {
+    const actual = target_identity(queue)
+    no_operation(queue.repo)
+    if (actual.branch !== queue.target_branch) throw Error(`Target branch mismatch: expected ${queue.target_branch}; actual ${actual.branch}`)
+    if (git(queue.repo, ['merge-base', queue.expected_head, actual.head]) !== queue.expected_head)
+      throw Error(`Target history rewrite: expected ${queue.target_branch}@${queue.expected_head}; actual ${actual.branch}@${actual.head}`)
+    for (const group of queue.groups.filter(item => item.state === 'done')) {
+      if (!group.integration?.result || git(queue.repo, ['merge-base', group.integration.result, actual.head]) !== group.integration.result)
+        throw Error('Completed integration is absent from actual target')
+    }
+    if (actual.head === queue.expected_head) return adopted
+    queue.target_adoptions ??= []
+    queue.target_adoptions.push({ from: queue.expected_head, to: actual.head, reason, time: new Date().toISOString() })
+    queue.expected_head = actual.head
+    save()
+    adopted = true
+  }
+}
+function landing_applied(queue, attempt) {
+  const actual = target_identity(queue)
+  no_operation(queue.repo)
+  if (actual.branch !== queue.target_branch) throw Error('Landing target branch mismatch')
+  if (git(queue.repo, ['merge-base', attempt.result, actual.head]) === attempt.result) return true
+  // The saved intent includes the exact pre-landing tip. A complete reflog suffix
+  // must cover that tip without ever recording the result being landed/removed.
+  const log = git(queue.repo, ['reflog', 'show', '--format=%H', queue.target_branch]).split('\n')
+  const saved = attempt.landing_reflog
+  if (!saved || !Number.isSafeInteger(saved.count) || saved.count < 1 || !/^[a-f0-9]{64}$/.test(saved.sha256 || ''))
+    throw Error('Landing reflog coverage missing; reconcile retained evidence')
+  const digest = values => crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+  if (log.length < saved.count || digest(log.slice(-saved.count)) !== saved.sha256)
+    throw Error('Landing reflog coverage missing; reconcile retained evidence')
+  const boundary = log.length - saved.count
+  if (boundary < 0 || log.slice(0, boundary + 1).some(value => git(queue.repo, ['merge-base', attempt.result, value]) === attempt.result))
+    throw Error('Landing effects uncertain or removed from target history; reconcile retained evidence')
+  return false
+}
+function prepare_integration(queue, group, save, previous) {
   target_safe(queue)
+  if (previous) {
+    no_operation(previous.worktree)
+    verify_integration(queue, previous)
+    if (!['verified', 'landing'].includes(previous.phase) || previous.attempt || previous.candidate !== group.candidate ||
+        head(previous.worktree) !== previous.result || changed(previous.worktree).length ||
+        !previous.checks?.length || !previous.checks.every(item => item.passed === true))
+      throw Error('Carry-forward source lacks exact clean checked stopped proof')
+  }
   if (head(group.workspace.worktree) !== group.candidate) throw Error('Group candidate moved')
   const branch = `aglite-merge-${safe_id(queue.run_id)}-${safe_id(group.id)}-${crypto.randomUUID()}`
   const attempt = { id: branch, group_id: group.id, base: queue.expected_head,
-    candidate: group.candidate, branch, worktree: path.join(queue.repo, '.wts', branch), phase: 'prepared' }
+    candidate: group.candidate, source: previous?.result || group.candidate, supersedes: previous?.id, accepted_contracts_sha256: previous?.accepted_contracts_sha256, branch, worktree: path.join(queue.repo, '.wts', branch), phase: 'prepared' }
+  if (previous) {
+    group.integration_history ??= []
+    if (!group.integration_history.some(item => item.id === previous.id)) group.integration_history.push(previous)
+    const interrupted = group.suspended_integration
+    if (interrupted?.phase === 'prepared' && interrupted.source === previous.result &&
+        !group.integration_history.some(item => item.id === interrupted.id)) group.integration_history.push(interrupted)
+  }
   queue.integration = attempt
   save()
   git(queue.repo, ['worktree', 'add', '-b', branch, attempt.worktree, attempt.base])
-  try { git(attempt.worktree, ['merge', '--no-ff', '--no-commit', attempt.candidate]) }
+  try { git(attempt.worktree, ['merge', '--no-ff', '--no-commit', attempt.source]) }
   catch (error) {
     if (!git(attempt.worktree, ['ls-files', '--unmerged'])) throw error
     attempt.phase = 'repair'
@@ -180,6 +237,10 @@ function verify_integration(queue, attempt) {
     throw Error('Recorded integration workspace identity mismatch')
   oid(queue.repo, attempt.base)
   oid(queue.repo, attempt.candidate)
+  oid(queue.repo, attempt.source || attempt.candidate)
+  if (attempt.result && ['verified', 'landing', 'review', 'acceptance'].includes(attempt.phase) && (head(attempt.worktree) !== attempt.result ||
+      git(queue.repo, ['merge-base', attempt.source || attempt.candidate, attempt.result]) !== (attempt.source || attempt.candidate)))
+    throw Error('Integration source/result identity mismatch')
 }
 function commit_repair(attempt, allowed) {
   const cwd = attempt.worktree
@@ -199,20 +260,33 @@ function commit_repair(attempt, allowed) {
     commit(cwd, `aglite: repair integration ${attempt.group_id}`)
   return head(cwd)
 }
-function land(queue, attempt, save) {
+function land(queue, attempt, save, validate_inputs = () => {}) {
   target_safe(queue)
+  if (attempt.base !== queue.expected_head) throw Error('Integration base is stale')
+  no_operation(attempt.worktree)
   if (head(attempt.worktree) !== attempt.result || changed(attempt.worktree).length)
     throw Error('Verified integration candidate changed')
   if (git(queue.repo, ['merge-base', attempt.base, attempt.result]) !== attempt.base ||
-      git(queue.repo, ['merge-base', attempt.candidate, attempt.result]) !== attempt.candidate)
+      git(queue.repo, ['merge-base', attempt.candidate, attempt.result]) !== attempt.candidate ||
+      git(queue.repo, ['merge-base', attempt.source || attempt.candidate, attempt.result]) !== (attempt.source || attempt.candidate))
     throw Error('Integration lost candidate ancestry')
   // Git refuses overwriting intersecting owner edits; disjoint dirt is preserved.
   // Reject staged owner content: ff-only may otherwise fail for that unrelated index.
   if (git(queue.repo, ['diff', '--cached', '--name-only'])) throw Error('Target has staged owner edits; preserve and reconcile')
+  if (!attempt.landing_reflog) {
+    const log = git(queue.repo, ['reflog', 'show', '--format=%H', queue.target_branch]).split('\n')
+    attempt.landing_reflog = { count: log.length, sha256: crypto.createHash('sha256').update(JSON.stringify(log)).digest('hex') }
+  }
   attempt.phase = 'landing'
   save() // A crash after ff is reconciled against this exact checked result.
+  validate_inputs()
+  no_operation(attempt.worktree)
+  if (head(attempt.worktree) !== attempt.result || changed(attempt.worktree).length)
+    throw Error('Verified integration candidate changed before landing')
+  if (git(queue.repo, ['diff', '--cached', '--name-only'])) throw Error('Target has staged owner edits; preserve and reconcile')
+  target_safe(queue) // The intent save may yield to another target writer.
   git(queue.repo, ['merge', '--ff-only', attempt.result])
 }
 module.exports = { git, head, oid, safe_id, no_operation, changed, regular_paths,
   scoped, stage, commit, prepare_group, commit_task, target_safe,
-  prepare_integration, verify_integration, commit_repair, land }
+  prepare_integration, verify_integration, commit_repair, land, target_identity, adopt_target, landing_applied }

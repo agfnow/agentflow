@@ -2,7 +2,9 @@
 
 English · [繁體中文](CHEATSHEET.tw.md)
 
-The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG-GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
+Startup reads only the instructions for the selected route. Idle activation checks configuration and current work without claiming or creating records; unfinished work resumes normally. The host reuses retained static rules, reads applicable sections with their prerequisites, and keeps mandatory full safety scans. [Loading rules (SKILL.md, line 28)](../SKILL.md#load-only-the-applicable-procedure).
+
+The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Feature operations have a [terminal CLI](#feature-cli--alphabetical); looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG-GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
 
 Owner-input capture: prefix each prose paragraph with `+ `; related paragraphs may share one first prefix. Preserve code interiors, existing prefixes and history; blank lines separate groups, with no standalone `--`. [Capture rule (session.md, line 5)](../references/session.md#activate-and-recover).
 
@@ -48,9 +50,15 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 ## Commands — alphabetical
 
-- **`3ways`** — Claude writes the main plan with complete context and approved source/prior-plan read access; Codex challenges/reviews. Keep Claude’s plan unless a high-confidence defect is proved.
+- **`3ways`** — Claude and Codex each finish a blind initial report/plan before seeing the other’s draft or hints; shared original evidence/accepted contracts are allowed.
 
-  Selects 3ways for one plan, independently of review-order; unavailable routes degrade with honest labels, explicit constraints still prevail. No implementation approval. [Planning routes (review.md, line 54)](../references/review.md#planning-routes).
+  Exchange drafts and debate both ways; Codex makes the final synthesis/technical decisions with reasons. An exposed host needs a fresh clean participant or keeps provisional, non-blind work. After drafting, supply exact revisions and prior exchanges each round.
+
+  Configured `plan-order: 3ways` runs the identical procedure for already-needed planning. No fixed cap/minimum.
+
+  Codex may resolve technical dissent with reasons; retain both positions. Consensus requires both accepting identical final content; changed content needs reconfirmation.
+
+  Missing required participation/valid blind drafts, authority/access/budget or owner-only choices leaves provisional work. Independent of review-order; no implementation approval or gate/proof bypass. [Planning routes (review.md, line 54)](../references/review.md#planning-routes).
 
 - **`advisors: <names>`** — The host selects advice for named material questions needing structured investigation before dependent work; this command selects explicitly, e.g. `advisors: requirements, explore`. Available roles:
 
@@ -75,6 +83,10 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
   - `spec` — Resolve a named contract gap in the existing design; no second specification.
 
   - `spike` — Experiment on one unknown.
+
+- **`ag`** — Chat activation alias of `godev`.
+
+- **`agf`** — Chat activation alias of `godev`; terminal `agf` invokes the separate CLI.
 
 - **`append-rounds <work>`** — Start a message with this command to stage one later batch; multiple tasks stay one batch. Preserve input/order in tracker Pending batches (Current-linked evidence without a tracker), outside active Ask.
 
@@ -124,6 +136,8 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 - **`prepare-tasks <request>`** — Prepare Current-linked `planned/queue.json`, `planned/request.md` and `planned/group-NNN.md` under `<ag-dir>/artifacts/A-NNN-<name>/`, then stop. Run-root is `planned/`.
 
+  The preparation result saves both execution choices and shows them in the final visible reply before the receipt, even with `inline-reply: off`: from the shown checkout directory, terminal `agf looper status <run-root>` then `agf looper run <run-root>`, or chat `run-tasks`. Actual paths replace placeholders; if `agf` is unavailable, verified installed Node-entrypoint commands are shown. Printing does not start execution.
+
 - **`run-tasks [run-root]`** — Start/resume the Current-linked prepared queue; an explicit root overrides it. Prefer CLI when choosing task routes; host launches the coordinator and handles owner answers or explicitly selected native dispatch.
 
 - **`show-diff`** — Show verified file diffs with reasons; presentation only.
@@ -136,13 +150,95 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 Host checks, explicit plans/reviews, gates and feature rules remain. `skip-review` replaces earlier review requests; same-message/later explicit reviews prevail. Off-record aliases affect one exchange only.
 
+## Feature CLI — alphabetical
+
+The CLI writes feature notebooks: creation saves preparation, merge saves lifecycle progress/completion, and drop updates an existing feature notebook’s retirement/cleanup STATUS before removal. Drop creates no separate durable record.
+
+These generated records support English and Traditional Chinese; unsupported locales stop before mutation for host rendering in the configured locale, with no English notebook fallback. Raw terminal diagnostics may be English.
+
+Use the terminal feature CLI when you want to work directly in your shell. It needs Node.js 20+ and Git (2.38+ for merge using `merge-tree --write-tree`), plus one current canonical project configuration; migration or ambiguous configuration stops for the host. These commands do not access main's root notebook, archive or claim.
+
+- `agf drop-feature [name] [--abandon]` (alias `dropft`) removes an already merged feature only when it has no tracked, untracked or ignored local data. Add `--abandon` to deliberately discard dirty or unmerged contents. Target claims and Git locks still block removal.
+
+  For retained CLI merge bookkeeping, follow the `agf merge-feature <name> --cleanup` continuation; other local data still needs resolution.
+
+- `agf merge-feature [name] [--cleanup] [--check '<JSON argv>'] [--include <checkout-relative-path>]` (alias `mergeft`) integrates feature work while preserving unrelated main files/staging and excluding root records. The checkout/branch stay unless `--cleanup` is supplied. Repeat `--check` for literal argv checks, for example `--check '["node","--test"]'`; no shell evaluates them. Without explicit checks, the CLI uses merged candidate’s root package.json test when available; without either, it merges and explicitly reports no repository checks configured. Selected checks run on candidate and integrated main; failures still block completion.
+
+  Repeat `--include <checkout-relative-path>` to authorize committing only named dirty task files plus feature records. Dirty product files without this authority stop with an `--include` continuation; unrelated files/index entries remain untouched, with no all-files sweep.
+
+- `agf new-feature <name> [--open]` (alias `newft`) creates the managed checkout and feature notebook from committed main, preserving main's uncommitted work. Exact open preparation can resume without duplicate history. `--open` opens that notebook; editor failure warns while retaining the successful feature.
+
+  Set top-level `ag.json` `default-editor` (default `"vscode"`, launched as `code`). Set a nonempty executable name such as `"vim"` or a full path such as `"/opt/my editor/bin/edit"`; it receives the notebook as one argument with terminal IO inherited. The value is an executable, with no embedded arguments or shell parsing.
+
+  Relative editor paths resolve from the feature checkout; review repository settings before using `--open`.
+
+- `agf shell <zsh|bash|powershell>` prints a caller-directory function for review/copy; it never installs or upgrades a binding.
+
+Merge/drop may omit the name only inside their own registered managed feature. Claims never transfer automatically because a process is dead or a marker is old. Retired features cannot resume development. Failed or uncertain effects retain recovery information; inspect it and follow the exact next action rather than repeating destructive steps.
+
+Actual merge conflicts use Codex in a separate candidate checkout. `workspace-write` limits writes; it does not provide OS read isolation, and broader reads remain possible. Root records are excluded from the workspace and outside access is forbidden by instructions; main is not thereby unreadable.
+
+The CLI independently checks changed paths, unresolved entries and required tests before integration. Missing approval gates or owner decisions stop for host continuation; process success alone proves no correct merge.
+
+The operator chooses required checks. Candidate checks run in a separate checkout containing tracked files, without installed dependencies; where appropriate use `--check '["npm","ci"]' --check '["npm","test"]'` in that order. Each selected check and conflict resolution has a 10-minute limit; timeout blocks completion and retains recovery state. Changed Gitlinks stop before effects for host continuation.
+
+`auto-commit` and `auto-push` default on: merge can commit and push MAIN. No remotes skips pushing; a sole remote works, while ambiguous remote selection stops. This grants no release authority.
+
+A definite settled check/resolver failure before integration may be explicitly renewed after fixes. Unknown, unsettled or partial main effects require host reconciliation, with no implicit retry loop. On Windows, `--open` needs a directly executable editor; the default may warn because of `code.cmd` launch limits; the successfully created feature remains usable.
+
+For automatic caller-directory switching, review the function printed by `agf shell <zsh|bash|powershell>`. Eligible first setup adds a missing binding; an existing binding requires an explicit upgrade request. See [shell setup](../references/setup.md#agf-command-setup). The function keeps ordinary output visible and reads only a separate successful destination file.
+
+Creation and drop results have blank lines between output blocks. After successful creation and directory switching, the current generated function suggests opening your coding agent there; it omits the `cd` instruction. Existing bindings retain the continuation until explicitly upgraded.
+
+Direct Node/package-bin use prints one quoted `cd` command and suggests opening the agent after switching; a terminal workflow needs no coding-agent `/cd`.
+
+macOS is primary and cleanup uses verified recoverable Trash. Windows is best effort: explicit feature cleanup/drop may permanently delete the exact target; necessary feature CLI bookkeeping may also dispose of exact UUID-owned claims and destination files, never foreign claims or other files, and native behavior remains untested without Windows evidence.
+
+Linux may refuse before any work when recoverable disposal of owned claims is unavailable, as well as refuse cleanup. These exceptions apply only to this feature CLI, not host chat or looper cleanup. See the [complete feature contract](../references/features.md#terminal-cli).
+
+Main’s final files may exclude a root notebook while the original feature commits still retain it in history. Automatic push stops if unpublished feature history contains protected root records; the owner decides how to handle that history. The CLI preserves the original parents.
+
+If a private inherited configuration differs from main, the CLI stops for a host decision and preserves main’s private copy.
+
 ## Looper CLI — alphabetical
 
-Install with `npm install -g <resolved-skill>`; the zero-dependency package registers `agf`. [Execution contract (looper.md, line 1)](../references/looper.md).
+First project setup [automatically adds a missing `agf` function](../references/setup.md#agf-command-setup) for your configured zsh/bash or PowerShell shell and visibly names changed startup files; open a new shell.
 
-- **`agf loop run [run-root]`** — Start/resume the prepared queue; host launches it.
+Existing bindings stay; missing Node 20+, unsupported shells or unsafe files are reported with a direct command. Explicit `npm install -g <resolved-skill>` is an alternative package-bin installation. [Execution contract (looper.md, line 1)](../references/looper.md).
 
-- **`agf loop status [run-root]`** — Read saved group/task totals, current tasks, completion/ready/integration state and questions without dispatch or mutation; also observe coordinator live/dead-or-uncertain/absent.
+- **`agf looper cleanup <run-root>`** — Recycle completed-run worktrees and all run-root extras except queue/request/group plans; root required. [Safety and retained files](../references/looper.md#explicit-cleanup).
+
+- **`agf looper run [run-root] [--cleanup]`** — Start/resume the prepared queue; host launches it. `--cleanup` opts into the same cleanup only after success.
+
+- **`agf looper status [run-root]`** — Read saved group/task totals, current tasks, completion/ready/integration state and questions without dispatch or mutation; also observe coordinator live/dead-or-uncertain/absent. From Execution state through the final command, each footer line has a following blank line.
+
+`run` shows timestamped progress on stderr and a final result on stdout. Quiet periods get a 30-second heartbeat; this is not an ETA or proof that a worker is advancing. The result distinguishes completed tasks from groups checked and integrated, lists output/evidence locations and saved blocking reasons, and tells you what to resolve before resuming.
+
+Latest results: `<run-root>/results.md` links the derived group/task report and evidence; immutable `evidence/run-*.txt` keeps invocation history.
+
+Foreign/edited/unsafe/input/output collisions preserve files with a warning. Reports do not own execution, prove output existence or change exit codes. Cleanup recycles reports; status stays read-only.
+
+For blocked groups, have the host diagnose, supply the exact question ID and actual owner answer or technical correction in `inbox/answers.json`, then resume the same queue; rerun alone does not unblock it. No general automatic retry/backoff or persistent host is provided. [Operator steps](AG-GUIDE.md#read-results-and-resume-a-failed-group).
+
+Sections and progress events have blank lines. Timestamped progress has two columns: the timestamp, then the message. Wrapped text and reviewer details align in the message column; terminal wrapping follows its current width. Pipes keep full hanging logical lines; status and saved reports preserve complete commands and paths.
+
+Opt in with `agf looper cleanup <run-root>` afterward, or add `--cleanup` to `agf looper run`.
+
+Cleanup requires a completed, settled run. It keeps only `queue.json`, the queue-referenced request and group plans (six files for a four-group run).
+
+All other run-root entries, including records, reports, answers, released claims and unknown ordinary files, move to recoverable Trash. Delivered outputs and branches stay.
+
+Avoid cleanup to retain full history; `status` and completed-run repeats still work from the retained files, without recreating reports.
+
+Cleanup currently requires macOS and accessible same-volume Trash. Task success plus cleanup failure exits 1; resolve the blocker and retry the manual command. Default, blocked and stopped runs retain scratch; see [cleanup safety](../references/looper.md#explicit-cleanup).
+
+CLI tasks request their ordinary independent review through the coordinator, which launches the configured reviewer outside the task sandbox. This avoids nested CLI startup failures while preserving task write restrictions, reviewer independence and ordinary closeout. No additional review stage is added. Blocked results show worker evidence and exact attempt paths; execution/result failures also retain `failure.json` beside the transcript.
+
+Final stdout groups tasks under each group, with checked successes, pending integration, blockers/failures, uncertain writers and unfinished work distinguished. Saved success summaries, declared paths and concise blocker reasons explain outcomes; dependency waits are not failures.
+
+Exit codes are 0 (complete), 2 (blocked or stopped), and 1 (error). When saved state was observed, a unique `evidence/run-<time>-<UUID>.txt` report retains the result; an early validation error may have no report. Reports are historical snapshots; `queue.json` remains current execution state. `status` changes no files and also shows declared outputs, blockers, dependencies and report locations. A draft in a worktree is not yet an integrated result; listed output paths do not prove files exist.
+
+If an old `agf` function treats captured ordinary output as a directory or executable input, explicitly request an upgrade and review the function generated by `agf shell <zsh|bash|powershell>` before safe replacement under [shell setup](../references/setup.md#agf-command-setup). Preserve current wrappers that use the separate destination file; they may change directory. Do not remove claims or bypass checks to resume a blocked run.
 
 Shell root defaults to cwd; missing `queue.json` errors. Chat `run-tasks` resolves Current instead. Queue schema 2 is separate from `ag.json` schema 13.
 
@@ -158,37 +254,43 @@ Set transport/provider/catalog in `looper-routes.task`, `repair`, `acceptance`; 
 
 Set `looper-limits.max-workers` (default 3), `max-repairs` (default 2). [Settings (looper.md, line 5)](../references/looper.md#looper-settings).
 
-Configure routes before running; bundled routes stay empty. When selecting task routes for `handle-tasks`/`run-tasks`, prefer `cli`, including Codex CLI tasks launched by the coordinator through `codex exec` on a Codex host; preserve explicit native choices without silent fallback.
+New configuration detects supported Codex/Claude CLIs (lookup/help only), preferring Codex when both exist, and fills all three routes from the selected CLI/catalog. The Codex template is adapted at setup; existing settings stay unchanged. Neither CLI: use supported observed native controls with a live-host disclosure, otherwise report missing capability. Detection proves no authentication/model access. [Defaults](../references/setup.md#detected-worker-defaults).
+
+Repaired results may use the available configured provider, including the repairer’s, through fresh separate review/acceptance attempts; preserve checks and explicit stricter restrictions.
+
+The coordinator adopts and records compatible forward main changes under held claims; preserve original `base_commit`, request, started bases and completed work. No manual base refresh. A stale checked merge carries forward onto latest main and reruns checks; branch/history/unknown-effect or authority conflicts require reconciliation. [Launch contract](../references/looper.md#prepare-and-route).
+
+Configure missing routes before running; When selecting task routes for `handle-tasks`/`run-tasks`, prefer `cli`, including Codex CLI tasks launched by the coordinator through `codex exec` on a Codex host; preserve explicit native choices without silent fallback.
 
 Each attempt saves its actual selection as evidence; resumed attempts keep it, while new attempts use the current invocation’s settings.
 
-Groups use separate stable worktrees and sequential fresh ordinary task sessions, preserving workflow/review/executor settings. Optional `depends_on` lists unique earlier groups; wait without slots/worktrees until their checked integrations, then start from the latest checked target. Status names unmet IDs; started bases stay fixed.
+Groups use separate stable worktrees and sequential fresh ordinary task sessions, preserving workflow/review/executor settings. Optional `depends_on` lists unique earlier groups; wait without slots/worktrees until their checked integrations, then start from the latest adopted target containing checked predecessor outputs. Status names unmet IDs; started bases stay fixed.
 
 Native dispatch needs the live host; CLI sessions support Codex/Claude/Copilot without silent substitution.
 
 Each CLI task uses a new short-lived process with bounded context, no inherited conversation or session resume, and exits before the next task in its group's isolated worktree.
 
-Codex task/repair commands keep workspace-write restrictions and permitted outbound network; `CODEX_SANDBOX_NETWORK_DISABLED=1` in the parent retains the network block.
+Codex task/repair commands keep workspace-write restrictions and permitted outbound network; `CODEX_SANDBOX_NETWORK_DISABLED=1` in the parent retains the network block. Codex task/repair/review sessions explicitly select live web search, or disabled search under that parent block; reviewers keep read-only shell restrictions.
 
 Group records stay in `.aglite-records/`, excluded from product integration.
 
-Ready groups merge FIFO through one target-wide lane. Clean checked merges add no agents; repairs retain independent review, acceptance and checks.
+Ready groups merge FIFO through one target-wide lane. Unchanged-contract clean checked merges add no agents; repairs and changed acceptance retain independent review, acceptance and checks. Forward main movement rebuilds only integration; earlier attempts and repairs remain preserved.
 
 Questions block their group; answer the host while independent groups continue.
 
-Resume preserves unfinished work and first proves old writers stopped; unresolved native attempts require host stopped attestation before supersession. Unsettled writers retain claims/slots. Each CLI attempt times out after 20 minutes and preserves/blocks unfinished work. No group gates, waves, final gate, promotion, cleanup, push or release authority.
+Resume preserves unfinished work and first proves old writers stopped; unresolved native attempts require host stopped attestation before supersession. Unsettled writers retain claims/slots. Each CLI attempt times out after 20 minutes and preserves/blocks unfinished work. No group gates, waves, final gate, promotion, implicit cleanup, push or release authority.
 
 ## Quick recipes
 
-Advice, design/tracker creation, delegation and model choice are separate decisions in one workflow. Already-needed planning follows `plan-order`, including prepare-tasks grouping; this creates no extra plan or advisor stage. Mandatory contracts stay in [host rules (planning.md, line 1)](../references/planning.md), final-review checks in [review.md (review.md, line 82)](../references/review.md#inspect-the-finished-result); optional advisors add focused reasoning.
+Advice, design/tracker creation, delegation and model choice are separate decisions in one workflow. Already-needed planning uses the proportionate host/complex-route decision below, including prepare-tasks grouping; this creates no extra plan or advisor stage. Mandatory contracts stay in [host rules (planning.md, line 1)](../references/planning.md), final-review checks in [review.md (review.md, line 98)](../references/review.md#inspect-the-finished-result); optional advisors add focused reasoning.
 
-Planning: adequacy → accepted scope → minimality; preserve purpose and guarantees, justify additions/removals and count host attention/recovery. [Host rules (planning.md, line 1)](../references/planning.md) cover architecture checks, separate responsibility decisions and optional technical intake; [review (review.md, line 82)](../references/review.md#inspect-the-finished-result) uses original inputs and explicit deltas. Run authorized checks; ask only unresolved authority/outcome/constraint choices.
+Planning: adequacy → accepted scope → minimality; preserve purpose and guarantees, justify additions/removals and count host attention/recovery. [Host rules (planning.md, line 1)](../references/planning.md) cover architecture checks, separate responsibility decisions and optional technical intake; [review (review.md, line 98)](../references/review.md#inspect-the-finished-result) uses original inputs and explicit deltas. Run authorized checks; ask only unresolved authority/outcome/constraint choices.
 
 These checks add no document, mandatory alternative or review stage and do not reopen settled decisions without new conflicting evidence.
 
 - **Small edit:** `fast-lane fix the README typo`.
 
-- **Claude-led plan:** `3ways plan <topic>`.
+- **Blind drafts, Codex final synthesis:** `3ways plan <topic>`.
 
 - **Plan, then pause:** “Plan first and wait.”
 
@@ -278,7 +380,7 @@ Legacy fields also require mapping/reconciliation under supported current stamps
 
 Recognized Agentflow 8 configurations use the separate [legacy migration (legacy-migration.md, line 1)](../references/legacy-migration.md); only lossless, authorized cases proceed automatically. Unsupported old approval/restriction, ownership, queue or integration decisions pause the affected migration.
 
-Schemas 9/10/11/12 and `aglite-5` migrate to 13 with required saving-mode; old omission keys retain their meaning.
+Compare [Agentflow 8 and 9](agv8-agv9-comparison.md) before changing installations. Schemas 9/10/11/12 and `aglite-5` migrate to 13 with required saving-mode; old omission keys retain their meaning.
 
 Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which permits needed trackers. See [migration (upkeep.md, line 5)](../references/upkeep.md#automatic-migration).
 
@@ -294,7 +396,7 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
 - **`gate-tracker`** — `on`: await checked-result approval before final delivery; `off`: no added gate. Default `off`; no tracker → no gate. Feature integration prerequisites remain.
 
-- **`inline-reply`** — `on`: full saved answer in chat; `off`: short receipt. Default `off`; only explicit chat/terminal display requests permit answers there. “Show me”, output examples and future-output changes do not.
+- **`inline-reply`** — `on`: full saved answer in chat; `off`: short receipt. Default `off`; preparation execution choices still appear in the final visible reply before the receipt. Other answers require explicit chat/terminal display requests. “Show me”, output examples and future-output changes do not.
 
   Verify saved answers silently; explicit answer display and `on` still end with the two-line receipt. Notices, unfinished work, the pre-setup Git choice, taskless setup and actual feature handoffs retain their operational rules; hypothetical handoffs stay saved.
 
@@ -314,19 +416,23 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   Explicit owner task instructions and fast-lane creation waivers prevail. Gate-design on + off stops for a settings choice.
 
-- **`plan-order`** — Already-needed planning, including advice that authors/revises plans and task grouping; default `external`. Interviews/evidence gathering keep ordinary advice rules. Fast-lane plans with host unless you explicitly select another task planning route. Claude leads where reachable; Codex challenges concrete defects.
+- **`plan-order`** — Complex already-needed planning, including plan-writing advice and task grouping; default `external`. Simple understood low-risk plans use the host without probes. Judge uncertainty, consequential tradeoffs, coupling and risk, not task/group count or required records; record one reason and reassess new complexity.
+
+  Explicit task planning routes/provider/independence requirements and configured `3ways` prevail; configured `host` stays direct. Retain required review, contracts and gates; reuse matching plans/review/checks and concise evidence. Interviews/evidence gathering keep ordinary advice rules. Fast-lane uses host unless you explicitly select another task planning route.
+
+  Worker routes prefer Claude initial drafting, then Codex evidence-backed challenge/correction/final synthesis within the selected route’s controls. Disclose unavailable preferred roles; explicit requirements stay binding.
 
   Start at the selected value and record inspected failures: `3ways → external → native → host`, `external → native → host`, or `native → host`; `host` is terminal. `native` means internal fresh-context planning. Invalid settings and explicit constraints still block incompatible fallback:
 
-  - `3ways` — Claude primary plan → Codex challenge/review → host resolution.
+  - `3ways` — Same as explicit `3ways`: blind Claude/Codex drafts → reciprocal comparison/debate → Codex final synthesis/technical decision. Retain dissent; only exact dual acceptance proves consensus. Missing required participation/valid blind drafts stays provisional.
 
-  - `external` — Claude CLI planner; no automatic Codex challenge.
+  - `external` — Claude CLI draft, then Codex challenge/correction/final synthesis; Codex host participates directly. Missing Codex preserves the usable draft with a disclosed limitation unless explicitly required.
 
-  - `native` — Fresh native planner; prefer Claude only if supported, label actual provider.
+  - `native` — Fresh native drafter, prefer Claude then Codex challenge/synthesis using supported native/direct-host controls; label actual/missing roles, no silent CLI escalation.
 
-  - `host` — Active host plans directly; no worker probes.
+  - `host` — Direct active host, no probes; disclose host authorship and missing preferred roles.
 
-- **`review-order`** — Ordinary order; [planner diversity (review.md, line 82)](../references/review.md#inspect-the-finished-result) prefers a different family from the known principal planner, then another supported configured model, for already-required separate review. The host may reselect ordinary defaults with disclosure; task-level hard constraints prevail, and repeated family/model remains allowed with a disclosed limit.
+- **`review-order`** — Ordinary order; [planner diversity (review.md, line 98)](../references/review.md#inspect-the-finished-result) prefers a different family from the known principal planner, then another supported configured model, for already-required separate review. The host may reselect ordinary defaults with disclosure; task-level hard constraints prevail, and repeated family/model remains allowed with a disclosed limit.
 
   - `external` — Counterpart CLI → fresh-context native → labelled host fallback; default.
 
@@ -344,17 +450,21 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   Explicit target language prevails; input language alone does not switch it. [Locale policy (configuration.md, line 5)](../references/configuration.md#discovery-and-validation).
 
-Planning/review constraints and required independence prevail over routing. Unsupported selected model/effort needs a decision. Empty answers/defaults grant no approval. Git switches grant no publication authority. Planning workers use their selected advisor role, otherwise `threeways`; challenges use `threeways`, result review/final-audit use `acceptance`.
+Planning/review constraints and required independence prevail over routing. Unsupported selected model/effort needs a decision. Empty answers/defaults grant no approval. Git switches grant no publication authority.
+
+Drafters use their selected advisor role, otherwise `threeways`; Codex blind drafting/challenge/synthesis uses the existing challenger binding and `threeways` tier. Result review/final-audit uses `acceptance`.
 
 Missing native roles inherit host defaults; missing external roles use transport defaults; selected looper roles/routes must be configured; the bundled/root roles include `product-docs: better`. Worker model/tier choices: [worker settings (review.md, line 11)](../references/review.md#worker-settings).
 
 Validate the selected review route's ordinary settings before considering another model for planner diversity. Missing, invalid or unsupported selected settings need a decision; another model cannot bypass them.
 
-Diversity compares the actual principal planner with the reviewer. Another alias or effort value does not establish a different family/model; unknown or repeated identity remains allowed with a disclosed limitation.
+For diversity, the principal planner is the final synthesizer making substantive planning choices/corrections, otherwise the initial drafter; record both. A cosmetic synthesis label cannot reassign authorship.
+
+Another alias or effort value does not establish a different family/model; unknown or repeated identity remains allowed with a disclosed limitation.
 
 Explicit task provider/model/effort, privacy, read-only and independence requirements prevail. Usable separate routes precede host fallback; host review does not prove independence, and required independent review under host order uses a fresh native context.
 
-Looper routes and saved attempt selections keep their explicit settings. See [review selection (review.md, line 82)](../references/review.md#inspect-the-finished-result).
+Looper routes and saved attempt selections keep their explicit settings. See [review selection (review.md, line 98)](../references/review.md#inspect-the-finished-result).
 
 ## Copilot selection
 
@@ -373,3 +483,7 @@ Pinned model/effort needs actual supported controls; native editor proof, CLI ou
 Update affected maintained guidance with accepted behavior changes, including fast-lane/skip-review; no impact means no doc record. Reuse reader roles in existing pages, one owner per changing fact and checked summaries/examples/translations.
 
 Optional multi-doc map: existing index or `<ag-dir>/doc-ledger.md`, default `.agentflow/doc-ledger.md`; private maps are not shipped dependencies. Check affected contradictions, links and necessary journeys/distribution; missing proof stays unproved. Ordinary host updates need no advisor/full audit; `advisors: product-docs` requests focused advice. [Maintenance (product-docs.md, line 1)](../references/product-docs.md).
+
+Within authorized first-suite/new reader-role work, substantial page/journey rewrites or full passes/handovers, follow [authoring methods](../references/product-docs-authoring.md): reader gaps → durable answers/checks, first success, actor/artifact/trust explanations, complete in-scope references and labelled simulated reader checks. Advice uses the same scope trigger; ordinary changes cover affected facts and implicated confusion only, reusing task evidence.
+
+CLI terminal reports highlight failures in bright red, concerns in yellow and next actions in cyan when the output stream is a TTY. `NO_COLOR` or `TERM=dumb` disables color; saved reports and piped output remain plain text. Failure summaries lead with blockers and next action before output details.

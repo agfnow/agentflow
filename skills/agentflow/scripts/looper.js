@@ -25,11 +25,6 @@ function worker(selection) {
     insist(efforts.includes(selection.effort), 'Unsupported selected effort; no substitution')
   }
 }
-// Fresh launches own separate contexts; Copilot can serve multiple model families.
-// Catalog/provider labels never prove family diversity; explicit host constraints still apply.
-function counterpart(repair, review) {
-  return repair.provider !== review.provider || repair.provider === 'copilot'
-}
 function read_settings(repo) {
   const canonical = [], legacy = [], other = [], uncertain = []
   // Probe the former fixed locations for unsafe components, even when a custom
@@ -146,6 +141,13 @@ function validate(queue, root, { verify_request = true } = {}) {
   G.git(queue.repo, ['check-ref-format', '--branch', queue.target_branch])
   G.oid(queue.repo, queue.base_commit)
   if (queue.expected_head) G.oid(queue.repo, queue.expected_head)
+  if (queue.target_adoptions !== undefined) {
+    insist(Array.isArray(queue.target_adoptions), 'Invalid target adoption records')
+    for (const item of queue.target_adoptions) {
+      insist(item && text(item.reason) && text(item.time) && Number.isFinite(Date.parse(item.time)), 'Invalid target adoption record')
+      G.oid(queue.repo, item.from); G.oid(queue.repo, item.to)
+    }
+  }
   insist(text(queue.request), 'Original owner request file required')
   if (verify_request) request_text(queue, root)
   insist(queue.authorization?.execute === true && queue.authorization?.worktrees === true &&
@@ -230,15 +232,22 @@ function status(root = process.cwd()) {
       ? ` (coordinator ${S.process_alive(S.read_json(claim_file)) === true ? 'live' : 'dead or uncertain; reconcile with run'})`
       : ' (coordinator absent; reconcile with run)'
   }
+  let actual_target
+  try { actual_target = JSON.stringify(G.target_identity(q)) } catch (error) { actual_target = `observation unavailable: ${error.message}` }
   const lines = [`Run ${q.run_id}: ${q.phase || 'planned'}${observation}`,
     `Tasks ${done}/${tasks.length}; groups ${q.groups.filter(group => group.state === 'done').length}/${q.groups.length}`,
-    `Target: ${q.expected_head || q.base_commit}`, `Ready: ${(q.ready || []).join(', ') || 'none'}`]
+    `Target: expected ${q.target_branch}@${q.expected_head || q.base_commit}`,
+    `Target actual: ${actual_target}`,
+    `Target adoptions: ${(q.target_adoptions || []).length}`,  `Ready: ${(q.ready || []).join(', ') || 'none'}`]
   if (request_error) lines.push(`Request input blocked: ${request_error}`)
-  for (const group of q.groups) lines.push(`${group.id}: ${group.state || 'pending'}; task ${group.tasks.find(task => task.state !== 'done')?.id || 'none'}; unmet dependencies ${unmet_dependencies(q, group).join(', ') || 'none'}; records ${group.workspace ? path.join(group.workspace.worktree, '.aglite-records') : 'not started'}`)
+  for (const group of q.groups) lines.push(`${group.id}: ${group.state || 'pending'}; task ${group.tasks.find(task => task.state !== 'done')?.id || 'none'}; unmet dependencies ${unmet_dependencies(q, group).join(', ') || 'none'}\n  records ${group.workspace ? require('./looper-report').record_path(q, path.join(group.workspace.worktree, '.aglite-records')) : 'not started'}`)
   for (const question of q.questions || []) if (!question.answer) lines.push(`${question.id}: ${question.question}`)
   for (const handoff of q.handoffs || []) if (!handoff.completed) lines.push(`Native ${handoff.id}: ${handoff.assignment}${handoff.error ? `; ${handoff.error}` : ''}`)
-  if (q.lane_error) lines.push(`Integration blocked: ${q.lane_error}`)
-  return lines.join('\n') + '\n'
+  const report = require('./looper-report')
+  let locale, locale_notice = ''
+  try { locale = read_settings(q.repo).config.switches?.['use-lang'] }
+  catch { locale_notice = report.dictionary().locale_missing + '\n' }
+  return lines.join('\n\n') + '\n\n' + locale_notice + report.details(q, root, locale)
 }
 function task_text(root, group, task) {
   const source = fs.readFileSync(path.join(root, group.file), 'utf8')
@@ -308,6 +317,80 @@ function ordinary_closeout(cwd, attempt) {
     'Ordinary task closeout is missing a new Reply/next Ask')
   return rounds.completed
 }
+function ordinary_read(file, limit = Infinity) {
+  S.inspect_path(file)
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+  try {
+    const stat = fs.fstatSync(fd)
+    insist(stat.isFile() && stat.size <= limit, 'Ordinary review requires a bounded regular file')
+    return fs.readFileSync(fd)
+  } finally { fs.closeSync(fd) }
+}
+function ordinary_source(cwd, task, expected_head, extra_paths = []) {
+  const head = G.head(cwd)
+  insist(head === expected_head, 'Ordinary review task HEAD changed')
+  const changed = G.changed(cwd)
+  for (const file of [...changed, ...extra_paths])
+    insist(G.scoped(file, task.allowed_paths), `Ordinary review out-of-scope source change: ${file}`)
+  const files = Object.create(null)
+  const visit = file => {
+    const absolute = S.safe_path(cwd, file)
+    let stat
+    try { stat = fs.lstatSync(absolute) }
+    catch (error) { if (error.code === 'ENOENT') { files[file] = null; return }; throw error }
+    if (stat.isDirectory()) for (const name of fs.readdirSync(absolute).sort()) visit(`${file}/${name}`)
+    else files[file] = crypto.createHash('sha256').update(ordinary_read(absolute)).digest('hex')
+  }
+  for (const file of [...new Set([...task.allowed_paths, ...changed, ...extra_paths])].sort()) visit(file)
+  return { head, files }
+}
+const ordinary_matches = (value, source) => value && typeof value === 'object' && !Array.isArray(value) &&
+  Object.keys(value).sort().join(',') === 'files,head' && value.head === source.head &&
+  value.files && typeof value.files === 'object' && !Array.isArray(value.files) &&
+  Object.keys(value.files).sort().join('\0') === Object.keys(source.files).sort().join('\0') &&
+  Object.entries(source.files).every(([file, digest]) => value.files[file] === digest)
+function ordinary_review_proof(cwd, task, attempt, result, candidate) {
+  if (result?.outcome !== 'pass') return
+  const request_file = S.safe_path(cwd, `.aglite-records/ordinary-review/${attempt.id}/request.json`)
+  const latest = attempt.ordinary_reviews?.at(-1)
+  if (!latest && !fs.existsSync(request_file)) return
+  insist(!attempt.ordinary_reviews?.some(review => review.state === 'pending' || review.state === 'cancelled'),
+    'Saved task result has an unsettled ordinary review request; explicit recovery required')
+  insist(latest?.state === 'complete' && latest.result?.outcome === 'pass', 'Task pass lacks a successful latest ordinary review')
+  insist(crypto.createHash('sha256').update(ordinary_read(request_file, 1024 * 1024)).digest('hex') === latest.request_sha256,
+    'Task pass has an unserved or changed ordinary review request')
+  if (candidate) insist(!G.changed(cwd).length, 'Reviewed task candidate has uncommitted source changes')
+  const source = ordinary_source(cwd, task, candidate || attempt.expected_head, Object.keys(latest.source.files))
+  source.head = attempt.expected_head // A proved coordinator commit changes HEAD, not the reviewed input bytes.
+  insist(ordinary_matches(source, latest.source), 'Task source changed after its latest successful ordinary review')
+}
+function retain_ordinary_reviews(task, attempt) {
+  if (!attempt?.ordinary_reviews?.length) return
+  const current = attempt.ordinary_reviews.map(review => ({ ...review, parent_attempt_id: attempt.id }))
+  task.ordinary_reviews = [...(task.ordinary_reviews || []).filter(old =>
+    !current.some(review => review.parent_attempt_id === old.parent_attempt_id && review.request_id === old.request_id)), ...current]
+}
+const pending_native_reviews = (queue, group) => (group.attempt?.ordinary_reviews || [])
+  .filter(review => review.attempt?.selection.kind === 'native')
+  .map(review => ({ review, handoff: queue.handoffs?.find(item => item.id === review.attempt.id) }))
+  .filter(({ handoff }) => !handoff?.completed)
+function native_review_settlement(result) {
+  insist((result.writer_stopped === true && result.dispatched === undefined) ||
+    (result.dispatched === false && result.writer_stopped === undefined && result.outcome === 'blocked'),
+    'Native ordinary reviewer needs explicit stopped-result or never-dispatched proof')
+}
+function cli_review_stopped(root, attempt) {
+  if (!attempt?.stopped_at) return false
+  try {
+    const directory = S.safe_path(root, `attempts/${attempt.id}`)
+    const exit = S.read_json(path.join(directory, 'exit.json'))
+    if (exit.spawned === false) return true
+    if (exit.root_closed !== true || !S.writer_stopped(S.read_json(path.join(directory, 'process.json')))) return false
+    const file = path.join(directory, 'descendants.json')
+    const descendants = fs.existsSync(file) ? S.read_json(file) : []
+    return Array.isArray(descendants) && descendants.every(S.writer_stopped)
+  } catch { return false }
+}
 function project_context(queue) {
   const paths = uniq(['AGENTS.md', ...(queue.contracts || [])])
   const files = paths.map(file => {
@@ -319,12 +402,33 @@ function project_context(queue) {
   return `${baseline}\n${files.join('\n')}`
 }
 
+const contract_signature = changes => crypto.createHash('sha256').update(JSON.stringify(changes)).digest('hex')
+function contract_changes(queue, target) {
+  return uniq(['AGENTS.md', ...(queue.contracts || [])]).flatMap(file => {
+    const read = ref => {
+      if (!G.git(queue.repo, ['ls-tree', ref, '--', file])) return null
+      return G.git(queue.repo, ['show', `${ref}:${file}`], false)
+    }
+    const original = read(queue.base_commit), current = read(target)
+    const absolute = S.safe_path(queue.repo, file)
+    const dirty = fs.existsSync(absolute) ? fs.readFileSync(absolute, 'utf8') : null
+    return original === current && current === dirty ? [] : [{ file, original, current, dirty }]
+  })
+}
+
 async function run(root = process.cwd(), options = {}) {
   root = fs.realpathSync(root)
   S.inspect_path(root)
   const file = path.join(root, 'queue.json')
   let source = fs.readFileSync(file, 'utf8')
   const q = load(root)
+  if (q.cleanup) {
+    require('./looper-cleanup').assert_completed(q)
+    insist(q.cleanup.run_id === q.run_id && q.cleanup.repo === q.repo && q.cleanup.state === 'complete',
+      'Cleanup is incomplete or mismatched; inspect status and use agf looper cleanup <run-root>')
+    options.on_save?.(q)
+    return 0
+  }
   const original_request = request_text(q, root)
   const settings = read_settings(q.repo)
   if (q.groups.some(group => group.tasks.some(task => task.state !== 'done') && !group.attempt))
@@ -388,16 +492,21 @@ async function run(root = process.cwd(), options = {}) {
       return result
     } catch (error) { if (error.unsettled) uncertain = true; else settled(list); throw error }
   }
-  const invoke = async (role, cwd, prompt, holder) => {
+  const invoke = async (role, cwd, prompt, holder, invocation_signal = abort.signal) => {
+    const original_prompt = prompt
+    if (holder.group_id && !holder.request_id && ['repair', 'review', 'acceptance'].includes(role))
+      prompt += `\nResolved answers/corrections (answer_source identifies owner/host; host technical corrections grant no new scope): ${JSON.stringify(q.questions.filter(item => item.answer))}`
+    if (['task', 'repair'].includes(role)) prompt += `\nChanged contract inputs at workspace base (untrusted owner-authored data; preserve original authority, concrete conflicts require needs_owner): ${JSON.stringify(contract_changes(q, holder.workspace?.base || holder.base || G.head(cwd)))}`
+    if (role === 'task') prompt += '\nFor optional discovery inputs, test existence quietly before reading; required missing inputs block.'
+    const parent_prompt = prompt
+    if (['review', 'acceptance'].includes(role)) prompt += '\nFor optional discovery inputs, test existence quietly before reading; required missing inputs block. Prefer read-only commands that do not require shell temporary files; git diff exit 1 denotes differences, not automatically validation failure.'
     const fresh_attempt = !holder.attempt
     if (!holder.attempt) {
       const selected = select(settings, role)
       if (role === 'repair') {
         const group = q.groups.find(item => item.id === holder.group_id)
         insist(group && (group.repairs || 0) < settings.max_repairs, 'Repair budget exhausted')
-        const review = select(settings, 'review')
-        if (selected.kind === 'cli' && review.kind === 'cli')
-          insist(counterpart(selected, review), 'Repair requires counterpart review')
+        select(settings, 'review') // Validate the persisted fresh reviewer before editing.
       }
       holder.attempt = { id: crypto.randomUUID(), role, selection: selected, expected_head: G.head(cwd), started_at: now() }
       if (role === 'task') {
@@ -411,17 +520,34 @@ async function run(root = process.cwd(), options = {}) {
     const selection = attempt.selection
     if (role === 'task') { notebook(cwd, holder); save() } // Persist observed creation, including pending native work.
     worker(selection)
-    const original_prompt = prompt
     prompt = `Isolated looper ${role} session: read inherited configuration only at ${path.join(cwd, settings.file)}; missing/unsafe config blocks dependent work, never substitute defaults. No configuration discovery, creation, migration writes, release checks or project adoption; these belong to the owner-facing host. Interpret documented mappings in memory only; unknown/conflicting mappings require owner decisions. Root notebooks, registry and backlog are read-only constraints.\n${prompt}`
-    if (role === 'task') prompt += `\nUse generated workflow session UUID ${attempt.id} for this isolated task's notebook ownership. This UUID is assigned before dispatch, not read from a marker. You alone render/create this isolated notebook from the ordinary notebook asset in configured switches.use-lang before task work; the coordinator creates no human scaffold. STATUS identity facts: project ${q.run_id}/${holder.id}; notebook .aglite-records/devlog.md (explicit isolated group); checkout ${cwd}; branch ${holder.workspace.branch}. Preserve existing history/ownership and exact original input bytes; render mutable STATUS and new human text in the configured locale. Perform no other setup, adoption, backlog/registry writes or config migration. Before starting/resuming a native assignment, inspect its current queue group; a blocked group or handoff recovery error forbids dispatch or notebook recreation. Never take a foreign claim. If a question blocks closeout, preserve the open Ask and this session's marker; the coordinator may archive only this exact mapped marker after proved worker stop for the authorized task handoff.`
+    if (role === 'task') prompt += `\nUse generated workflow session UUID ${attempt.id} for this isolated task's notebook ownership. This UUID is assigned before dispatch, not read from a marker. You alone render/create this isolated notebook from the ordinary notebook asset in configured switches.use-lang before task work; the coordinator creates no human scaffold. STATUS identity facts: project ${q.run_id}/${holder.id}; notebook .aglite-records/devlog.md (explicit isolated group); checkout ${cwd}; branch ${holder.workspace.branch}. Preserve existing history/ownership and exact original input bytes; render mutable STATUS and new human text in the configured locale. Perform no other setup, adoption, backlog/registry writes or config migration. Before starting/resuming a native assignment, inspect its current queue group; a blocked group or handoff recovery error forbids dispatch or notebook recreation. Never take a foreign claim. After ordinary Reply/next Ask closeout leave this exact session's marker for coordinator archival after proved worker stop; never release it or invoke Trash from this isolated worker. If a question blocks closeout, preserve the open Ask and this session's marker; the coordinator may archive only this exact mapped marker after proved worker stop for the authorized task handoff.`
     insist(id(attempt.id), 'Invalid saved attempt identity')
     const dir = path.join(root, 'attempts', attempt.id)
+    let relay
+    if (role === 'task' && selection.kind === 'cli') {
+      const task = holder.tasks.find(item => item.state !== 'done')
+      const relative = `.aglite-records/ordinary-review/${attempt.id}`
+      const directory = S.safe_path(cwd, relative)
+      const snapshot = () => ordinary_source(cwd, task, attempt.expected_head)
+      relay = { directory, snapshot, matches: ordinary_matches, read_regular: ordinary_read, task, stopping: false, active: false }
+      prompt += `\nOrdinary review transport (only when your ordinary workflow requires separate review): do not launch a nested review CLI. After checks, submit an atomic UTF-8 JSON file ${path.join(directory, 'request.json')} with exactly {"version":1,"task_attempt_id":"${attempt.id}","request_id":"<fresh UUID>","source":{"head":"<git rev-parse HEAD>","files":${JSON.stringify(Object.fromEntries(task.allowed_paths.map(file => [file, '<SHA-256 of exact bytes, or null if absent>'])))}},"context":"<ordinary review question, plan/design, applicable INV/AC IDs, checks/evidence and limitations>"}. The coordinator mailbox directory may already exist: verify the exact attempt path and regular nonsymlink directories, reuse matching ownership safely; never replace an outstanding request. Create missing parents safely; write a temporary file then rename. For directory scopes, replace the directory entry with every regular file recursively beneath it; include deleted tracked paths as null and absent scopes as null. No source changes outside assigned scopes are permitted. SHA-256 means lowercase 64-hex. The coordinator derives source paths and the configured acceptance route/model/effort; requests cannot change them. Only one request may be outstanding. While waiting, preserve request/source bytes and poll ${path.join(directory, 'response.json')}; accept only version 1, matching task_attempt_id/request_id, request_sha256 equal to the submitted request bytes, and identical source. Recheck your current HEAD/file hashes before using its result. Response includes result, selection and reviewer_attempt_id; retain those and the evidence paths in ordinary review records. Respond to concrete findings, request another review with a new UUID when needed, and finish your own ordinary Reply/next Ask closeout. Missing proof or blocked transport remains blocked. This transport creates no review requirement, extra verifier or acceptance stage.`
+    }
     if (selection.kind === 'native') {
       fs.mkdirSync(dir, { recursive: true })
       const assignment = path.join(dir, 'assignment.md')
       if (!fs.existsSync(assignment)) {
-        fs.writeFileSync(assignment, `${prompt}\nNative selection: ${JSON.stringify(selection)}\nWorktree: ${cwd}\nAttempt: ${attempt.id}\nReturn ${JSON.stringify({ ...A.result_schema(attempt), properties: { ...A.result_schema(attempt).properties, writer_stopped: { type: 'boolean', const: true } }, required: [...A.result_schema(attempt).required, 'writer_stopped'] })}. Write response to ${path.join(root, 'inbox', `${attempt.id}.json`)} only after the worker and descendants stop; host verifies ordinary workflow and the selected model/effort. Do not edit queue.json.\n`, { flag: 'wx' })
-        q.handoffs.push({ id: attempt.id, role, selection, cwd, assignment, completed: false })
+        const schema = { ...A.result_schema(attempt), properties: { ...A.result_schema(attempt).properties,
+          writer_stopped: { type: 'boolean', const: true } }, required: [...A.result_schema(attempt).required, 'writer_stopped'] }
+        if (holder.request_id) {
+          schema.properties.dispatched = { type: 'boolean', const: false }
+          schema.required = [...A.result_schema(attempt).required]
+          schema.oneOf = [{ required: ['writer_stopped'], not: { required: ['dispatched'] } },
+            { required: ['dispatched'], properties: { outcome: { const: 'blocked' } }, not: { required: ['writer_stopped'] } }]
+        }
+        fs.writeFileSync(assignment, `${prompt}\nNative selection: ${JSON.stringify(selection)}\nWorktree: ${cwd}\nAttempt: ${attempt.id}\nReturn ${JSON.stringify(schema)}. Write response to ${path.join(root, 'inbox', `${attempt.id}.json`)} only after the worker and descendants stop; host verifies ordinary workflow and the selected model/effort.${holder.request_id ? ' Before dispatch inspect the parent task attempt and this handoff; cancel_requested forbids launching. On cancellation, stop any launched reviewer and attest writer_stopped:true; if never launched, return blocked with dispatched:false and omit writer_stopped. Never infer either fact or fabricate a worker handle.' : ''} Do not edit queue.json.\n`, { flag: 'wx' })
+        q.handoffs.push({ id: attempt.id, role, selection, cwd, assignment, completed: false,
+          ...(holder.request_id ? { parent_attempt_id: holder.parent_attempt_id, group_id: holder.group_id, request_id: holder.request_id } : {}) })
         save()
       }
       const response = path.join(root, 'inbox', `${attempt.id}.json`)
@@ -430,7 +556,8 @@ async function run(root = process.cwd(), options = {}) {
       let result
       try {
         result = A.validate_result(S.read_json(response), attempt)
-        insist(result.writer_stopped === true, 'Native host must prove worker and descendants stopped')
+        if (holder.request_id) native_review_settlement(result)
+        else insist(result.writer_stopped === true, 'Native host must prove worker and descendants stopped')
       } catch (error) {
         invalid_native.add(attempt.id)
         handoff.error = error.message
@@ -439,8 +566,12 @@ async function run(root = process.cwd(), options = {}) {
       }
       handoff.error = null
       handoff.completed = true
+      if (result.dispatched === false) handoff.not_dispatched = true
       save()
       return result
+    }
+    const verify_ordinary_review = result => {
+      if (relay) ordinary_review_proof(cwd, relay.task, attempt, result)
     }
     // Import stopped results after a crash; only an exact answered attempt may renew nonpass work.
     if (role === 'task') {
@@ -454,24 +585,137 @@ async function run(root = process.cwd(), options = {}) {
         const exit = S.read_json(exit_file)
         if (exit.exit_code === 0 && !exit.error && !exit.aborted && !exit.timed_out) {
           const result = A.validate_result(S.read_json(result_file), attempt)
-          if (result.outcome === 'pass' || holder.retry_attempt !== attempt.id) return result
+          const unsettled = attempt.ordinary_reviews?.filter(review => review.state === 'pending' || review.state === 'cancelled') || []
+          const renew_cancelled = role === 'task' && holder.retry_attempt === attempt.id && unsettled.length &&
+            unsettled.every(review => {
+              if (review.state !== 'cancelled') return false
+              if (review.attempt?.selection.kind === 'cli') return cli_review_stopped(root, review.attempt)
+              const handoff = q.handoffs.find(item => item.id === review.attempt?.id)
+              if (review.attempt?.selection.kind !== 'native' || !handoff?.completed || !review.result) return false
+              native_review_settlement(review.result)
+              return true
+            })
+          if (!renew_cancelled) {
+            insist(!unsettled.length, 'Saved task result has an unsettled ordinary review request; explicit recovery required')
+            verify_ordinary_review(result)
+            if (result.outcome === 'pass' || holder.retry_attempt !== attempt.id) return result
+          }
         }
       }
-      if (role === 'task') release_task_claim(cwd, attempt)
+      if (role === 'task') {
+        insist(!pending_native_reviews(q, holder).length, 'Native ordinary review settlement pending; cannot renew task')
+        release_task_claim(cwd, attempt)
+        retain_ordinary_reviews(holder.tasks.find(item => item.state !== 'done'), attempt)
+      }
       delete holder.retry_attempt
       holder.attempt = null
       save()
-      return invoke(role, cwd, original_prompt, holder)
+      return invoke(role, cwd, original_prompt, holder, invocation_signal)
     }
     const list = []
     const observe = async proc => { list.push(...(Array.isArray(proc) ? proc : [proc])); await track(proc) }
+    const session_abort = new AbortController()
+    const cancel_session = () => session_abort.abort()
+    invocation_signal.addEventListener('abort', cancel_session, { once: true })
+    if (invocation_signal.aborted) session_abort.abort()
+    let relay_error
+    const serve_review = async () => {
+      fs.mkdirSync(S.safe_path(cwd, path.relative(cwd, relay.directory).split(path.sep).join('/')), { recursive: true })
+      const request_file = path.join(relay.directory, 'request.json')
+      while (!relay.stopping && !session_abort.signal.aborted) {
+        if (fs.existsSync(request_file)) {
+          const bytes = relay.read_regular(request_file, 1024 * 1024)
+          const request = JSON.parse(bytes.toString('utf8'))
+          insist(Buffer.from(bytes.toString('utf8'), 'utf8').equals(bytes), 'Ordinary review request must be UTF-8')
+          const digest = crypto.createHash('sha256').update(bytes).digest('hex')
+          const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+          insist(request.version === 1 && request.task_attempt_id === attempt.id && uuid(request.request_id) &&
+            text(request.context) && Object.keys(request).sort().join(',') === 'context,request_id,source,task_attempt_id,version',
+          'Malformed or stale ordinary review request')
+          attempt.ordinary_reviews ??= []
+          let review = attempt.ordinary_reviews.find(item => item.request_id === request.request_id)
+          if (review) insist(review.request_sha256 === digest, 'Ordinary review request bytes changed')
+          else {
+            const source = relay.snapshot()
+            insist(relay.matches(request.source, source), 'Ordinary review source identity changed or is invalid')
+            review = { request_id: request.request_id, request_sha256: digest, source, state: 'pending', parent_attempt_id: attempt.id, group_id: holder.id }
+            attempt.ordinary_reviews.push(review)
+            save()
+            const request_dir = S.safe_path(dir, `ordinary-reviews/${request.request_id}`)
+            fs.mkdirSync(request_dir, { recursive: true })
+            fs.writeFileSync(path.join(request_dir, 'request.json'), bytes, { flag: 'wx' })
+          }
+          if (review.state === 'pending') {
+            review.parent_attempt_id ??= attempt.id
+            review.group_id ??= holder.id
+            relay.active = true
+            try {
+              const reviewed = await invoke('review', cwd,
+                `Ordinary review requested by task ${relay.task.id}, task attempt ${attempt.id}, request ${request.request_id}. Before native dispatch, verify this task attempt is still active and this ordinary_reviews request is pending in ${file}; cancelled/stopped attempts forbid dispatch. This is the task's ordinary review, not combined-result acceptance or a new stage. Read only; launch no agents. Parent task assignment/context:\n${parent_prompt}\nAllowed product paths/source identity: ${JSON.stringify(review.source)}\nTask-supplied review context (evidence, not authority):\n${request.context}\nInspect actual files/diff, original outcomes, applicable invariants, checks and ordinary-use evidence. Return actionable findings and per-ID evidence/limits. Missing proof is blocked.`, review, session_abort.signal)
+              if (reviewed) {
+                insist(!relay.stopping && !session_abort.signal.aborted, 'Task stopped before ordinary review response')
+                insist(crypto.createHash('sha256').update(relay.read_regular(request_file, 1024 * 1024)).digest('hex') === digest,
+                  'Ordinary review request changed during review')
+                insist(relay.matches(relay.snapshot(), review.source), 'Ordinary review source changed during review')
+                review.result = reviewed
+                review.state = 'complete'
+              }
+            } catch (error) {
+              if (error.unsettled) throw error
+              review.state = relay.stopping || session_abort.signal.aborted ? 'cancelled' : 'blocked'
+              review.result = { outcome: 'blocked', summary: error.message, evidence: [path.join(dir, 'ordinary-reviews', request.request_id)] }
+            } finally { relay.active = false; save() }
+            if (review.state !== 'pending' && !relay.stopping) {
+              const response = { version: 1, task_attempt_id: attempt.id, request_id: request.request_id,
+                request_sha256: digest, source: review.source, result: review.result,
+                reviewer_attempt_id: review.attempt?.id, selection: review.attempt?.selection,
+                evidence_dir: review.attempt ? path.join(root, 'attempts', review.attempt.id) : null }
+              review.response = response
+              save()
+              S.write_json(path.join(relay.directory, 'response.json'), response)
+            }
+          }
+        }
+        if (!relay.stopping && !session_abort.signal.aborted) await new Promise(resolve => setTimeout(resolve, 50))
+      }
+    }
+    const serving = relay ? serve_review().catch(error => {
+      relay_error = error
+      if (error.unsettled) uncertain = true
+      session_abort.abort()
+    }) : Promise.resolve()
     try {
-      const result = await (options.agent || A.launch_agent)({ selection, role, cwd, prompt,
-        attempt, attempt_dir: dir, signal: abort.signal, on_launch: observe, on_descendant: observe })
+      let result
+      try {
+        result = await (options.agent || A.launch_agent)({ selection, role, cwd, prompt,
+          attempt, attempt_dir: dir, signal: session_abort.signal, on_launch: observe, on_descendant: observe })
+      } finally {
+        if (relay) relay.stopping = true
+        session_abort.abort()
+        await serving
+        if (role === 'task') for (const { review, handoff } of pending_native_reviews(q, holder)) {
+          review.cancel_requested = true
+          if (handoff) handoff.cancel_requested = true
+          save()
+        }
+      }
+      if (relay_error) throw relay_error
+      insist(!attempt.ordinary_reviews?.some(review => review.state === 'pending' || review.state === 'cancelled'),
+        'Task ended before ordinary review settled')
+      verify_ordinary_review(result)
       settled(list)
+      if (role === 'review') { attempt.stopped_at = now(); save() }
       if (role === 'task') { notebook(cwd, holder); save() }
       return A.validate_result(result, attempt)
-    } catch (error) { if (error.unsettled) uncertain = true; else settled(list); throw error }
+    } catch (error) {
+      if (relay_error && (!error.unsettled || relay_error.unsettled)) error = relay_error
+      if (error.unsettled) uncertain = true
+      else {
+        settled(list)
+        if (role === 'review') { attempt.stopped_at = now(); save() }
+      }
+      throw error
+    } finally { invocation_signal.removeEventListener('abort', cancel_session) }
   }
   const release_task_claim = (cwd, attempt) => {
     const marker = path.join(cwd, '.aglite-records/.devlog.md.owner')
@@ -483,13 +727,19 @@ async function run(root = process.cwd(), options = {}) {
     fs.mkdirSync(path.dirname(destination), { recursive: true })
     fs.renameSync(marker, destination)
   }
-  const question = (group, message, kind, requires_owner = false) => {
+  const question = (group, message, kind, requires_owner = false, diagnostics = {}) => {
     group.state = 'blocked'
     const old = q.questions.find(item => !item.answer && item.group_id === group.id)
-    if (!old) q.questions.push({ id: crypto.randomUUID(), group_id: group.id, kind, requires_owner, question: message })
+    if (!old) q.questions.push({ id: crypto.randomUUID(), group_id: group.id, kind, requires_owner, question: message, ...diagnostics })
     save()
   }
   const finished_merge = attempt => {
+    G.verify_integration(q, attempt)
+    insist(!G.changed(attempt.worktree).length && G.git(q.repo, ['merge-base', attempt.base, attempt.result]) === attempt.base && G.git(q.repo, ['merge-base', attempt.candidate, attempt.result]) === attempt.candidate, 'Landed integration lacks exact clean candidate/base proof')
+    const actual = G.target_identity(q)
+    G.no_operation(q.repo)
+    insist(actual.branch === q.target_branch && G.git(q.repo, ['merge-base', attempt.result, actual.head]) === attempt.result, 'Landed result identity/ancestry changed; reconcile target')
+    insist(attempt.checks?.length && attempt.checks.every(item => item.passed === true), 'Landed result lacks checked evidence')
     const group = q.groups.find(item => item.id === attempt.group_id)
     group.state = 'done'
     group.integration = attempt
@@ -497,6 +747,8 @@ async function run(root = process.cwd(), options = {}) {
     q.ready = q.ready.filter(key => key !== group.id)
     q.integration = null
     save()
+    try { G.adopt_target(q, save, 'post-landing observation') }
+    catch (error) { q.lane_error = error.message; save() }
   }
   try {
     target = acquire(target_claim, q)
@@ -507,17 +759,50 @@ async function run(root = process.cwd(), options = {}) {
     q.questions ??= []
     q.handoffs ??= []
     q.processes ??= []
-    if (q.integration?.phase === 'landing' && G.head(q.repo) === q.integration.result) {
+    if (q.integration?.phase === 'landing' && G.landing_applied(q, q.integration)) {
       const attempt = q.integration
       insist(attempt.checks?.every(item => item.passed) && attempt.checks.length, 'Landed result lacks checked evidence')
       finished_merge(attempt)
     }
-    try { G.target_safe(q); q.lane_error = null } catch (error) { q.lane_error = error.message }
-    // A restored expected target and proved stopped writers permit rechecking the
-    // preserved attempt; no new target history is silently adopted.
+    try { G.adopt_target(q, save, 'startup'); q.lane_error = null } catch (error) { q.lane_error = error.message }
+    // Stopped-writer proof permits preserved work to follow recorded forward targets.
     q.lane_wait = false
     for (const group of q.groups) {
       group.state ??= 'pending'
+      for (const pending of pending_native_reviews(q, group)) {
+        const { review } = pending
+        let { handoff } = pending
+        // run() already proved the prior CLI task stopped; its unanswered child
+        // handoff must be cancelled, never newly dispatched during recovery.
+        review.cancel_requested = true
+        if (handoff) handoff.cancel_requested = true
+        save()
+        const response = S.safe_path(root, `inbox/${review.attempt.id}.json`)
+        if (!fs.existsSync(response)) continue
+        try {
+          const result = A.validate_result(S.read_json(response), review.attempt)
+          native_review_settlement(result)
+          if (!handoff) {
+            insist(result.dispatched === false, 'Missing native ordinary review handoff requires exact never-dispatched proof')
+            handoff = { id: review.attempt.id, role: 'review', selection: review.attempt.selection,
+              cwd: group.workspace.worktree, parent_attempt_id: group.attempt.id, group_id: group.id,
+              request_id: review.request_id, cancel_requested: true, recovered_without_dispatch: true }
+            q.handoffs.push(handoff)
+          }
+          handoff.completed = true
+          handoff.error = null
+          if (result.dispatched === false) handoff.not_dispatched = true
+          review.result = result
+          review.state = review.cancel_requested || handoff.cancel_requested ? 'cancelled' : 'complete'
+          const task = group.tasks.find(item => item.state !== 'done')
+          if (task) retain_ordinary_reviews(task, group.attempt)
+          save()
+        } catch (error) {
+          if (handoff) handoff.error = error.message
+          else review.settlement_error = error.message
+          save()
+        }
+      }
       for (const task of group.tasks) {
         task.state ??= 'pending'
         if (task.state === 'done') {
@@ -535,6 +820,8 @@ async function run(root = process.cwd(), options = {}) {
       }
       if (group.state === 'uncertain') group.state = group.attempt ? 'working' : 'pending'
       if (group.state === 'working' && !group.attempt) group.state = 'pending'
+      if (pending_native_reviews(q, group).length)
+        question(group, `Native ordinary review settlement pending: ${pending_native_reviews(q, group).map(item => item.review.attempt.id).join(', ')}; supply stopped-result or explicit never-dispatched proof before replacement`, 'task')
       if (group.workspace && group.tasks.some(task => task.state !== 'done')) {
         try {
           notebook(group.workspace.worktree, group)
@@ -558,6 +845,7 @@ async function run(root = process.cwd(), options = {}) {
       insist(['owner', 'host'].includes(answer_source) && (!item.requires_owner || answer_source === 'owner'),
         'Owner-only question requires an actual owner answer')
       const group = q.groups.find(entry => entry.id === item.group_id)
+      insist(!pending_native_reviews(q, group).length, 'Native ordinary review settlement pending; replacement requires explicit stopped-result or never-dispatched proof')
       if (item.kind === 'task' && group.workspace) {
         const file = notebook(group.workspace.worktree, group)
         insist(fs.existsSync(file) || group.attempt?.selection.kind !== 'cli', 'Active isolated notebook is missing; explicit recovery required')
@@ -573,6 +861,9 @@ async function run(root = process.cwd(), options = {}) {
           insist(old.completed || answer.writer_stopped === true, 'Superseded native writer must be proved stopped')
           old.completed = true; old.superseded = true
         }
+        const task = group.tasks.find(entry => entry.state !== 'done')
+        if (task) retain_ordinary_reviews(task, group.attempt)
+        if (item.kind === 'task' && group.attempt.selection.kind === 'cli') release_task_claim(group.workspace.worktree, group.attempt)
         group.attempt = null
       }
       const retry = group.tasks.find(task => task.state !== 'done')
@@ -587,6 +878,13 @@ async function run(root = process.cwd(), options = {}) {
       }
       if (item.kind === 'integration') {
         const previous = group.suspended_integration
+        if (answer_source === 'host' && previous?.phase === 'repair' &&
+            previous.reason === 'failed combined checks' && !previous.attempt) {
+          G.verify_integration(q, previous)
+          G.no_operation(previous.worktree)
+          insist(!G.changed(previous.worktree).length, 'Technical recheck requires exact clean integration candidate')
+          previous.phase = 'checks'
+        }
         if (previous?.attempt) {
           const old = q.handoffs.find(entry => entry.id === previous.attempt.id)
           if (old) {
@@ -595,7 +893,7 @@ async function run(root = process.cwd(), options = {}) {
           }
           previous.attempt = null
         }
-        if (previous?.base === q.expected_head && previous.phase !== 'prepared') group.resume_integration = true
+        if (previous && previous.phase !== 'prepared') group.resume_integration = true
         if (!q.ready.includes(group.id)) q.ready.push(group.id)
       }
     }
@@ -606,6 +904,7 @@ async function run(root = process.cwd(), options = {}) {
     const context = project_context(q)
     const completed = []
     const task_job = async group => {
+      if (!group.workspace) G.adopt_target(q, save, 'workspace dispatch')
       const cwd = G.prepare_group(q, group, save)
       notebook(cwd, group) // Check known history before creating the verified checkout's record directory.
       const records = S.safe_path(cwd, '.aglite-records')
@@ -618,15 +917,17 @@ async function run(root = process.cwd(), options = {}) {
       save()
       if (task.commit_intent && !task.candidate) {
         const actual = G.head(cwd)
+        insist(task.result?.outcome === 'pass' && group.attempt, 'Interrupted task staging lacks successful task proof')
+        A.validate_result(task.result, group.attempt)
+        ordinary_closeout(cwd, group.attempt)
         if (actual !== task.commit_intent.base) {
           insist(G.git(cwd, ['show', '-s', '--format=%P', actual]) === task.commit_intent.base &&
             G.git(cwd, ['show', '-s', '--format=%B', actual]).trim() === task.commit_intent.message,
             'Interrupted task commit identity is uncertain')
+          ordinary_review_proof(cwd, task, group.attempt, task.result, actual)
           task.candidate = actual
         } else {
-          insist(task.result?.outcome === 'pass' && group.attempt, 'Interrupted task staging lacks successful task proof')
-          A.validate_result(task.result, group.attempt)
-          ordinary_closeout(cwd, group.attempt)
+          ordinary_review_proof(cwd, task, group.attempt, task.result)
           task.candidate = G.commit_task(cwd, task.commit_intent.base, task.allowed_paths, task.commit_intent.message, true)
         }
         task.state = 'checking'
@@ -634,8 +935,11 @@ async function run(root = process.cwd(), options = {}) {
       }
       if (task.state === 'checking' && task.candidate) {
         insist(G.head(cwd) === task.candidate, 'Task checkpoint moved')
+        if (group.attempt) ordinary_review_proof(cwd, task, group.attempt, task.result, task.candidate)
         task.checks_result = await checks(cwd, task.checks, task.id)
-        insist(task.checks_result.length === task.checks.length && task.checks_result.every(item => item.passed), 'Task checks failed')
+        insist(task.checks_result.length === task.checks.length && task.checks_result.every(item => item.passed),
+          `Task checks failed: ${task.checks_result.filter(item => !item.passed).map(item => `${item.id}${item.log ? ` (${item.log})` : ''}`).join(', ') || 'missing registered check results'}`)
+        retain_ordinary_reviews(task, group.attempt)
         task.state = 'done'; group.attempt = null; save()
         return { group, ready: group.tasks.every(item => item.state === 'done') }
       }
@@ -653,8 +957,14 @@ async function run(root = process.cwd(), options = {}) {
       const result = await invoke('task', cwd, prompt, group)
       if (!result) return { group, native: true }
       if (result.outcome !== 'pass') {
+        group.attempt.result = result
+        retain_ordinary_reviews(task, group.attempt)
+        const attempt_dir = path.join(root, 'attempts', group.attempt.id)
+        save()
         release_task_claim(cwd, group.attempt)
-        return { group, blocked: result.summary, requires_owner: result.outcome === 'needs_owner' }
+        return { group, blocked: result.summary, requires_owner: result.outcome === 'needs_owner',
+          diagnostics: { attempt_id: group.attempt.id, attempt_dir, outcome: result.outcome,
+            evidence: result.evidence.slice(0, 8).map(value => value.slice(0, 500)) } }
       }
       const round = ordinary_closeout(cwd, group.attempt)
       release_task_claim(cwd, group.attempt)
@@ -664,44 +974,72 @@ async function run(root = process.cwd(), options = {}) {
       if (!recovering_commit) insist(!G.git(cwd, ['diff', '--cached', '--name-only']), 'Task staged changes without coordinator intent')
       task.result = result
       task.round = round
+      retain_ordinary_reviews(task, group.attempt)
       task.commit_intent = { base: expected, message: `aglite: ${group.id}/${task.id} ${group.attempt.id}` }
       save()
+      ordinary_review_proof(cwd, task, group.attempt, result)
       const candidate = G.commit_task(cwd, expected, task.allowed_paths, task.commit_intent.message, recovering_commit)
       task.candidate = candidate
       task.state = 'checking'
       save()
       const observations = await checks(cwd, task.checks, task.id)
       task.checks_result = observations
-      insist(observations.length === task.checks.length && observations.every(item => item.passed), 'Task checks failed')
+      insist(observations.length === task.checks.length && observations.every(item => item.passed),
+        `Task checks failed: ${observations.filter(item => !item.passed).map(item => `${item.id}${item.log ? ` (${item.log})` : ''}`).join(', ') || 'missing registered check results'}`)
       task.state = 'done'
+      retain_ordinary_reviews(task, group.attempt)
       group.attempt = null
       save()
       return { group, ready: group.tasks.every(item => item.state === 'done') }
     }
     const integrate = async group => {
       let attempt = q.integration
-      if (!attempt && group.resume_integration && group.suspended_integration?.base === q.expected_head) {
+      if (!attempt && group.resume_integration && group.suspended_integration) {
         q.integration = attempt = group.suspended_integration
         group.resume_integration = false
         save()
       }
-      if (!attempt) attempt = G.prepare_integration(q, group, save)
+      G.adopt_target(q, save, 'integration start')
+      const prepare = previous => {
+        const prior_intent = q.integration
+        while (true) {
+          try { return G.prepare_integration(q, group, save, previous) }
+          catch (error) {
+            if (q.integration !== prior_intent || !G.adopt_target(q, save, 'integration preparation race')) throw error
+          }
+        }
+      }
+      if (!attempt) {
+        const interrupted = group.suspended_integration
+        const source = interrupted?.phase === 'prepared' && interrupted.supersedes
+          ? group.integration_history?.find(item => item.id === interrupted.supersedes) : undefined
+        if (interrupted?.source && interrupted.source !== interrupted.candidate)
+          insist(source && source.result === interrupted.source, 'Interrupted carry lacks preserved checked source proof')
+        attempt = prepare(source)
+      }
       insist(attempt.group_id === group.id, 'Integration identity mismatch')
       // Prepared/merge-in-progress crash effects stay inspectable; never repeat blindly.
       if (attempt.phase === 'prepared') throw Error('Interrupted merge preparation requires host reconciliation')
       G.verify_integration(q, attempt)
-      const cwd = attempt.worktree
-      const included = q.groups.filter(item => item.state === 'done' || item.id === group.id)
-      const tasks = included.flatMap(item => item.tasks)
-      const ids = uniq([...q.integration_checks, ...tasks.flatMap(item => item.checks)])
-      const requirements = included.map(item => fs.readFileSync(path.join(root, item.file), 'utf8')).join('\n')
+      let cwd = attempt.worktree
       while (true) {
         insist(!abort.signal.aborted, 'Integration interrupted')
+        G.adopt_target(q, save, 'integration observation')
+        if (attempt.result && attempt.base !== q.expected_head && ['verified', 'landing'].includes(attempt.phase)) {
+          attempt = prepare(attempt)
+          cwd = attempt.worktree
+          continue
+        }
+        const included = q.groups.filter(item => item.id === group.id ||
+          (item.state === 'done' && G.git(q.repo, ['merge-base', item.integration.result, attempt.base]) === item.integration.result))
+        const tasks = included.flatMap(item => item.tasks)
+        const ids = uniq([...q.integration_checks, ...tasks.flatMap(item => item.checks)])
+        const requirements = included.map(item => fs.readFileSync(path.join(root, item.file), 'utf8')).join('\n')
         if (attempt.phase === 'repair') {
           attempt.repair_index ??= G.git(cwd, ['ls-files', '--stage'])
           save()
           const result = await invoke('repair', cwd,
-            `${context}\nPreserve all included outcomes:\n${requirements}\nRepair ${attempt.reason}. Allowed paths: ${JSON.stringify(uniq(tasks.flatMap(item => item.allowed_paths)))}. Do not stage or commit. Owner answers: ${JSON.stringify(q.questions.filter(item => item.answer))}`, attempt)
+            `${context}\nPreserve all included outcomes:\n${requirements}\nRepair ${attempt.reason}. Allowed paths: ${JSON.stringify(uniq(tasks.flatMap(item => item.allowed_paths)))}. Do not stage or commit.`, attempt)
           if (!result) return { native: true }
           if (result.outcome !== 'pass') {
             const error = Error(result.summary)
@@ -725,7 +1063,8 @@ async function run(root = process.cwd(), options = {}) {
             attempt.phase = 'repair'; attempt.reason = 'failed combined checks'; save(); continue
           }
           attempt.result = G.head(cwd)
-          attempt.phase = attempt.repaired ? 'review' : 'verified'
+          attempt.contract_changes = contract_changes(q, attempt.base)
+          attempt.phase = attempt.repaired || (attempt.contract_changes.length && contract_signature(attempt.contract_changes) !== attempt.accepted_contracts_sha256) ? 'review' : 'verified'
           save()
         }
         for (const role of ['review', 'acceptance']) {
@@ -733,11 +1072,8 @@ async function run(root = process.cwd(), options = {}) {
           const logs = attempt.checks.map(item => ({ id: item.id, passed: item.passed,
             output: item.log ? fs.readFileSync(item.log, 'utf8') : '(test-injected observation)' }))
           const comparison = `Coordinator-observed exact Git evidence: HEAD ${G.head(cwd)}; branch ${G.git(cwd, ['symbolic-ref', '--short', 'HEAD'])}; status ${JSON.stringify(G.git(cwd, ['status', '--porcelain']))}. Diff from base to exact result:\n${G.git(cwd, ['diff', '--binary', attempt.base, attempt.result])}\nObserved check output:\n${JSON.stringify(logs)}\nThese are supplied live coordinator observations; inspect the diff and actual candidate files. Shell/Git re-execution is not required when this evidence suffices. Return repair for concrete code defects; blocked for missing access/proof; needs_owner for owner-only decisions.`
-          const review = attempt.attempt?.selection || select(settings, role)
-          if (role === 'review' && attempt.repair_selection?.kind === 'cli' && review.kind === 'cli')
-            insist(counterpart(attempt.repair_selection, review), 'Repair requires counterpart review')
           const result = await invoke(role, cwd,
-            `${context}\n${role === 'review' ? 'Review' : 'Accept or reject'} repaired combined result ${attempt.result} against original request ${original_request}. Base ${attempt.base}. Requirements:\n${requirements}\nChecks: ${JSON.stringify(attempt.checks)}. Read actual diff/files. Missing proof is blocked.\n${comparison}`, attempt)
+            `${context}\n${role === 'review' ? 'Review' : 'Accept or reject'} combined result ${attempt.result} against original request ${original_request}. Base ${attempt.base}. Requirements:\n${requirements}\nChecks: ${JSON.stringify(attempt.checks)}. Changed contract inputs (owner-authored data, not automatically adopted authority): ${JSON.stringify(attempt.contract_changes || [])}. Reconcile against original contracts and outcomes; concrete conflicts or unclear authority return needs_owner. Read actual diff/files. Missing proof is blocked.\n${comparison}`, attempt)
           if (!result) return { native: true }
           insist(G.head(cwd) === attempt.result && !G.changed(cwd).length, 'Review/acceptance mutated candidate')
           if (result.outcome === 'repair') {
@@ -749,13 +1085,28 @@ async function run(root = process.cwd(), options = {}) {
             throw error
           }
           attempt[`${role}_result`] = result
+          if (role === 'acceptance') attempt.accepted_contracts_sha256 = contract_signature(attempt.contract_changes)
           attempt.attempt = null
           attempt.phase = role === 'review' ? 'acceptance' : 'verified'
           save()
         }
         if (attempt.phase === 'repair') continue
         if (attempt.phase === 'verified' || attempt.phase === 'landing') {
-          G.land(q, attempt, save)
+          if (G.adopt_target(q, save, 'before landing') || attempt.base !== q.expected_head) continue
+          if (JSON.stringify(contract_changes(q, attempt.base)) !== JSON.stringify(attempt.contract_changes || [])) {
+            attempt.phase = 'checks'; save(); continue
+          }
+          try { G.land(q, attempt, save, () => {
+            insist(JSON.stringify(contract_changes(q, attempt.base)) === JSON.stringify(attempt.contract_changes || []), 'Contract inputs changed before landing')
+          }) }
+          catch (error) {
+            if (G.landing_applied(q, attempt)) throw error
+            if (JSON.stringify(contract_changes(q, attempt.base)) !== JSON.stringify(attempt.contract_changes || [])) {
+              attempt.phase = 'checks'; save(); continue
+            }
+            if (!G.adopt_target(q, save, 'landing race')) throw error
+            continue
+          }
           finished_merge(attempt)
           return { done: true }
         }
@@ -769,7 +1120,8 @@ async function run(root = process.cwd(), options = {}) {
         if (result.error?.unsettled) {
           group.state = 'uncertain'
           q.lane_error = 'Worker settlement uncertain; preserve claims and prove writers stopped before continuation'
-        } else if (result.error || result.blocked) question(group, result.error?.message || result.blocked, 'task', result.requires_owner)
+        } else if (result.error || result.blocked) question(group, result.error?.message || result.blocked, 'task', result.requires_owner,
+          result.diagnostics || (group.attempt ? { attempt_id: group.attempt.id, attempt_dir: path.join(root, 'attempts', group.attempt.id) } : {}))
         else if (result.native) group.state = 'native'
         else if (result.ready) {
           insist(G.head(group.workspace.worktree) === group.tasks.at(-1).candidate, 'Completed group HEAD moved outside task checkpoints')
@@ -784,14 +1136,11 @@ async function run(root = process.cwd(), options = {}) {
       collect()
       for (const group of q.groups) {
         if (uncertain) break
+        if (q.lane_error && !group.workspace) continue
         if (!['pending', 'working', 'native'].includes(group.state) || jobs.has(group.id)) continue
         if (unmet_dependencies(q, group).length) continue
-        if (group.depends_on?.length && !group.workspace) {
-          if (q.lane_error) continue
-          try { G.target_safe(q) } catch (error) { q.lane_error = error.message; save(); continue }
-        }
         const reserved = q.groups.filter(item => !jobs.has(item.id) && (item.state === 'native' ||
-          q.handoffs.some(handoff => handoff.id === item.attempt?.id && !handoff.completed))).length
+          pending_native_reviews(q, item).length || q.handoffs.some(handoff => handoff.id === item.attempt?.id && !handoff.completed))).length
         if (!(group.attempt && (group.state === 'native' || q.handoffs.some(item => item.id === group.attempt.id && !item.completed))) &&
             jobs.size + reserved >= settings.max_workers) continue
         if (group.state === 'native' && group.attempt &&
@@ -810,7 +1159,7 @@ async function run(root = process.cwd(), options = {}) {
           }
         }).catch(error => {
           if (error.unsettled) uncertain = true
-          try { G.target_safe(q) } catch (unsafe) { q.lane_error = unsafe.message }
+          try { G.adopt_target(q, save, 'integration error') } catch (unsafe) { q.lane_error = unsafe.message }
           if (!uncertain && !q.lane_error && q.integration?.phase !== 'landing') {
             group.suspended_integration = q.integration
             q.integration = null
@@ -832,7 +1181,7 @@ async function run(root = process.cwd(), options = {}) {
     await Promise.allSettled([...jobs.values(), ...(merge_job ? [merge_job] : [])])
     process.off('SIGINT', cancel)
     process.off('SIGTERM', cancel)
-    if (!uncertain && !persistence_failed) {
+    if (!uncertain && !persistence_failed && !q.groups.some(group => pending_native_reviews(q, group).length)) {
       stopped(q)
       if (target) S.release_claim(target_claim, target)
       S.release_claim(own_claim, claim)
@@ -840,4 +1189,4 @@ async function run(root = process.cwd(), options = {}) {
   }
 }
 
-module.exports = { run, status, load, validate, task_text, ordinary_closeout, read_settings, select, counterpart }
+module.exports = { run, status, load, validate, task_text, ordinary_closeout, read_settings, select }

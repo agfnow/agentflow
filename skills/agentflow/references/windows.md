@@ -22,6 +22,12 @@ Send Copilot prompts through stdin to avoid Windows command-line limits; preserv
 
 Before claiming native support, observe a disposable real Windows Node/Git/provider journey: literal args and long Unicode stdin, npm shim/explicit entrypoint, CRLF queue and ordinary checked integration, cancellation/descendants, unknown-query refusal with retained claims, crash/resume/competing claims, junction/device/ADS refusal and atomic replacement/ACL behavior. Report actual versions and every unavailable observation or symlink-privilege skip; Mac/static/branch tests prove no Windows execution. No provider/account/spending authority follows.
 
+## Feature CLI
+
+The [terminal feature CLI](features.md#terminal-cli) uses Node >=20 and Git for Windows with literal argv, exact physical identities and byte-preserving records. Generate a PowerShell caller-cwd function using `node '<resolved-skill>/scripts/agf.js' shell powershell`; review it before authorized profile changes under [setup](setup.md#agf-command-setup). Ordinary output remains visible; only a successful validated destination file may change caller cwd. Existing bindings require an explicit upgrade request.
+
+Windows is best effort; native Windows feature creation, conflicts, editor launch, profile/cwd and cleanup remain untested without native evidence. Under the explicit owner exception, feature CLI cleanup/drop may permanently remove only the exact verified target checkout, including deliberate `--abandon`; disposal of its private destination file and exact UUID-owned CLI claim markers for necessary feature bookkeeping is also permitted; never foreign claims or other files. Target claims/locks and identity checks still block removal. No Windows permanent-deletion authority follows for host chat, looper or other files.
+
 ## Reversible cleanup
 
 - Follow owner deletion policy and [feature retirement](features.md#retire-one-worktree). Use `trash` or a verified platform Trash/Recycle Bin equivalent; permanent deletion is never a fallback.

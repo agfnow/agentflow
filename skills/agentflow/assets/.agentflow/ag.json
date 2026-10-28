@@ -1,5 +1,6 @@
 {
   "schema-version": 13,
+  "default-editor": "vscode",
   "next_update_date": null,
   "switches": {
     "ag-dir": ".agentflow",
@@ -65,7 +66,23 @@
       "model-family": "claude"
     }
   ],
-  "looper-routes": {},
+  "looper-routes": {
+    "task": {
+      "kind": "cli",
+      "provider": "codex",
+      "model-family": "openai"
+    },
+    "repair": {
+      "kind": "cli",
+      "provider": "codex",
+      "model-family": "openai"
+    },
+    "acceptance": {
+      "kind": "cli",
+      "provider": "codex",
+      "model-family": "openai"
+    }
+  },
   "looper-limits": {
     "max-workers": 3,
     "max-repairs": 2

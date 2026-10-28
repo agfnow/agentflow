@@ -6,7 +6,7 @@ That change has concrete consequences. An assistant can still violate the same w
 
 Treat this as a migration to a redesigned product. Agentflow 8 configuration and queues are not supported as drop-in inputs; configuration has a guarded conversion path, while old queues require separate recovery and new preparation. Start with the [guarded legacy migration rules](../references/legacy-migration.md); retain v8 for active work that cannot yet be safely handed off.
 
-This public edition compares Agentflow **8.4.15** with **Agentflow 9.0.0**, configuration schema **13**. Version 9 was developed under the beta name aglite. Current source references below belong to this package.
+This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.0**, configuration schema **13**. Current source references below belong to this package.
 
 Version 8 is preserved at [`agfnow/agentflow-v8`](https://github.com/agfnow/agentflow-v8); stable v9 uses [`agfnow/agentflow`](https://github.com/agfnow/agentflow). Use the matching repository’s installation instructions. Existing installations must be rebound deliberately; the repository rename alone does not migrate them.
 
@@ -26,7 +26,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Before:** Agentflow startup called `agf.js start`; helper programs captured inputs, validated notebooks and completion evidence, and integrated host-specific hooks. Its referee/Stop mechanisms had bounded scope and error behavior, so even v8 was not an absolute correctness guarantee.
 
-**Now:** agentflow directs the host to resolve identity, claim the notebook, capture input, recover work, validate outcomes and close the round with ordinary tools. There are no ordinary hooks, heartbeat or general workflow helper. The optional looper is a specific runtime exception. [SKILL.md, line 1](../SKILL.md) [looper.md, line 1](../references/looper.md)
+**Now:** agentflow directs the host to resolve identity, claim the notebook, capture input, recover work, validate outcomes and close the round with ordinary tools. There are no ordinary hooks, heartbeat or general workflow helper. The optional looper and [terminal feature CLI](../references/features.md#terminal-cli) are bounded runtime exceptions. [SKILL.md, line 1](../SKILL.md) [looper.md, line 1](../references/looper.md)
 
 **Concrete impact:** if an assistant forgets a review or appends malformed history, a legacy ordinary Stop hook will not catch that omission under agentflow. A host can still detect and repair it through its required checks. Removing the helper also removes helper-installation and hook-restart steps from ordinary setup.
 
@@ -36,7 +36,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Before:** v8 exposed startup/setup, settings, hook management, notebook operations, stream operations and closeout through its helper surface.
 
-**Now:** the agentflow launcher accepts only `agf loop run [run-root]` and `agf loop status [run-root]`. Chat instructions such as `new-feature`, `godev` and `prepare-tasks` are handled by the host; they are not new shell subcommands. [agf.js, line 1](../scripts/agf.js) [features.md, line 1](../references/features.md)
+**Now:** the agentflow launcher accepts the three `agf looper` commands and the separate [terminal feature commands](../references/features.md#terminal-cli): `new-feature`/`newft`, `merge-feature`/`mergeft`, and `drop-feature`/`dropft`. `agf shell <zsh|bash|powershell>` prints the caller-directory function. Chat commands such as `godev` and `prepare-tasks` remain host instructions. [agf.js, line 1](../scripts/agf.js) [features.md, line 1](../references/features.md)
 
 **Concrete impact:** a script invoking `agf start`, `agf settings`, `agf close`, `agf new` or the old `agf-looper` cannot be fixed by changing its install directory alone. A shell alias may still resolve to v8 even when the assistant loads agentflow.
 
@@ -114,7 +114,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Concrete impact:** old plan files are inputs for new preparation, not runnable migrated queues. The new coordinator rejects unregistered handwritten groups; recover started v8 queues on v8, then explicitly prepare new agentflow queues from their original requirements. agentflow’s own schema-1-to-2 conversion rule is not a v8 converter. The new queue's schema number is unrelated to v8's own queue-envelope numbering.
 
-**Retention tradeoff:** the new system keeps attempts, inputs, check logs, released claims and isolated task records. Completion does not automatically clean them up. Users trading away the ordinary runtime should still expect a substantial evidence footprint when they choose looper execution.
+**Retention tradeoff:** the new system keeps attempts, inputs, check logs, released claims and isolated task records. Default completion does not clean them up; explicit `agf looper cleanup <run-root>` or `run --cleanup` recycles completed-run worktrees and all run-root extras except queue/request/group plans; branches and delivered products remain. Avoid cleanup to retain complete records. Users trading away the ordinary runtime should still expect a substantial evidence footprint when they choose looper execution.
 
 **Availability limit:** configured CLI tasks can progress while their coordinator remains live; native dispatch needs the live host and stopped-result mailbox. Neither setting creates an automatic restart service or absent-host native executor.
 
@@ -138,7 +138,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Changed:** `log-verbosity` becomes separate omission controls. Missing `omit-wip` defaults on, but the bundled setup template explicitly sets it off; migrating users should choose deliberately. Legacy conversion maps effective v8 log choices; current agentflow schema migration is a separate procedure. Inspect the mapped result rather than assume identical log semantics. [configuration.md, line 1](../references/configuration.md) [ag.json, line 1](../assets/.agentflow/ag.json)
 
-**Removed controls:** v8's `completion-cleanup` and interval do not carry over as ordinary agentflow controls. There is no automatic looper retention cleanup either. This can increase retained disk usage, so evidence retirement must be a separately authorized, recoverable operation. [looper.md, line 1](../references/looper.md)
+**Removed controls:** v8's `completion-cleanup` and interval do not carry over as ordinary agentflow controls. Looper cleanup is opt-in through its explicit command or run flag, never a default/timed collector. It requires completed settled work and supported same-volume Trash, preserving durable records and branches. [looper.md, line 1](../references/looper.md)
 
 **Test policy is less prescriptive:** v8 required a failing test first for every executable behavior change and a real PTY journey for changed terminal features. Current agentflow specifically requires bug reproduction plus relevant behavior/journey checks, without those two universal v8 prescriptions. Retain test-first or PTY requirements as explicit project rules if they are essential.
 
@@ -146,13 +146,13 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 - **Recoverable parallel groups:** explicit dependencies, fresh tasks, serial integration and bounded repair exist in the optional runtime. The current package is not entirely free of JavaScript. [looper.md, line 1](../references/looper.md)
 
-- **Planning/review routing:** Claude-first planning, optional three-way challenge, review diversity preferences, Copilot-specific bindings and honest provider proof limits are documented. These are contracts, not proof that every provider is available. [configuration.md, line 1](../references/configuration.md)
+- **Planning/review routing:** Host planning for simple understood low-risk work; configured routes for complex work, with Claude-first worker drafting and Codex final challenge/synthesis, optional blind-draft reciprocal 3ways with Codex final decisions, review diversity preferences, Copilot-specific bindings and honest provider proof limits are documented. These are contracts, not proof that every provider is available. [configuration.md, line 1](../references/configuration.md)
 
 - **Durable project guidance:** canonical system-invariant maintenance, shared project rules and affected product-documentation maintenance are explicit current responsibilities. Their coverage should be assessed from source rather than inferred from a file-count reduction. [product-docs.md, line 1](../references/product-docs.md)
 
 - **Task controls:** `fast-lane`, `skip-review`, `grill-me`, `saving-mode` and `append-rounds` cover different concerns. None should be treated as a blanket substitute for old `skip-ag` or `no-ag`. [SKILL.md, line 1](../SKILL.md) [configuration.md, line 1](../references/configuration.md)
 
-- **Configuration upkeep and release checks:** known agentflow predecessor settings migrate without resetting owner choices; on-record activation may check stable Agentflow releases on a two-day schedule. Installation replacement still requires explicit approval. Agentflow 9 is the stable successor to the aglite beta; Agentflow 8.x is not an eligible successor to either. [configuration.md, line 1](../references/configuration.md)
+- **Configuration upkeep and release checks:** known agentflow predecessor settings migrate without resetting owner choices; on-record activation may check stable Agentflow releases on a two-day schedule. Installation replacement still requires explicit approval. Agentflow 9 is the stable successor to the aglite beta; Agentflow 8.x is not an eligible upgrade. [configuration.md, line 1](../references/configuration.md)
 
 ## How to decide whether to migrate
 

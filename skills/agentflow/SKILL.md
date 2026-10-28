@@ -1,11 +1,11 @@
 ---
 name: agentflow
-description: Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, fast-lane, grill-me, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature.
+description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, fast-lane, grill-me, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.0.0"
+  version: "9.1.0"
 ---
 
-# Agentflow 9.0.0
+# Agentflow 9.1.0
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
@@ -17,7 +17,7 @@ Finish authorized work; keep development resumable with one devlog and proportio
 
 2. **Isolated looper task:** apply the coordinator-supplied inherited configuration and explicit record overrides under [looper](references/looper.md#queue-and-records), before generic discovery/setup/upkeep. Do not infer feature routing from authorized `aglite-*` worktrees.
 
-3. **Configuration/routing:** verify the session's physical directory, Git root/branch/worktrees (or existing non-Git folder), then read [configuration](references/configuration.md). Read static rules once while retained in context; reread live configuration on every on-record owner message and before configuration-dependent delivery. Resolve `<ag-dir>` and notebook once from validated settings; never replace a configured name with a default. Missing startup checkout, Trash location or contradictory identity stops task work, allowing only read-only inspection or the feature contract's bounded transitions/terminal cleanup. A subprocess cwd never relocates the session.
+3. **Configuration/routing:** verify the session's physical directory, Git root/branch/worktrees (or existing non-Git folder), then read [configuration](references/configuration.md)'s opening, discovery/validation, automatic-migration and release-check sections. Load later sections when their actions apply. Reread live configuration on every on-record owner message and before configuration-dependent delivery. Resolve `<ag-dir>` and notebook once from validated settings; never replace a configured name with a default. Missing startup checkout, Trash location or contradictory identity stops task work, allowing only read-only inspection or the feature contract's bounded transitions/terminal cleanup. A subprocess cwd never relocates the session.
 
 4. **Lifecycle before root probes:** read [features](references/features.md) for `new-feature`, `merge-feature`, `drop-feature`, managed `.wts/` paths or feature branches, before generic notebook/setup/claim/recovery. Lifecycle commands bypass main/root notebook, archive, claim, capture and closeout; root state cannot block them. An append message containing lifecycle work is neither staged nor executed: request separate lifecycle command and resend remaining append work, without notebook/pending-record access.
 
@@ -27,17 +27,19 @@ Finish authorized work; keep development resumable with one devlog and proportio
 
 ## Load only the applicable procedure
 
+Read static rules once while retained in context. For each triggered reference, retain its opening constraints and read the applicable sections and linked prerequisites before acting; locate headings/ranges instead of dumping multipurpose files. Never shorten an applicable clause or mandatory full scan, including invariant-registry screening. Claim discovery reads only the latest Ask ID before ownership; the idle inspection above remains exempt. Bound batches by aggregate output size; reread any truncated required text.
+
 - [Batches](references/batches.md): append command, correction targeting a pending batch, or recovery of pending rounds. The host owns queue/claim/capture/integration/delivery; reached batches prefer bounded native implementation workers under its exceptions.
 
 - [Work](references/work.md): actual project execution, task modes (`browfield`, `fast-lane`, `grill-me`, `skip-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
 
-- [Review](references/review.md): before planning routes, result review or worker dispatch. Configured separate result review applies to changed code, operational prompts, product artifacts and implementation-ready contracts unless a valid task waiver applies. Host reviews ordinary Q&A. Read [Copilot](references/copilot.md) only on a Copilot host or selected Copilot route/profile. Every Codex `spawn_agent` explicitly uses `fork_turns: "none"` with complete bounded context.
+- [Review](references/review.md): [planning routes](references/review.md#planning-routes) before already-needed planning, [finished-result review](references/review.md#inspect-the-finished-result) before result review, and worker controls before dispatch. Changed code, operational prompts, product artifacts and implementation-ready contracts require configured result review unless waived under [Work](references/work.md#records-and-review); ordinary Q&A uses host review. Explicit/configured `3ways` loads the full [debate procedure](references/review.md#3ways-compare-before-implementation). Read [Copilot](references/copilot.md) only on a Copilot host or selected Copilot route/profile. Every Codex `spawn_agent` explicitly uses `fork_turns: "none"` with complete bounded context.
 
-- [Delivery](references/delivery.md): before STATUS/Reply rendering, closeout, archive, Git delivery or explicit notebook rename. With `inline-reply: off`, save all substantive answers/proposals/examples/questions at their existing record locations; chat contains activity, required notices/blockers/handoffs and the exact localized receipt. Only explicit chat/terminal destination requests permit their requested answers there. Do not echo saved answers through tools.
+- [Delivery](references/delivery.md): before STATUS/Reply rendering, closeout, archive, Git delivery or explicit notebook rename. With `inline-reply: off`, save all substantive answers/proposals/examples/questions at their existing record locations; chat contains activity, required notices/blockers/handoffs and the exact localized receipt. Explicit chat/terminal destination requests and looper’s required preparation terminal choices are the only answer-display exceptions. Otherwise do not echo saved answers through tools.
 
-- [Setup](references/setup.md): eligible initial creation or AGENTS adoption on actual work. [Upkeep](references/upkeep.md): config migration/relocation or approved installation replacement; recognized Agentflow8/integration triggers first load [legacy migration](references/legacy-migration.md); neither grants publication or unrelated edits.
+- [Setup](references/setup.md): eligible initial creation (including missing `agf` shell binding with visible notice) or AGENTS adoption on actual work. [Upkeep](references/upkeep.md): config migration/relocation or approved installation replacement; recognized Agentflow8/integration triggers first load [legacy migration](references/legacy-migration.md); neither grants publication or unrelated edits.
 
-- [Looper](references/looper.md): before `prepare-tasks`, `run-tasks`, `handle-tasks`, execution or recovery. Preparation saves the Current-linked queue/planned files and stops; run executes it; handle combines both. Only this feature permits its scoped Node coordinator/`agf` launcher. Preserve ordinary task settings, isolation, native live-host/mailbox requirements and owner-only boundaries; no CLI substitution, cleanup/push/release authority follows.
+- [Looper](references/looper.md): before `prepare-tasks`, `run-tasks`, `handle-tasks`, execution or recovery. Preparation saves the Current-linked queue/planned files and stops; run executes it; handle combines both. Its scoped Node coordinator/`agf` launcher and the separate [terminal feature CLI](references/features.md#terminal-cli) are the only runtime exceptions. Preserve ordinary task settings, isolation, native live-host/mailbox requirements and owner-only boundaries; no CLI substitution or push/release authority follows. Cleanup requires explicit `agf looper cleanup` or `run --cleanup` under that contract.
 
 - [Windows](references/windows.md): Windows or explicit portability work. Specialized advisor, brownfield, browser and product-document references load at the triggers in work/review; do not load all references routinely. With `saving-mode: on`, read [saving mode](references/saving-mode.md) before authoring; off preserves normal behavior; missing saving-mode follows configuration migration.
 

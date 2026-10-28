@@ -1,4 +1,4 @@
-# Agentflow 9.0.0 — everyday guide
+# Agentflow 9.1.0 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -20,6 +20,10 @@ The agent you are speaking to is the host. It understands the request, coordinat
 
 First setup creates missing settings and records while preserving existing files. It adds missing root `AGENTS.md` instructions so the host can load agentflow in later sessions; delegated workers follow their bounded assignment without starting another workflow.
 
+During first project setup, the host also checks `agf`. If missing, it automatically adds a small shell function for your configured zsh/bash or PowerShell shell (Windows is best effort and native behavior remains unproved) and visibly tells you which startup files changed; open a new shell to use it.
+
+Existing commands are preserved. Missing Node 20+, unsupported shells or unsafe files are reported with a direct command instead. See [command setup](../references/setup.md#agf-command-setup).
+
 Your coding agent must support and honor that instruction. If loading does not happen, load the skill and send `godev` yourself. A missing skill is reported, never installed silently.
 
 Git is optional. In a folder without Git, the host asks before setup writes whether you want a repository; no answer means wait, and declining continues without Git.
@@ -35,6 +39,8 @@ If setup began without a task, the host asks for your next request when finished
 ## Resume unfinished work
 
 Open the same project and send `godev`. The host reads the active request, saved questions and linked recovery notes, then checks live files and operations before continuing.
+
+The host loads instructions by route and section, reusing static rules still in context. An idle start checks configuration and current work; execution, planning, workers and special procedures load when needed. Required safety checks remain; no timing or cost reduction is guaranteed. See [loading rules](../SKILL.md#load-only-the-applicable-procedure).
 
 You can answer in chat or in the saved question's `ans:` field. Empty answers, suggested defaults and elapsed time never count as approval.
 
@@ -139,11 +145,27 @@ Planning starts with accepted outcomes and constraints, then seeks the simplest 
 
 `plan-mode` defaults to `optional`: bounded reversible work usually needs no design, multiple outcomes/delegation/interruption need a tracker, and multi-part behavior changes need a design. `must` requires both before task edits; `off` prevents new designs but allows needed trackers. Existing contracts and checks remain.
 
-`plan-order` chooses who writes an already-needed plan; its default is `external`. It creates no extra planning stage.
+Simple planning stays with the host when requirements, approach and dependencies are understood and risk is low. Several tasks or groups alone do not make a plan complex; the six-task writing/news/archive example can be grouped directly, while factual news research remains an execution requirement.
 
-Use `3ways <request>` for Claude's main plan and Codex's challenge. The host retains the main plan unless a high-confidence, evidence-backed defect warrants correction. Three perspectives do not require three agents, and planning does not approve implementation.
+Material uncertainty, consequential architectural tradeoffs, cross-system coupling or changed security/privacy/destructive/external-action boundaries use `plan-order` (default `external`). Worker routes prefer Claude’s first draft, then Codex’s challenge, corrections and final plan. Explicit task routes/requirements and configured `3ways` prevail; configured `host` stays direct. The host records a short reason and reassesses if complexity appears.
 
-Other routes use an external CLI, fresh native agent or host. Unavailable routes follow permitted fallback; explicit provider, model, effort, independence or read-only requirements still apply. Invalid selected controls need a decision, never silent substitution.
+This changes planning delegation, not required designs/trackers, review, checks or approval gates. Reuse matching plans, review and passing evidence; keep handoffs concise and forbid nested agents. A Codex host can challenge a Claude draft directly, without a second planning worker.
+
+Use `3ways <request>` for separate blind Claude and Codex plans, followed by comparison and reciprocal debate. Neither sees the other’s current-task draft or hints until both finish; shared original evidence and accepted prior contracts are allowed.
+
+Codex writes the final synthesis and makes reasoned technical decisions. A participating host must draft before reading the other output or use a fresh clean participant; otherwise its work stays provisional and cannot count as blind 3ways.
+
+`plan-order: 3ways` selects that identical procedure for already-needed planning, including recommendation reports. No fixed round cap or minimum applies.
+
+Technical dissent is recorded with Codex’s final reasons; consensus means both explicitly accepted identical final content.
+
+Missing required participants or valid blind drafts leaves provisional work. Owner-only choices, required proof and approval gates remain binding; this grants no implementation approval. See [review.md, line 76](../references/review.md#3ways-compare-before-implementation).
+
+External planning prefers Claude CLI drafting followed by Codex challenge/synthesis; a Codex host can do the latter directly. Native prefers the same roles within supported native/direct-host controls.
+
+Host and fast-lane plan directly without worker probes.
+
+Unavailable preferred roles are disclosed; explicit provider, model, effort, independence or read-only requirements still block incompatible fallback. Invalid selected controls need a decision, not silent replacement.
 
 The host first checks the work. Changed code, operational prompts, product artifacts and implementation-ready contracts normally also receive result review; ordinary questions and examples receive host review.
 
@@ -175,17 +197,75 @@ Inside the target feature you can omit its name for drop, without switching to m
 
 Creation and merge use feature records. Exact handoffs and recovery are in the [agent feature rules](../references/features.md).
 
+## Use feature commands in your terminal
+
+The CLI writes feature notebooks: creation saves preparation, merge saves lifecycle progress/completion, and drop updates an existing feature notebook’s retirement/cleanup STATUS before removal. Drop creates no separate durable record.
+
+These generated records support English and Traditional Chinese; unsupported locales stop before mutation for host rendering in the configured locale, with no English notebook fallback. Raw terminal diagnostics may be English.
+
+Use the terminal feature CLI when you want to work directly in your shell. It needs Node.js 20+ and Git (2.38+ for merge using `merge-tree --write-tree`), plus one current canonical project configuration; migration or ambiguous configuration stops for the host. These commands do not access main's root notebook, archive or claim.
+
+- `agf drop-feature [name] [--abandon]` (alias `dropft`) removes an already merged feature only when it has no tracked, untracked or ignored local data. Add `--abandon` to deliberately discard dirty or unmerged contents. Target claims and Git locks still block removal.
+
+  For retained CLI merge bookkeeping, follow the `agf merge-feature <name> --cleanup` continuation; other local data still needs resolution.
+
+- `agf merge-feature [name] [--cleanup] [--check '<JSON argv>'] [--include <checkout-relative-path>]` (alias `mergeft`) integrates feature work while preserving unrelated main files/staging and excluding root records. The checkout/branch stay unless `--cleanup` is supplied. Repeat `--check` for literal argv checks, for example `--check '["node","--test"]'`; no shell evaluates them. Without explicit checks, the CLI uses merged candidate’s root package.json test when available; without either, it merges and explicitly reports no repository checks configured. Selected checks run on candidate and integrated main; failures still block completion.
+
+  Repeat `--include <checkout-relative-path>` to authorize committing only named dirty task files plus feature records. Dirty product files without this authority stop with an `--include` continuation; unrelated files/index entries remain untouched, with no all-files sweep.
+
+- `agf new-feature <name> [--open]` (alias `newft`) creates the managed checkout and feature notebook from committed main, preserving main's uncommitted work. Exact open preparation can resume without duplicate history. `--open` opens that notebook; editor failure warns while retaining the successful feature.
+
+  Set top-level `ag.json` `default-editor` (default `"vscode"`, launched as `code`). Set a nonempty executable name such as `"vim"` or a full path such as `"/opt/my editor/bin/edit"`; it receives the notebook as one argument with terminal IO inherited. The value is an executable, with no embedded arguments or shell parsing.
+
+  Relative editor paths resolve from the feature checkout; review repository settings before using `--open`.
+
+- `agf shell <zsh|bash|powershell>` prints a caller-directory function for review/copy; it never installs or upgrades a binding.
+
+Merge/drop may omit the name only inside their own registered managed feature. Claims never transfer automatically because a process is dead or a marker is old. Retired features cannot resume development. Failed or uncertain effects retain recovery information; inspect it and follow the exact next action rather than repeating destructive steps.
+
+Actual merge conflicts use Codex in a separate candidate checkout. `workspace-write` limits writes; it does not provide OS read isolation, and broader reads remain possible. Root records are excluded from the workspace and outside access is forbidden by instructions; main is not thereby unreadable.
+
+The CLI independently checks changed paths, unresolved entries and required tests before integration. Missing approval gates or owner decisions stop for host continuation; process success alone proves no correct merge.
+
+The operator chooses required checks. Candidate checks run in a separate checkout containing tracked files, without installed dependencies; where appropriate use `--check '["npm","ci"]' --check '["npm","test"]'` in that order. Each selected check and conflict resolution has a 10-minute limit; timeout blocks completion and retains recovery state. Changed Gitlinks stop before effects for host continuation.
+
+`auto-commit` and `auto-push` default on: merge can commit and push MAIN. No remotes skips pushing; a sole remote works, while ambiguous remote selection stops. This grants no release authority.
+
+A definite settled check/resolver failure before integration may be explicitly renewed after fixes. Unknown, unsettled or partial main effects require host reconciliation, with no implicit retry loop. On Windows, `--open` needs a directly executable editor; the default may warn because of `code.cmd` launch limits; the successfully created feature remains usable.
+
+For automatic caller-directory switching, review the function printed by `agf shell <zsh|bash|powershell>`. Eligible first setup adds a missing binding; an existing binding requires an explicit upgrade request. See [shell setup](../references/setup.md#agf-command-setup). The function keeps ordinary output visible and reads only a separate successful destination file.
+
+Creation and drop results have blank lines between output blocks. After successful creation and directory switching, the current generated function suggests opening your coding agent there; it omits the `cd` instruction. Existing bindings retain the continuation until explicitly upgraded.
+
+Direct Node/package-bin use prints one quoted `cd` command and suggests opening the agent after switching; a terminal workflow needs no coding-agent `/cd`.
+
+macOS is primary and cleanup uses verified recoverable Trash. Windows is best effort: explicit feature cleanup/drop may permanently delete the exact target; necessary feature CLI bookkeeping may also dispose of exact UUID-owned claims and destination files, never foreign claims or other files, and native behavior remains untested without Windows evidence.
+
+Linux may refuse before any work when recoverable disposal of owned claims is unavailable, as well as refuse cleanup. These exceptions apply only to this feature CLI, not host chat or looper cleanup. See the [complete feature contract](../references/features.md#terminal-cli).
+
+Main’s final files may exclude a root notebook while the original feature commits still retain it in history. Automatic push stops if unpublished feature history contains protected root records; the owner decides how to handle that history. The CLI preserves the original parents.
+
+If a private inherited configuration differs from main, the CLI stops for a host decision and preserves main’s private copy.
+
 ## Run groups with the optional looper
 
 Looper divides authorized work into isolated worktree groups. Tasks within a group run sequentially in fresh sessions; independent groups can run together. Ordinary single tasks do not need it.
 
 Give the host numbered outcomes, examples and guarantees to preserve. `prepare-tasks <request>` saves group plans, a queue and the exact original request, then stops for inspection.
 
+The preparation result saves both execution choices and shows them in the final visible reply before the receipt, even with `inline-reply: off`: from the shown checkout directory, terminal `agf looper status <run-root>` then `agf looper run <run-root>`, or chat `run-tasks`. Actual paths replace placeholders; if `agf` is unavailable, verified installed Node-entrypoint commands are shown. Printing does not start execution.
+
 The default run root is `.agentflow/artifacts/A-NNN-<name>/planned/`, containing `group-NNN.md`, `queue.json` and `request.md`, linked from Current. You do not need to handwrite queue JSON.
 
 Use `run-tasks` to execute or resume that linked queue, or `run-tasks <run-root>` to select one explicitly. `handle-tasks <request>` combines preparation and execution.
 
-Configure routes first: bundled `looper-routes` is empty. Task, repair and acceptance routes select transport/provider/catalog; shared `model-family` holds model and effort choices. Prefer an external CLI when choosing new task routes; explicit native choices and saved attempts remain binding.
+First setup detects installed Codex/Claude CLIs and fills task, repair and acceptance routes; Codex wins when both are present. The template supplies Codex defaults, adapted during setup. Existing settings and explicit native choices remain binding; shared `model-family` holds model and effort. Detection does not prove login or model access. With neither CLI, supported native routes need a live host; otherwise setup reports the missing capability. See [detected defaults](../references/setup.md#detected-worker-defaults).
+
+Repaired results can use the available configured reviewer, including the same provider, in a separate fresh session. Checks, independent review and renewed acceptance remain required; explicit stricter provider requirements prevail.
+
+Main can advance while the looper runs. The coordinator records compatible forward changes and merges onto the latest main; you do not manually refresh the queue base. If main advances during checks or landing, it carries the checked result into a new merge and checks again, retaining completed tasks, accepted repairs and earlier evidence. Branch changes, rewritten history, uncertain landing effects or conflicting authority still require reconciliation.
+
+An active Git operation or lock can pause landing. Resume the same queue after it ends; successful tasks stay preserved.
 
 Defaults are 3 working groups and 2 repairs per group, set in `looper-limits`. Active attempts retain their selections; new attempts use the settings read for that run. Each CLI attempt has a 20-minute timeout that preserves and blocks unfinished work on expiry.
 
@@ -193,11 +273,73 @@ Native dispatch needs the live host and its result mailbox. Closing the host doe
 
 Dependencies wait until earlier groups are checked and integrated. Ready groups use one integration lane in arrival order. Questions pause their group while independent groups continue; answer through the host.
 
-Resume preserves unfinished edits and first reconciles old writers. Missing, changed or unsafe `request.md` blocks execution; do not edit prepared input silently to change the job. Clean merges run combined checks; repairs retain review and acceptance.
+Resume preserves unfinished edits and first reconciles old writers. Missing, changed or unsafe `request.md` blocks execution; do not edit prepared input silently to change the job. Clean merges run combined checks; repairs retain review and acceptance. Changed contract text is compared with the original authority and revalidated through review/acceptance even for a clean merge.
 
-Group records live in `.aglite-records/` and stay out of product integration. Worktrees and records remain afterward; preserve ignored records before separately authorized cleanup. No cleanup, push or release permission follows from a run.
+Group records live in `.aglite-records/` and stay out of product integration. Default runs retain worktrees/evidence; explicit cleanup keeps only queue/request/group plans in the run-root and recycles the other history. No push or release permission follows.
 
-For shell use, install `agf` as described by the [agent looper contract](../references/looper.md) and use `agf loop run [run-root]` or `agf loop status [run-root]`. Shell omission means the current directory; chat `run-tasks` instead follows Current. See the [CLI/settings reference](CHEATSHEET.md#looper-cli--alphabetical) and [retained files](../references/looper.md#retained-files).
+For shell use, install `agf` as described by the [agent looper contract](../references/looper.md) and use `agf looper run [run-root]` or `agf looper status [run-root]`. Shell omission means the current directory; chat `run-tasks` instead follows Current. See the [CLI/settings reference](CHEATSHEET.md#looper-cli--alphabetical) and [retained files](../references/looper.md#retained-files).
+
+`run` shows timestamped progress on stderr and a final result on stdout. Quiet periods get a 30-second heartbeat; this is not an ETA or proof that a worker is advancing. The result distinguishes completed tasks from groups checked and integrated, lists output/evidence locations and saved blocking reasons, and tells you what to resolve before resuming.
+
+Sections and progress events have blank lines. Timestamped progress has two columns: the timestamp, then the message. Wrapped text and reviewer details align in the message column; terminal wrapping follows its current width. Pipes keep full hanging logical lines; status and saved reports preserve complete commands and paths.
+
+Opt in with `agf looper cleanup <run-root>` afterward, or add `--cleanup` to `agf looper run`.
+
+Cleanup requires a completed, settled run. It keeps only `queue.json`, the queue-referenced request and group plans (six files for a four-group run).
+
+All other run-root entries, including records, reports, answers, released claims and unknown ordinary files, move to recoverable Trash. Delivered outputs and branches stay.
+
+Avoid cleanup to retain full history; `status` and completed-run repeats still work from the retained files, without recreating reports.
+
+Cleanup currently requires macOS and accessible same-volume Trash. Task success plus cleanup failure exits 1; resolve the blocker and retry the manual command. Default, blocked and stopped runs retain scratch; see [cleanup safety](../references/looper.md#explicit-cleanup).
+
+CLI tasks request their ordinary independent review through the coordinator, which launches the configured reviewer outside the task sandbox. This avoids nested CLI startup failures while preserving task write restrictions, reviewer independence and ordinary closeout. No additional review stage is added. Blocked results show worker evidence and exact attempt paths; execution/result failures also retain `failure.json` beside the transcript.
+
+Exit codes are 0 (complete), 2 (blocked or stopped), and 1 (error). When saved state was observed, a unique `evidence/run-<time>-<UUID>.txt` report retains the result; an early validation error may have no report. Reports are historical snapshots; `queue.json` remains current execution state. `status` changes no files and also shows declared outputs, blockers, dependencies and report locations. A draft in a worktree is not yet an integrated result; listed output paths do not prove files exist.
+
+Final results list each group with its nested tasks, saved success summaries, declared outputs and concise saved failure/blocker reasons. Checked tasks awaiting group integration remain distinguishable from integrated results; dependency waits are unfinished work. Uncertain writer state calls for reconciliation, not a failure verdict.
+
+Terminal summaries put blockers and next actions before detailed outputs. TTY output highlights failures in bright red and next actions in cyan; NO_COLOR or TERM=dumb disables color. Saved reports and pipes remain plain. Codex task/repair/review sessions select live search explicitly unless the parent sets CODEX_SANDBOX_NETWORK_DISABLED=1, which disables search without relaxing sandbox restrictions.
+
+If an old `agf` function treats captured ordinary output as a directory or executable input, explicitly request an upgrade and review the function generated by `agf shell <zsh|bash|powershell>` before safe replacement under [shell setup](../references/setup.md#agf-command-setup). Preserve current wrappers that use the separate destination file; they may change directory. Do not remove claims or bypass checks to resume a blocked run.
+
+### Read results and resume a failed group
+
+Use `handle-tasks <work list>` for a new job when you want the host to prepare and operate it. Use `run-tasks` for an existing queue; sending the original list to `handle-tasks` again can prepare another job. The shell command operates the coordinator directly and has no host reasoning loop.
+
+Open `<run-root>/results.md` after a run for the latest derived result, group/task outcomes, declared outputs, blocker question IDs and evidence links. `evidence/run-<time>-<UUID>.txt` preserves each invocation. Check `agf looper status <run-root>` for current saved progress: reports can be older than a running queue.
+
+`results.md` updates only a verified generated file for that run. Owner files, edited reports, registered inputs, declared outputs and unsafe paths are preserved with a warning; the unique snapshot still remains. To restore updates after annotating the report, ask the host to preserve it under another filename, then resume the same queue.
+
+Reporting failures do not change the run exit code. Explicit cleanup recycles both report forms; cleaned repeats do not recreate them.
+
+A task marked checked has passed its task checks; its group must also be checked and integrated before its outputs are delivered to the target. A blocker does not erase earlier successful tasks. Dependent groups wait; independent groups continue when shared state is safe.
+
+For example, if G01/T01 passed and T02 is blocked, ask the host: “Inspect this queue’s blocker and evidence, fix authorized technical causes, then resume the same queue. Ask me only for decisions you cannot make.” The host inspects the actual cause and writer/Git identities before acting; a rerun alone does not reopen a saved blocked group.
+
+The host supplies a verified technical correction through `<run-root>/inbox/answers.json`, using the exact question ID displayed by status:
+
+```json
+[{ "id": "QUESTION_UUID_FROM_STATUS", "answer": "Verified technical correction and evidence", "source": "host" }]
+```
+
+This is an example, not an answer to submit without diagnosis. The host preserves existing entries and supplies actual findings. For an owner-only question, answer the host in normal language; it passes your exact answer with `"source": "owner"` (also the default). You do not normally edit this file yourself. The inbox directory/file is supplied when needed, not a required preparation artifact.
+
+On the next `run-tasks` or `agf looper run <run-root>`, the coordinator imports answers by question ID and reopens the affected unfinished task or integration. It retains earlier successful work and rechecks saved candidates where supported.
+
+Identical answers are idempotent; conflicting replacements are rejected. An answer alone does not fix the cause or prove a worker stopped.
+
+Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 119)](../references/looper.md#119).
+
+“Resume” means continue preserved work, not roll the repository back or rerun everything. Repair/review of merge conflicts is bounded (default 2 repairs). Failed tasks, provider errors and timeouts have no general automatic retry/backoff; technical corrections and another invocation may be needed. Missing identity or unknown external effects can still require human investigation.
+
+A live host can diagnose technical blockers within existing authority, operate the inbox and resume.
+
+`handle-tasks` does not create a persistent supervisor, survive host shutdown or guarantee autonomous recovery.
+
+Native work requires that live host; CLI-only execution can proceed without native dispatch. Neither mode proves reliable completion of 1,000 unattended tasks.
+
+Preserve evidence until failures are understood; do not clear claims or rewrite queue state to force progress.
 
 ## Change configuration deliberately
 
@@ -221,7 +363,7 @@ See all values/defaults in the [cheatsheet](CHEATSHEET.md#agjson--switches--alph
 
 ## Migration and installation
 
-Read the [Agentflow 8 comparison](agv8-aglite-comparison.md) for retained capabilities, removed runtime enforcement and migration consequences.
+Read the [Agentflow 8 comparison](agv8-agv9-comparison.md) for retained capabilities, removed runtime enforcement and migration consequences.
 
 Known compatible settings migrate without resetting owner choices. Unknown/newer schemas, conflicting old/new fields and ambiguous sources stop for a decision. Configuration migration moves neither history nor installed skills implicitly.
 
@@ -239,7 +381,7 @@ When `next_update_date` is due, the host checks the Agentflow stable feed once a
 
 ## Know the limits and keep docs current
 
-Agentflow relies on the host following instructions. Installed files and valid paths do not prove discovery, unattended continuation or support on every host. Ordinary work needs no hooks or background runner; looper is the scoped optional runtime exception.
+Agentflow relies on the host following instructions. Installed files and valid paths do not prove discovery, unattended continuation or support on every host. Ordinary work needs no hooks or background runner; looper and the terminal feature CLI are bounded runtime exceptions.
 
 Windows looper use needs Node.js 20+ and Git for Windows. Follow the [agent Windows rules](../references/windows.md); tests on another platform do not prove native Windows or provider/editor behavior.
 
@@ -251,7 +393,7 @@ Use `advisors: product-docs` for a documentation map, handover or substantial dr
 
 ## Find an exact rule
 
-Use the [cheatsheet](CHEATSHEET.md) for complete lookup. `gdd` and `devlog` also activate agentflow; prefer `godev` in daily use. `show-diff` requests verified differences and reasons, granting no additional edits.
+Use the [cheatsheet](CHEATSHEET.md) for complete lookup. `ag`, `agf`, `gdd` and `devlog` also activate agentflow; prefer `godev` in daily use. `show-diff` requests verified differences and reasons, granting no additional edits.
 
 The [skill entrypoint](../SKILL.md) selects procedures; linked `references/*.md` files are compressed instructions for agents, not human manuals. Consult them when you need precise authority or failure rules.
 

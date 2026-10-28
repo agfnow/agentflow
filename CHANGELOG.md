@@ -1,5 +1,21 @@
 # Changelog
 
+## 9.1.0 — 2026-10-28
+
+- Added terminal feature lifecycle commands through `agf new-feature`, `agf merge-feature`, `agf drop-feature` and their short aliases, with caller-shell directory switching, the optional `default-editor` setting, isolated feature records and checked merge/drop recovery. Feature merges can proceed when no project checks are configured; configured checks still apply.
+
+- Added explicit completed-run looper cleanup with recoverable macOS Trash, compact retained plans/queue, protected outputs and resumable cleanup identities. Ordinary runs keep their records; native Linux/Windows cleanup remains unsupported.
+
+- Improved looper terminal reports and failure summaries, task-output limits, moving-target integration and completion/recovery checks.
+
+- Updated planning to blind Claude/Codex drafts and reciprocal debate for `3ways`, with Codex final synthesis; simple work plans directly in the host. Added `ag`/`agf` activation aliases.
+
+- New configurations detect supported Codex/Claude CLIs and fill looper routes; existing settings remain. Task preparation now shows terminal execution choices even with `inline-reply: off`.
+
+- Added missing-binding setup guidance and aligned English/Traditional Chinese guides and cheatsheets with terminal features, shell refresh, cleanup and current schema 13 settings. Existing bindings require an explicit upgrade request.
+
+- Preserved host-driven workflow, deliberate installation replacement and private/public packaging boundaries. Recorded checks cover packaged tests and representative macOS host journeys; native Windows, editor and provider behavior retain their stated limits.
+
 ## 9.0.0 — 2026-10-23
 
 - Released stable Agentflow 9 under the `agentflow` skill/plugin/package identity at `agfnow/agentflow`, preserving v8 at `agfnow/agentflow-v8`. Existing beta/v8 installations require deliberate source/version selection; publication does not replace them.
