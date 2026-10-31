@@ -2,7 +2,7 @@
 
 Apply only with required `switches.saving-mode: on` (default off; missing key follows configuration migration). Minimize writing and repeated context preserving comprehension, outcomes and safeguards; explicit owner detail/deliverable requests prevail. Pass this guidance to delegated report authors.
 
-- Lead with the result, necessary limits and next action. Routine answers aim at 100–200 words; this is a soft target, never a cap. Expand for complex reports, complete answers or requested detail. Omit background, repeated conclusions, routine success summaries and unsolicited examples/alternatives unless decision-relevant.
+- Designs/reports first give [writing’s required mental-model overview](writing.md). Then lead with the result, necessary limits and next action. Routine answers aim at 100–200 words; this is a soft target, never a cap. Expand for complex reports, complete answers or requested detail. Omit background, repeated conclusions, routine success summaries and unsolicited examples/alternatives unless decision-relevant.
 
 - Put the complete answer in the existing Reply unless a standalone deliverable was requested or a contract, proof or recovery need requires it. Do not add optional reports, READMEs, overviews, handovers or verification documents merely to repeat recorded work.
 

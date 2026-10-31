@@ -1,6 +1,6 @@
 {
   "name": "@agfnow/agentflow",
-  "version": "9.1.0",
+  "version": "9.1.2",
   "private": true,
   "description": "Host-driven Agentflow with optional feature CLI and group coordinator",
   "bin": {
@@ -10,6 +10,6 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test scripts/looper-agent.test.js scripts/looper.test.js scripts/looper-copilot.test.js scripts/looper-report.test.js scripts/looper-cleanup.test.js scripts/feature.test.js scripts/feature-merge.test.js scripts/feature-shell.test.js"
+    "test": "node --test scripts/init.test.js scripts/looper-agent.test.js scripts/looper.test.js scripts/looper-copilot.test.js scripts/looper-report.test.js scripts/looper-cleanup.test.js scripts/feature.test.js scripts/feature-merge.test.js scripts/feature-shell.test.js"
   }
 }

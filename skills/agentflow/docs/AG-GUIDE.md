@@ -1,4 +1,4 @@
-# Agentflow 9.1.0 — everyday guide
+# Agentflow 9.1.2 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -9,6 +9,14 @@ The stable Agentflow 9 skill is named `agentflow`. This guide explains everyday 
 ## Finish your first task
 
 Install agentflow using the [package README](https://github.com/agfnow/agentflow#install), then open your coding agent in the project and load the skill. Installation and project setup are separate steps.
+
+To prepare a project before opening an agent, run `agf init` in its directory, then edit the empty Ask in `.agentflow/<directory-stem>.devlog.md`. It requires Node 20+, Git and a working Git commit identity; without a shell binding, use `node '<resolved-skill>/scripts/agf.js' init`.
+
+Use `agf init --lang zh-TW` for Traditional Chinese; English is also supported. The command creates Git when absent, reuses HEAD or creates one empty bootstrap, then writes settings/records and commits only setup changes. It makes no model call, push or shell-profile change. Complete existing projects skip unchanged; partial or unsafe state stops for host reconciliation. Bare `zh` is preserved and uses Traditional Chinese; other Chinese locale variants use Traditional Chinese and save `zh-tw`; other valid locales automatically use English and save `use-lang: en-us` for subsequent work. Non-Git setup remains host-driven. See [standalone initialization](../references/setup.md#standalone-initialization).
+
+Setup commits suppress Git hooks; use host setup when project policy requires them.
+
+Without Codex/Claude CLI, looper routes stay empty until configured; ordinary `godev` work remains available.
 
 Send one concrete request:
 
@@ -43,6 +51,16 @@ Open the same project and send `godev`. The host reads the active request, saved
 The host loads instructions by route and section, reusing static rules still in context. An idle start checks configuration and current work; execution, planning, workers and special procedures load when needed. Required safety checks remain; no timing or cost reduction is guaranteed. See [loading rules](../SKILL.md#load-only-the-applicable-procedure).
 
 You can answer in chat or in the saved question's `ans:` field. Empty answers, suggested defaults and elapsed time never count as approval.
+
+New Reply questions put `Suggested default:` in its own indented paragraph, with a blank line before and after it. The answer field stays below it; existing history is preserved.
+
+```markdown
+- **Q-178-1 — Review:** Approve this checked result?
+
+  Suggested default: yes.
+
+  - ans:
+```
 
 Missing or mismatched records are reported rather than accepted as proof. With no unfinished work, the host asks for your next request; idle activation does not schedule backlog work or add records.
 
@@ -128,6 +146,12 @@ Explicit plans/reviews, configured gates and feature rules still apply; `skip-re
 Use `grill-me <topic>` for a requirements interview. The host inspects context, asks connected short rounds about the goal, assumptions and strongest relevant challenge, then follows up on your answers.
 
 At least one round lets you confirm or correct its understanding. The interview stops when material intent is clear; it authorizes discussion, and can be requested during fast-lane work.
+
+`simple-check [target]` asks a fresh independent reviewer to challenge an existing plan against your original requirements and test concrete simpler replacements. Omit the target only when the active plan is unambiguous.
+
+The result is PASS, REVISE or BLOCKED for the reviewed revision. It cannot fall back to host self-review, even with `review-order: host`; unavailable independent review stays BLOCKED.
+
+It grants no implementation authority and keeps other checks and approval gates. Ordinary planning/review reads and applies the [same checklist](../references/simple-check.md#check): preserve required outcomes and safeguards, reject unsupported scope and test concrete simpler replacements. Review compares total burden, including operation, attention and recovery. These reminders add no workers or stages.
 
 Use `browfield <task>` for an eight-step path through unfamiliar existing code, from discovery and rule tracing to baseline, specification, implementation, verification and preservation. The spelling is intentional.
 
@@ -381,7 +405,7 @@ When `next_update_date` is due, the host checks the Agentflow stable feed once a
 
 ## Know the limits and keep docs current
 
-Agentflow relies on the host following instructions. Installed files and valid paths do not prove discovery, unattended continuation or support on every host. Ordinary work needs no hooks or background runner; looper and the terminal feature CLI are bounded runtime exceptions.
+Agentflow relies on the host following instructions. Installed files and valid paths do not prove discovery, unattended continuation or support on every host. Ordinary work needs no hooks or background runner; initialization, looper and the terminal feature CLI are bounded runtime exceptions.
 
 Windows looper use needs Node.js 20+ and Git for Windows. Follow the [agent Windows rules](../references/windows.md); tests on another platform do not prove native Windows or provider/editor behavior.
 

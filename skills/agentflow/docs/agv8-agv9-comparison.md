@@ -26,7 +26,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Before:** Agentflow startup called `agf.js start`; helper programs captured inputs, validated notebooks and completion evidence, and integrated host-specific hooks. Its referee/Stop mechanisms had bounded scope and error behavior, so even v8 was not an absolute correctness guarantee.
 
-**Now:** agentflow directs the host to resolve identity, claim the notebook, capture input, recover work, validate outcomes and close the round with ordinary tools. There are no ordinary hooks, heartbeat or general workflow helper. The optional looper and [terminal feature CLI](../references/features.md#terminal-cli) are bounded runtime exceptions. [SKILL.md, line 1](../SKILL.md) [looper.md, line 1](../references/looper.md)
+**Now:** agentflow directs the host to resolve identity, claim the notebook, capture input, recover work, validate outcomes and close the round with ordinary tools. There are no ordinary hooks, heartbeat or general workflow helper. The [initializer](../references/setup.md#standalone-initialization), optional looper and [terminal feature CLI](../references/features.md#terminal-cli) are bounded runtime exceptions. [SKILL.md, line 1](../SKILL.md) [looper.md, line 1](../references/looper.md)
 
 **Concrete impact:** if an assistant forgets a review or appends malformed history, a legacy ordinary Stop hook will not catch that omission under agentflow. A host can still detect and repair it through its required checks. Removing the helper also removes helper-installation and hook-restart steps from ordinary setup.
 

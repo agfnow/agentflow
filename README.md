@@ -1,4 +1,4 @@
-# Agentflow v9.1.0
+# Agentflow v9.1.2
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -36,6 +36,10 @@ Open your project and send:
 ```text
 godev Improve the welcome page. Keep its links and let me review before publishing.
 ```
+
+You can also run `agf init [--lang en-US]` in the target directory to create Git and an editable Agentflow notebook without model calls. Requires Node 20+, Git and a working commit identity; English and Traditional Chinese are supported; bare `zh` is preserved and uses Traditional Chinese; other Chinese locale variants use Traditional Chinese and save `zh-tw`; other valid locales automatically use English and save `use-lang: en-us` for subsequent work. Complete existing projects skip unchanged; partial/conflicting state stops. It commits only setup changes with Git hooks suppressed, without push or shell installation.
+
+Missing Codex/Claude leaves looper routes empty until configured; ordinary host work still runs. See [first setup](skills/agentflow/docs/AG-GUIDE.md#finish-your-first-task).
 
 On first use, agentflow creates the missing settings and records. It preserves existing files and asks before initializing Git in a non-Git folder.
 
@@ -195,7 +199,7 @@ Both v8 and v9 also use the skill name `agentflow` and project directory `.agent
 
 ## Configuration and limits
 
-Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.0.
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.2.
 
 Use `use-lang` for new human-facing text, `plan-mode` for document creation, and `plan-order`/`review-order` for already-needed planning and review. Ordinary planning prefers a Claude draft followed by Codex challenge, correction and final synthesis within supported route controls. Missing or unsupported selected controls block rather than silently changing the model.
 

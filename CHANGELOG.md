@@ -1,5 +1,17 @@
 # Changelog
 
+## 9.1.2 — 2026-10-31
+
+- Restored essential reminders at existing planning and review checkpoints: read the shared Check, preserve required outcomes and safeguards, reject unsupported scope and try concrete simpler replacements. Review also compares total burden. Timing, routes, gates and the separate-command boundary remain unchanged; comparative compliance improvement is unproved.
+
+- Added `simple-check [target]` for fresh independent read-only review of an existing plan, returning PASS, REVISE or BLOCKED without implementation authority or host fallback. Ordinary planning/review shares its checklist without adding stages or workers.
+
+- Added standalone `agf init` for safe fresh Git setup and repeat initialization, with preserved owner files and bounded locale fallback. Hosts retain migration, binding and release duties; native Windows behavior remains best effort where unobserved.
+
+- Required a plain-language overview at the start of every design and report, and localized new AGENTS adoption directives. Fresh host-driven setup uses the initializer’s locale fallback: other valid non-Chinese locales save `use-lang: en-us`; explicit owner target languages retain host-rendered setup.
+
+- Aligned English/Traditional Chinese guides and cheatsheets, including separate suggested-default paragraphs in new Reply questions. Schema remains 13; existing installations are not replaced by publication.
+
 ## 9.1.0 — 2026-10-28
 
 - Added terminal feature lifecycle commands through `agf new-feature`, `agf merge-feature`, `agf drop-feature` and their short aliases, with caller-shell directory switching, the optional `default-editor` setting, isolated feature records and checked merge/drop recovery. Feature merges can proceed when no project checks are configured; configured checks still apply.

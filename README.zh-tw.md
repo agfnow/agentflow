@@ -1,4 +1,4 @@
-# Agentflow v9.1.0
+# Agentflow v9.1.2
 
 [English](README.md) · **繁體中文**
 
@@ -40,6 +40,10 @@ godev 改善歡迎頁面。保留現有連結，發佈前先讓我檢查。
 首次使用時，agentflow 會補上缺少的設定與紀錄，保留既有檔案。資料夾還不是 Git 專案時，會先問你要不要建立 Git repo。
 
 符合設定條件且尚無 commit 的儲存庫，會建立一次空白初始 commit，保留暫存／未追蹤內容。明確禁止 commit 時優先；初始提交本身不授權 push。[指南](skills/agentflow/docs/AG-GUIDE.tw.md#先完成一件小事)說明首次交付排除範圍與失敗處理。
+
+也可先在目標目錄執行 `agf init [--lang zh-TW]`，不經模型建立 Git 與可編輯的 Agentflow 筆記。需要 Node 20+、Git 與可用的提交身分；英文與繁體中文可用；單獨的 `zh` 會保留並使用繁體中文，其他中文語系使用繁體中文並儲存 `zh-tw`；其他有效語系自動使用英文，並儲存 `use-lang: en-us` 供後續流程使用。完整既有專案略過且不改寫，不完整或衝突狀態則停止。命令只提交設定變更且不執行 Git hooks，不 push、不安裝 shell。
+
+缺少 Codex／Claude 時，looper 路由保持空白待設定，一般主代理工作仍可執行。詳見[初始化指南](skills/agentflow/docs/AG-GUIDE.tw.md#先完成一件小事)。
 
 初始化也會在根目錄 `AGENTS.md` 補上主代理預設載入 agentflow 的指示。原有規則會保留；受委派的代理只處理自己的限定任務。
 
@@ -195,7 +199,7 @@ v8 與 v9 也共用 `agentflow` 技能名稱及 `.agentflow/` 專案目錄。同
 
 ## 設定與限制
 
-專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.0 分開。
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.2 分開。
 
 `use-lang` 控制新寫的文字；`plan-mode` 決定何時建立規劃文件；`plan-order`、`review-order` 則決定已需要的規劃或審查由誰處理。一般規劃在支援的路徑控制內，優先由 Claude 起草，再由 Codex 質疑、修正與最終整合。已選控制不受支援時會停下來，不默默換模型。
 

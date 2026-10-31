@@ -144,6 +144,8 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 - **`show-diff`** — 顯示已驗證的檔案差異與理由；只改變呈現方式。
 
+- **`simple-check [target]`** — 由全新、獨立、唯讀的執行代理審查指定的既有計畫；未指定時使用明確的目前計畫。依原始成果、範圍與具體簡化方案檢查，對該版本回傳 PASS、REVISE 或 BLOCKED。不以主代理自審作為備援，也不授予實作權限；目標缺漏或有歧義時先釐清。[命令與檢查表](../references/simple-check.md#command)。
+
 - **`skip: <request>`** — 同 `nolog:`。
 
 - **`skip-review [task]`** — 單一任務只由主代理審查；保留規劃與檢查，豁免一般獨立審查及其風險邊界規則。
@@ -151,6 +153,18 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 `grill-me` 會明確選用訪談，即使 fast-lane 略過顧問也適用，其餘規則保留；不保存常駐設定，也不強制新增執行代理／文件。`fast-lane` 與 `skip-review` 持續到任務完成，續作時也適用；未帶內容使用時，必須有未完成工作。兩者都不改設定。
 
 主代理檢查、明確要求的計畫／審查、核准關卡與功能規則仍適用。`skip-review` 取代先前審查要求；同一訊息或後續明確審查要求優先。不留紀錄別名僅影響一次互動。
+
+## 專案初始化 CLI
+
+- **`agf init [--lang <locale>]`** — 不呼叫模型，在目前實體目錄建立 Git 與 Agentflow 設定／筆記；Node 20+、Git 與可用的 Git 提交身分為先決條件。可先編輯新筆記的空白提問，再以 `godev` 執行工作。
+
+  `--lang` 指定此次顯示與新設定的語系，既有設定維持原值；支援英文與繁體中文，單獨的 `zh` 會保留並使用繁體中文；其他中文語系使用繁體中文並儲存 `zh-tw`；其他有效語系自動改用英文，並在新設定儲存 `en-us`，讓後續流程繼續使用英文。完整的既有專案（含自訂紀錄目錄／筆記名稱）略過且不改寫；不完整、舊版、衝突或不安全狀態會停止並要求復原。 請在一般 Git 根目錄或尚未使用 Git 的目錄執行；需要補入指示的既有 AGENTS 須乾淨且已追蹤，否則由主代理設定。
+
+  尚無 HEAD 時建立一次空白初始 commit，並只提交設定檔；保留原有暫存與工作檔。Git hooks 不會執行；需要 hooks 的專案請由主代理設定。無遠端建立、push、shell 安裝或任務執行。若尚無 `agf` 綁定，可執行 `node '<已解析的 skill>/scripts/agf.js' init`。
+
+  `.init-pending.owner` 仍存在時，主代理須先核對復原，不能依筆記的回覆／空白提問判為閒置。
+
+  主代理在支援的首次 Git 設定使用此命令，並保留 Git 選擇、認領／輸入紀錄、shell 檢查與交付責任。詳見[初始化規則（setup.md，第 51 行）](../references/setup.md#standalone-initialization)。
 
 ## Feature CLI — 依字母排序
 
@@ -288,7 +302,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 諮詢、建立設計／追蹤文件、委派與模型選擇，是同一工作流程中的不同決定。已確定需要的規劃依下述原則選擇主代理或複雜工作路徑，包含 prepare-tasks 分組；這不會新增計畫或顧問階段。必要契約仍見[主代理規則（planning.md，第 1 行）](../references/planning.md)，最終審查檢查見 [review.md（review.md，第 98 行）](../references/review.md#inspect-the-finished-result)；選用顧問提供聚焦推理。
 
-規劃順序：足以達成成果 → 已接受範圍 → 最精簡方案；保留目的與保證，說明增刪理由，並計入主代理注意力／復原成本。[主代理規則（planning.md，第 1 行）](../references/planning.md) 涵蓋架構檢查、各別職責決策與選用技術資訊蒐集；[審查（review.md，第 98 行）](../references/review.md#inspect-the-finished-result) 使用原始輸入及明確差異。執行已授權檢查；只詢問尚未解決的權限／成果／限制選擇。
+規劃順序：足以達成成果 → 已接受範圍 → 最精簡方案。閱讀並套用[共用檢查表](../references/simple-check.md#check)：保留必要成果／防護、排除未授權範圍，並嘗試具體、較簡單的替代方案。審查會比較整體負擔，包含操作、主代理／人員注意力與復原成本。[主代理規則（planning.md，第 1 行）](../references/planning.md) 涵蓋架構檢查、各別職責決策與選用技術資訊蒐集；[審查（review.md，第 98 行）](../references/review.md#inspect-the-finished-result) 使用原始輸入及明確差異。執行已授權檢查；只詢問尚未解決的權限／成果／限制選擇。
 
 這些檢查不新增文件、必要替代方案或審查階段；若無新的衝突證據，不重新開啟已定決策。
 
@@ -299,6 +313,8 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 - **先規劃，再暫停：**「先規劃並等待。」
 
 - **續作／回答：** `godev`；在聊天或已存問題的 `ans:` 欄位回答。
+
+  新 Reply 問題將「建議預設值：」及內容獨立成縮排段落，與問題及唯一的 `- ans:` 欄位前後各空一行；保留歷史。[格式規則](../references/delivery.md#notebook-and-delivery)。
 
 - **未來工作：** 要求檢視待辦清單；執行前先選定。已選定的稍後工作，每批以獨立訊息傳送 `append-rounds <work>`。
 
@@ -332,7 +348,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 - **Ask 輪次：** 每個新 Ask 標題前加獨立的 `---`，前後各留一空白行，初始與功能筆記也適用；保留既有歷史。參閱[筆記規則（delivery.md，第 5 行）](../references/delivery.md#notebook-and-delivery)。
 
-- **回答／報告：** [以徹底理解為先（writing.md，第 1 行）](../references/writing.md)：簡潔、格式與術語都服務於理解。先講結論，用詞平實。
+- **回答／報告：** [以徹底理解為先（writing.md，第 1 行）](../references/writing.md)：簡潔、格式與術語都服務於理解。每份 `design.md` 與各式報告都先用口語、說人話的方式，簡短概括整個主題的架構與運作概念，讓不熟悉背景的讀者先建立高層次心智模型，再用平實文字交代結論。
 
   每次交付前，檢查目標讀者能否不靠猜測或開啟連結，就說明結果、相關責任、意義與必要決定／動作；有缺口就釐清或改寫。
 
@@ -348,7 +364,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   刪除重複；多份文件以巢狀 `-` 項目列出，項目間留空白行。
 
-  每份報告先交代結論、主要發現、適用建議／決策與重大限制，再放細節；必要開頭內容要拆分，不能刪減，並保持完整。事後檢討／根因報告也先交代原因／預防建議。
+  心智模型概述之後，每份報告立即交代結論、主要發現、適用建議／決策與重大限制，再放細節；必要開頭內容要拆分，不能刪減，並保持完整。事後檢討／根因報告也在概述之後立即交代原因／預防建議。
 
   將寫作指引傳給受委派的報告作者。
 

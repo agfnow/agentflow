@@ -142,6 +142,8 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 - **`show-diff`** — Show verified file diffs with reasons; presentation only.
 
+- **`simple-check [target]`** — Review a named existing plan, or the unambiguous active plan, with a fresh independent read-only worker. Checks original outcomes, scope and concrete simplifications; returns PASS, REVISE or BLOCKED for that revision. No host fallback or implementation authority; missing/ambiguous targets need clarification. [Command and checklist](../references/simple-check.md#command).
+
 - **`skip: <request>`** — Same as `nolog:`.
 
 - **`skip-review [task]`** — Host review only for one task; keep planning and checks, waive ordinary separate review including its risk-boundary rule.
@@ -149,6 +151,18 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 `grill-me` explicitly selects its interview despite fast-lane’s advisor skip, retaining other rules; no persistent setting or mandatory worker/document. `fast-lane` and `skip-review` last until their task finishes, including resume; their bare invocation needs unfinished work. Neither changes settings.
 
 Host checks, explicit plans/reviews, gates and feature rules remain. `skip-review` replaces earlier review requests; same-message/later explicit reviews prevail. Off-record aliases affect one exchange only.
+
+## Project initialization CLI
+
+- **`agf init [--lang <locale>]`** — Create Git and Agentflow settings/records in the physical cwd without model calls; requires Node 20+, Git and a working Git commit identity. Edit the empty Ask in the generated notebook, then use `godev` for actual work.
+
+  `--lang` selects the invocation language and new configuration's locale; existing settings stay unchanged. English and Traditional Chinese are supported; bare `zh` is preserved and uses Traditional Chinese; other Chinese locale variants use Traditional Chinese and save `zh-tw`; other valid locales automatically use English and save `en-us` in new settings so subsequent work continues in English. Complete existing projects, including custom record directories/notebook names, skip unchanged; partial, legacy, conflicting or unsafe state stops for recovery. Run at an ordinary Git root or outside Git; existing instructions needing adoption must be clean and tracked, otherwise use host setup.
+
+  Creates one empty bootstrap when HEAD is absent and commits only setup changes, preserving existing staged/worktree files. Git hooks are suppressed; projects requiring them use host setup. No remote, push, shell installation or task execution. Without an `agf` binding, use `node '<resolved-skill>/scripts/agf.js' init`.
+
+  A retained `.init-pending.owner` requires host recovery before idle/claims, even when the notebook has a Reply/next Ask.
+
+  Hosts use this command for supported fresh Git setup and retain Git choice, claims/input capture, shell checks and delivery. See [initialization rules (setup.md, line 51)](../references/setup.md#standalone-initialization).
 
 ## Feature CLI — alphabetical
 
@@ -284,7 +298,7 @@ Resume preserves unfinished work and first proves old writers stopped; unresolve
 
 Advice, design/tracker creation, delegation and model choice are separate decisions in one workflow. Already-needed planning uses the proportionate host/complex-route decision below, including prepare-tasks grouping; this creates no extra plan or advisor stage. Mandatory contracts stay in [host rules (planning.md, line 1)](../references/planning.md), final-review checks in [review.md (review.md, line 98)](../references/review.md#inspect-the-finished-result); optional advisors add focused reasoning.
 
-Planning: adequacy → accepted scope → minimality; preserve purpose and guarantees, justify additions/removals and count host attention/recovery. [Host rules (planning.md, line 1)](../references/planning.md) cover architecture checks, separate responsibility decisions and optional technical intake; [review (review.md, line 98)](../references/review.md#inspect-the-finished-result) uses original inputs and explicit deltas. Run authorized checks; ask only unresolved authority/outcome/constraint choices.
+Planning: adequacy → accepted scope → minimality. Read and apply the [shared Check](../references/simple-check.md#check): preserve required outcomes/safeguards, reject unsupported scope and try concrete simpler replacements. Review compares total burden, including operation, host/human attention and recovery. [Host rules (planning.md, line 1)](../references/planning.md) cover architecture checks, separate responsibility decisions and optional technical intake; [review (review.md, line 98)](../references/review.md#inspect-the-finished-result) uses original inputs and explicit deltas. Run authorized checks; ask only unresolved authority/outcome/constraint choices.
 
 These checks add no document, mandatory alternative or review stage and do not reopen settled decisions without new conflicting evidence.
 
@@ -295,6 +309,8 @@ These checks add no document, mandatory alternative or review stage and do not r
 - **Plan, then pause:** “Plan first and wait.”
 
 - **Resume/answer:** `godev`; reply in chat or the saved question's `ans:` field.
+
+  New Reply questions keep `Suggested default:` and its value in a separate indented paragraph, blank-separated from the question and single `- ans:` field; preserve history. [Format rule](../references/delivery.md#notebook-and-delivery).
 
 - **Future work:** Ask to review backlog; select before execution. For already-chosen later work, send `append-rounds <work>` as a separate message for each batch.
 
@@ -328,7 +344,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Ask rounds:** Prefix every new Ask heading with standalone `---`, one blank line before and after, including initial and feature notebooks; preserve existing history. See [notebook rules (delivery.md, line 5)](../references/delivery.md#notebook-and-delivery).
 
-- **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Conclusion first, plain words.
+- **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Every `design.md` and report of any kind starts with a brief, conversational, plain-language overview of the whole subject’s structure and operation, giving an unfamiliar reader a high-level mental model. Conclusions follow in plain words.
 
   Before every delivery, check that the intended reader can explain the result, relevant responsibilities, significance and needed decision/action without guessing or opening links; clarify or rewrite gaps.
 
@@ -344,7 +360,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Cut repetition; list several documents as nested `-` items with blank lines.
 
-  Every report opens with conclusions, key findings, applicable recommendations/decisions and material limits before detail; split rather than cut required content; keep the opening complete across short blocks. Postmortems/root-cause reports also lead with causes/prevention.
+  Immediately after the mental-model overview, every report gives conclusions, key findings, applicable recommendations/decisions and material limits before detail; split rather than cut required content; keep the opening complete across short blocks. Postmortems/root-cause reports also give causes/prevention immediately after the overview.
 
   Pass writing guidance to delegated report authors.
 

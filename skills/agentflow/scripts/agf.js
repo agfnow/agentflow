@@ -8,6 +8,13 @@ const R = require('./looper-report')
 async function main(args, io = {}) {
   const stdout = io.stdout || process.stdout, stderr = io.stderr || process.stderr
   const write = (stream, value) => { try { stream.write(value) } catch {} }
+  if (args[0] === 'init') {
+    try {
+      if (!(args.length === 1 || args.length === 3 && args[1] === '--lang' && args[2] && !args[2].startsWith('-'))) throw Error('Usage: agf init [--lang <locale>]')
+      const result = require('./init').initialize({ cwd: io.cwd || process.cwd(), lang: args[2], invocation: ['agf', ...args] })
+      write(stdout, `${result.message}\n`); return 0
+    } catch (error) { write(stderr, `${error.message}\n`); return 1 }
+  }
   const featureVerbs = { 'new-feature': 'create', newft: 'create', 'merge-feature': 'merge', mergeft: 'merge', 'drop-feature': 'drop', dropft: 'drop' }
   if (args[0] === 'shell') {
     try {
@@ -80,7 +87,7 @@ async function main(args, io = {}) {
   if (args[0] !== 'looper' || !['cleanup', 'run', 'status'].includes(verb) || roots.length > 1 ||
       roots.some(arg => !arg.length || arg.startsWith('-')) || flags.length > 1 ||
       (verb !== 'run' && cleanup_requested) || (verb === 'cleanup' && roots.length !== 1)) {
-    write(stderr, 'Usage: agf looper cleanup <run-root>\n       agf looper run [run-root] [--cleanup]\n       agf looper status [run-root]\n       agf new-feature <name> [--open] (alias: newft)\n       agf merge-feature [name] [--cleanup] [--include <path>] [--check \'["command","arg"]\'] (alias: mergeft)\n       agf drop-feature [name] [--abandon] (alias: dropft)\n       agf shell <zsh|bash|powershell>\n')
+    write(stderr, 'Usage: agf looper cleanup <run-root>\n       agf init [--lang <locale>]\n       agf looper run [run-root] [--cleanup]\n       agf looper status [run-root]\n       agf new-feature <name> [--open] (alias: newft)\n       agf merge-feature [name] [--cleanup] [--include <path>] [--check \'["command","arg"]\'] (alias: mergeft)\n       agf drop-feature [name] [--abandon] (alias: dropft)\n       agf shell <zsh|bash|powershell>\n')
     return 1
   }
   let root = path.resolve(roots[0] || process.cwd())
