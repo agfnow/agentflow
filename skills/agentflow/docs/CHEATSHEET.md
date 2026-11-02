@@ -112,11 +112,19 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
   Report in chat; no durable retirement record, root-notebook access or commit/push. A missing target notebook is allowed; target claims/Git locks still apply. No permanent-deletion fallback.
 
-- **`eli5: <topic-or-command>`** — Request one downloadable offline HTML visual lesson with a large overview, short labels and purposeful steps/animation when useful. The lesson briefly names its format and why it fits.
+- **`eli5: <topic-or-command>`** — Request an interactive animated HTML lesson with a faithful visual model, meaningful interaction and reader-controlled progression.
 
   For example, `eli5: run-tasks` explains the command without running it; payload commands/markers activate nothing. Put a real off-record marker before `eli5:`.
 
   Only this invocation loads the [dedicated prompt (eli5.md, line 1)](../references/eli5.md); ordinary startup and quoted examples do not.
+
+  HTML authoring/revisions require GPT Astra/high or Claude Opus/high with supported controls; unavailable routes need disclosure and owner authorization before model substitution.
+
+  Prefer one self-contained HTML with embedded assets and no runtime network dependency; depart only for essential teaching needs that cannot be met that way, minimizing and explaining exceptions.
+
+  Consider Three.js for useful spatial explanations under the same preference. Include required assets/package and opening instructions; disclose external dependencies/network needs and pin versions. Offline behavior requires testing.
+
+  Preserve keyboard, reduced-motion and static/no-script access; disclose unperformed browser checks.
 
   Normal language, privacy, records and receipts still apply.
 

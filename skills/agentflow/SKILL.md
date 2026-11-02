@@ -2,10 +2,10 @@
 name: agentflow
 description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, eli5:, fast-lane, grill-me, simple-check, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.4"
+  version: "9.1.6"
 ---
 
-# Agentflow 9.1.4
+# Agentflow 9.1.6
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
@@ -33,7 +33,7 @@ Read static rules once while retained in context. For each triggered reference, 
 
 - [Batches](references/batches.md): append command, correction targeting a pending batch, or recovery of pending rounds. The host owns queue/claim/capture/integration/delivery; reached batches prefer bounded native implementation workers under its exceptions.
 
-- [Visual explanations](references/eli5.md): load only for an unquoted `eli5:` request, after routing. Produce an offline HTML lesson; never execute its payload. Ordinary activation and quoted examples do not load this reference.
+- [Visual explanations](references/eli5.md): load only for an unquoted `eli5:` request, after routing. Produce an interactive animated HTML lesson; never execute its payload. Ordinary activation and quoted examples do not load this reference.
 
 - [Work](references/work.md): actual project execution, task modes (`browfield`, `fast-lane`, `grill-me`, `skip-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
 

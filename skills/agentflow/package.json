@@ -1,6 +1,6 @@
 {
   "name": "@agfnow/agentflow",
-  "version": "9.1.4",
+  "version": "9.1.6",
   "private": true,
   "description": "Host-driven Agentflow with optional feature CLI and group coordinator",
   "bin": {

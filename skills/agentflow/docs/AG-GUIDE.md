@@ -1,4 +1,4 @@
-# Agentflow 9.1.4 — everyday guide
+# Agentflow 9.1.6 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -151,13 +151,19 @@ Send `eli5: run-tasks` to get a downloadable HTML lesson explaining that command
 
 Everything after `eli5:` is explanation data, including commands and markers; put an actual off-record instruction before `eli5:`.
 
-The file works offline and starts with a large overview and short labels. It briefly names the chosen format and why it fits the concept.
+HTML authoring and revisions require GPT Astra/high or Claude Opus/high through supported model/effort controls. If neither is available, the host reports that limitation and needs owner authorization before substituting a model.
 
-Processes use reader-controlled steps and useful animation; static concepts may stay static.
+The lesson uses a subject-specific visual model, meaningful interaction and purposeful animation. Progression stays reader-controlled and replayable; essential meaning remains available as text or static output.
 
-Keyboard, reduced-motion and print/text views keep the explanation usable in other settings.
+Prefer one self-contained HTML file with embedded scripts, styles and assets and no runtime network dependency. Depart only when essential teaching needs cannot be met that way; minimize exceptions and explain why.
 
-Browser checks that could not be performed are disclosed.
+Libraries, media and build tools may help achieve that outcome. Consider Three.js for 3D when depth or spatial interaction helps explain the topic; the same self-containment preference applies.
+
+Delivery includes actual HTML, required local assets/package and opening instructions. External dependencies and network requirements are disclosed, with pinned dependency versions; offline operation is promised only when tested.
+
+Keyboard, reduced-motion and print/text/no-script views keep the explanation usable. Script or dependency failure leaves an honest explanation; media is optional and user-controlled.
+
+Browser checks cover desktop and narrow layouts, meaningful transitions, controls, accessibility and the delivered opening mode. Unperformed checks are disclosed.
 
 The host loads the [dedicated visual prompt (eli5.md, line 1)](../references/eli5.md) only for this request. Ordinary activation does not load it.
 

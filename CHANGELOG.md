@@ -1,5 +1,15 @@
 # Changelog
 
+## 9.1.6 — 2026-11-02
+
+- Reworked `eli5:` into interactive animated HTML lessons with a faithful visual model, subject-specific art direction, meaningful learner actions and inspectable motion. HTML authoring and revisions require GPT Astra/high or Claude Opus/high; unavailable authoring routes are disclosed without silent substitution.
+
+- Prefer a single self-contained HTML file with embedded assets and no runtime network dependency. Exceptions are allowed only when essential teaching needs cannot be met that way, must be minimized and explained, and retain dependency disclosure, pinned versions and tested opening instructions.
+
+- Added optional Three.js 3D guidance when depth or spatial interaction helps explain the subject. Retained keyboard, reduced-motion, static/no-script and media fallbacks, privacy boundaries and honest browser-check limits.
+
+- Aligned English/Traditional Chinese guides, cheatsheets and public README summaries. Schema remains 13; publication does not replace existing installations or establish comparative model-quality or cross-platform validation claims.
+
 ## 9.1.4 — 2026-11-02
 
 - Added `eli5: <topic-or-command>` for a downloadable, offline HTML visual lesson. Large diagrams, short labels and purposeful interaction explain the subject; commands and markers inside the lesson request never execute or activate workflow modes.
