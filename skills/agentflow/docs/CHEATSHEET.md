@@ -2,7 +2,7 @@
 
 English · [繁體中文](CHEATSHEET.tw.md)
 
-Startup reads only the instructions for the selected route. Idle activation checks configuration and current work without claiming or creating records; unfinished work resumes normally. The host reuses retained static rules, reads applicable sections with their prerequisites, and keeps mandatory full safety scans. [Loading rules (SKILL.md, line 28)](../SKILL.md#load-only-the-applicable-procedure).
+Startup reads only the instructions for the selected route. Idle activation checks configuration and current work without claiming or creating records; unfinished work resumes normally. The host reuses retained static rules, reads applicable sections with their prerequisites, and keeps mandatory full safety scans. [Loading rules (SKILL.md, line 30)](../SKILL.md#load-only-the-applicable-procedure).
 
 The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Feature operations have a [terminal CLI](#feature-cli--alphabetical); looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG-GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
 
@@ -11,6 +11,10 @@ Owner-input capture: prefix each prose paragraph with `+ `; related paragraphs m
 Codex subagents: every `spawn_agent` explicitly sets `fork_turns: "none"`; supply all necessary context in the task message. [Delegation (review.md, line 32)](../references/review.md#give-one-bounded-assignment).
 
 Workflow evidence belongs outside the devlog. Keep useful technical checks, review findings, invariant accounting and debugging proof in linked evidence; the devlog keeps outcomes, answers, required notices and recovery pointers.
+
+New evidence uses **Scope → Checks → Findings → Resume**, omitting empty/inapplicable fields, routine output and repeated facts. Keep necessary source/operation identities, required results/review dispositions, limits and next safe actions.
+
+Link existing proof/state once; no separate file when nothing needs retaining. This default applies with saving-mode on or off; specialized feature/looper formats and required proof remain. [Compact fields (session.md, line 55)](../references/session.md#round-evidence).
 
 Use `<ag-dir>/.tmp/A-NNN.md` for useful new proof, linked from Current and its producing Ask before Reply. Other notebooks use `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md`; verify the notebook and Ask identity before reuse.
 
@@ -108,6 +112,14 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
   Report in chat; no durable retirement record, root-notebook access or commit/push. A missing target notebook is allowed; target claims/Git locks still apply. No permanent-deletion fallback.
 
+- **`eli5: <topic-or-command>`** — Request one downloadable offline HTML visual lesson with a large overview, short labels and purposeful steps/animation when useful. The lesson briefly names its format and why it fits.
+
+  For example, `eli5: run-tasks` explains the command without running it; payload commands/markers activate nothing. Put a real off-record marker before `eli5:`.
+
+  Only this invocation loads the [dedicated prompt (eli5.md, line 1)](../references/eli5.md); ordinary startup and quoted examples do not.
+
+  Normal language, privacy, records and receipts still apply.
+
 - **`fast-lane [task]`** — One task, direct host execution; skip advisors, ordinary delegation/separate review, new design/tracker and routine RUN/WIP.
 
 - **`gdd`** — Activation alias; prefer `godev`.
@@ -159,6 +171,8 @@ Host checks, explicit plans/reviews, gates and feature rules remain. `skip-revie
   `--lang` selects the invocation language and new configuration's locale; existing settings stay unchanged. English and Traditional Chinese are supported; bare `zh` is preserved and uses Traditional Chinese; other Chinese locale variants use Traditional Chinese and save `zh-tw`; other valid locales automatically use English and save `en-us` in new settings so subsequent work continues in English. Complete existing projects, including custom record directories/notebook names, skip unchanged; partial, legacy, conflicting or unsafe state stops for recovery. Run at an ordinary Git root or outside Git; existing instructions needing adoption must be clean and tracked, otherwise use host setup.
 
   Creates one empty bootstrap when HEAD is absent and commits only setup changes, preserving existing staged/worktree files. Git hooks are suppressed; projects requiring them use host setup. No remote, push, shell installation or task execution. Without an `agf` binding, use `node '<resolved-skill>/scripts/agf.js' init`.
+
+  Configuration-discovery warnings show the checked directory, counts and at most three examples. Verify the target project directory; if correct, ask the AI host to inspect the listed entries before retrying.
 
   A retained `.init-pending.owner` requires host recovery before idle/claims, even when the notebook has a Reply/next Ask.
 
@@ -344,13 +358,13 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Ask rounds:** Prefix every new Ask heading with standalone `---`, one blank line before and after, including initial and feature notebooks; preserve existing history. See [notebook rules (delivery.md, line 5)](../references/delivery.md#notebook-and-delivery).
 
-- **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Every `design.md` and report of any kind starts with a brief, conversational, plain-language overview of the whole subject’s structure and operation, giving an unfamiliar reader a high-level mental model. Conclusions follow in plain words.
+- **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Every `design.md` and report of any kind starts with a brief, conversational, plain-language overview of the whole subject’s structure and operation, giving an unfamiliar reader a high-level mental model. Conclusions follow in plain words. The opening overview may be a short paragraph or bullet.
 
   Before every delivery, check that the intended reader can explain the result, relevant responsibilities, significance and needed decision/action without guessing or opening links; clarify or rewrite gaps.
 
-  Use short, single-concept prose paragraphs or list items, usually 1–3 short sentences, with blank lines; lead each with its main point. Split long/multi-concept blocks before delivery; a single dense bullet fails too.
+  Prefer short Markdown lists for separable findings, requirements, comparisons, options and steps; keep prose where connected explanation helps. Use one concept per paragraph/item, usually 1–3 short sentences, with blank lines; lead each with its main point. Split long/multi-concept blocks before delivery; a single dense bullet fails too.
 
-  Machine-only documents/skill prompts may be aggressively compressed without losing requirements, exceptions, safeguards, precision or correctness; mixed documents follow each audience’s rule.
+  Machine-only documents/skill prompts may be aggressively compressed without losing requirements, exceptions, safeguards, precision or correctness. When authoring or substantially revising them, prefer headings and short bullets, one separable rule per item; mixed documents follow each audience’s rule.
 
   Saved Markdown line links use `path#<line-number>`, never `path:<line-number>`, with document-relative paths, e.g. `[features.md (features.md, line 31)](../references/features.md#31)`; section links keep named anchors. In chat, follow host link requirements; otherwise use `#<line-number>` with verified checkout-root-relative paths, or absolute paths when the host cannot resolve relative targets.
 
@@ -378,7 +392,11 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Alternative cleanup needs same-volume recycle/restore proof and must refuse permanent deletion of the actual checkout.
 
-- **Web checks:** Default to Stagehand automation code and Browserbase `browse` CLI Chrome operations ([official browser skill](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)); owner/project preferences override. [Browser testing (browser-testing.md, line 1)](../references/browser-testing.md) covers owned local/headless sessions, access safeguards and actual journey evidence. No new advisor or permission.
+- **Web checks:** Default to Stagehand automation code and Browserbase `browse` CLI Chrome operations ([official browser skill](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)); owner/project preferences override.
+
+  Stagehand/`browse` control real browsers without plugins/connectors; missing plugin access does not block them. Read the rules before tool selection; check actual prerequisites/startup before reporting a blocker, respecting explicit higher-priority restrictions.
+
+  [Browser testing (browser-testing.md, line 1)](../references/browser-testing.md) covers owned local/headless sessions, access safeguards and actual journey evidence. No new advisor or permission.
 
 ## `ag.json` → `switches` — alphabetical
 

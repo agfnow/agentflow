@@ -34,7 +34,7 @@ function writeChanged(file, old, next) {
   fs.renameSync(tmp, file)
   insist(readOptional(file) === next, `Write verification failed: ${file}`)
 }
-function discover(root, { allowAbsent = false } = {}) {
+function discover(root, { allowAbsent = false, diagnosticLocale = 'en' } = {}) {
   const candidates = [], unresolved = [], unknownLinks = []
   function walk(dir) {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -66,7 +66,23 @@ function discover(root, { allowAbsent = false } = {}) {
     value.switches['notebook-name'] = stem ? `${stem}.devlog.md` : 'devlog.md'
     return { file: safePath(root, '.agentflow/ag.json'), value, settings: value.switches, agDir: '.agentflow', canonical: true, absent: true }
   }
-  insist(candidates.length === 1 && !unresolved.length, `Configuration requires host reconciliation: ${[...candidates.map(x => x.file), ...unresolved].join(', ') || 'no canonical ag.json'}`)
+  if (candidates.length !== 1 || unresolved.length) {
+    const zh = diagnosticLocale.startsWith('zh')
+    const paths = [...candidates.map(x => x.file), ...unresolved]
+    const display = text => JSON.stringify(text.length > 160 ? text.slice(0, 157) + '...' : text)
+    const lines = zh
+      ? ['無法安全判定 Agentflow 設定，已停止。', `檢查目錄：${display(root)}`, `找到 ${candidates.length} 個可能的設定檔，以及 ${unresolved.length} 個待釐清項目（例如無法讀取的 ag.json 或符號連結）。`]
+      : ['Stopped: Agentflow could not safely determine the project configuration.', `Directory checked: ${display(root)}`, `Found ${candidates.length} possible configuration files and ${unresolved.length} unresolved entries (such as unreadable ag.json files or symbolic links).`]
+    if (paths.length) {
+      lines.push(zh ? '範例（相對於上述目錄，最多 3 筆）：' : 'Examples (relative to that directory; at most 3):')
+      lines.push(...paths.slice(0, 3).map(file => `  - ${display(path.relative(root, file))}`))
+      if (paths.length > 3) lines.push(zh ? `  …另有 ${paths.length - 3} 筆未列出。` : `  …${paths.length - 3} more entries omitted.`)
+    }
+    lines.push(...(zh
+      ? ['請確認這是要操作的專案目錄；若在包含多個專案的上層目錄，請先 cd 到目標專案再重跑原命令。', '若目錄正確，請讓 AI 主代理檢查現有設定與上述項目，再重試；請勿為了通過檢查而刪除檔案或連結。']
+      : ['Check that this is the intended project directory. If it is a parent folder containing several projects, cd into the target project and rerun your command.', 'If this directory is correct, ask your AI host to inspect the existing configuration and these entries before retrying. Do not delete files or links just to bypass this check.']))
+    throw Error(lines.join('\n'))
+  }
   const c = candidates[0], targetSchema = require('../assets/.agentflow/ag.json')['schema-version']
   const legacy = ['skip-asker', 'skip-run', 'skip-wip', 'skip-plan', 'target-doc', 'workspace-dir', 'lang', 'ask-names', 'log-verbosity', 'allowed-worker', 'review-policy', 'cli-provider', 'allow-ag', 'away-gates', 'streams', 'auto-reply', 'notebook-ownership', 'large-work-minutes', 'git-timeout-ms', 'completion-cleanup', 'completion-cleanup-interval-days', 'metrics']
   insist(c.canonical && (c.value['schema-version'] === undefined || c.value['schema-version'] === targetSchema) && !legacy.some(k => k in c.settings) && !('cross-check' in (c.value['pipeline-roles'] || {})) && !Object.values(c.value['external-workers'] || {}).some(v => v && typeof v === 'object' && ('tiers' in v || 'family' in v)) && ['on', 'off'].includes(c.settings['saving-mode']), `Configuration migration requires host continuation: ${c.file}`)

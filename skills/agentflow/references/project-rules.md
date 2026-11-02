@@ -12,4 +12,4 @@ Apply before affected work/review to all project agents/reviewers, through the i
 
 - **Backlog:** Hosts follow [backlog requirements](session.md#project-rules-and-backlog); reviewers report candidates, never schedule/mutate shared work.
 
-- **Browser:** For affected web journeys/requested end-to-end checks, follow [browser testing](browser-testing.md), including overridable Stagehand/browse defaults, session ownership, access authority and evidence.
+- **Browser:** For affected web journeys/requested end-to-end checks, read [browser testing](browser-testing.md) before tool selection or declaring browser access unavailable; apply overridable Stagehand/browse defaults, session ownership, access authority and evidence.

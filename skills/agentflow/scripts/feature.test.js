@@ -113,7 +113,7 @@ test('configuration refuses ambiguity, unsafe routing and unrelated looper valid
   config.looper = { routing: 'invalid unrelated value' }; fs.writeFileSync(file, JSON.stringify(config))
   await F.create('valid', { cwd: root })
   fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config))
-  await assert.rejects(F.create('ambiguous', { cwd: root }), /reconciliation/)
+  await assert.rejects(F.create('ambiguous', { cwd: root }), /could not safely determine the project configuration/)
   assert.equal(C.git(root, ['rev-parse', '--verify', 'feature/ambiguous'], { allowFailure: true }).status, 128)
 })
 test('changed source and foreign ownership refuse mutation', t => {

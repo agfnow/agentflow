@@ -2,7 +2,7 @@
 
 [English](CHEATSHEET.md) · 繁體中文
 
-啟動時只讀取所選路徑需要的指示。閒置啟動檢查設定與目前工作，不認領筆記或新增紀錄；未完成工作則依原有程序接續。主代理重用仍在背景中的靜態規則，讀取適用章節與前置規則，並保留必要的完整安全檢查。[載入規則（SKILL.md，第 28 行）](../SKILL.md#load-only-the-applicable-procedure)。
+啟動時只讀取所選路徑需要的指示。閒置啟動檢查設定與目前工作，不認領筆記或新增紀錄；未完成工作則依原有程序接續。主代理重用仍在背景中的靜態規則，讀取適用章節與前置規則，並保留必要的完整安全檢查。[載入規則（SKILL.md，第 30 行）](../SKILL.md#load-only-the-applicable-procedure)。
 
 以下依字母排序的聊天命令是專案擁有者給代理的指示，並非 shell 命令。使用時不加引號。功能操作另有[終端機 CLI](#feature-cli--依字母排序)，looper 另有 [shell CLI](#looper-cli--依字母排序)。詳細說明：[指南](AG-GUIDE.tw.md)、[設定（configuration.md，第 1 行）](../references/configuration.md)、[功能分支（features.md，第 1 行）](../references/features.md)。
 
@@ -11,6 +11,10 @@
 Codex 子代理：每次 `spawn_agent` 都明確設定 `fork_turns: "none"`；在任務訊息中提供所有必要背景。[委派（review.md，第 32 行）](../references/review.md#give-one-bounded-assignment)。
 
 工作流程證據放在 devlog 之外。把有用的技術檢查、審查發現、不變條件核對與除錯證據存入連結的證據文件；devlog 保留結果、回答、必要通知與復原指引。
+
+新證據依序使用**範圍 → 檢查 → 發現 → 續作**，省略空白／不適用欄位、例行輸出與重複事實。保留必要來源／操作身分、必要結果／審查處置、限制及下一個安全動作。
+
+既有證據／狀態只連結一次；無事實須保留時，不另建檔案。無論 saving-mode 開關，此格式皆為預設；功能／looper 專用格式與必要證據仍適用。[精簡欄位（session.md，第 55 行）](../references/session.md#round-evidence)。
 
 有用的新證據存入 `<ag-dir>/.tmp/A-NNN.md`，並在 Reply 前，從 Current 與產生該證據的 Ask 連結。其他筆記使用 `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md`；重用前先確認筆記與 Ask 身分。
 
@@ -110,6 +114,14 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
   在聊天中回報；不建立永久退役紀錄、不存取根筆記，也不 commit／push。允許目標筆記不存在；目標所有權宣告／Git 鎖定仍適用。不以永久刪除作為備援。
 
+- **`eli5: <topic-or-command>`** — 產生一個可下載、離線開啟的 HTML 視覺教學，使用大型總覽、短標籤，以及有助理解的分步操作／動畫。教學會簡述選用的呈現形式與原因。
+
+  例如 `eli5: run-tasks` 只解釋、不執行；內容中的指令／標記不會啟用任何動作。真正的不留紀錄標記請放在 `eli5:` 之前。
+
+  只有這項要求才載入[獨立提示（eli5.md，第 1 行）](../references/eli5.md)，一般啟動與引用範例不載入。
+
+  既有語言、隱私、紀錄與收據規則仍適用。
+
 - **`fast-lane [task]`** — 單一任務由主代理直接執行；略過顧問、一般委派／獨立審查、新設計／追蹤文件與例行 RUN／WIP。
 
 - **`gdd`** — 啟動別名；優先使用 `godev`。
@@ -161,6 +173,8 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
   `--lang` 指定此次顯示與新設定的語系，既有設定維持原值；支援英文與繁體中文，單獨的 `zh` 會保留並使用繁體中文；其他中文語系使用繁體中文並儲存 `zh-tw`；其他有效語系自動改用英文，並在新設定儲存 `en-us`，讓後續流程繼續使用英文。完整的既有專案（含自訂紀錄目錄／筆記名稱）略過且不改寫；不完整、舊版、衝突或不安全狀態會停止並要求復原。 請在一般 Git 根目錄或尚未使用 Git 的目錄執行；需要補入指示的既有 AGENTS 須乾淨且已追蹤，否則由主代理設定。
 
   尚無 HEAD 時建立一次空白初始 commit，並只提交設定檔；保留原有暫存與工作檔。Git hooks 不會執行；需要 hooks 的專案請由主代理設定。無遠端建立、push、shell 安裝或任務執行。若尚無 `agf` 綁定，可執行 `node '<已解析的 skill>/scripts/agf.js' init`。
+
+  設定探索警告會列出檢查目錄、數量與最多三筆範例。先確認目標專案目錄；若目錄正確，請讓 AI 主代理檢查列出的項目後再重試。
 
   `.init-pending.owner` 仍存在時，主代理須先核對復原，不能依筆記的回覆／空白提問判為閒置。
 
@@ -348,13 +362,13 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 - **Ask 輪次：** 每個新 Ask 標題前加獨立的 `---`，前後各留一空白行，初始與功能筆記也適用；保留既有歷史。參閱[筆記規則（delivery.md，第 5 行）](../references/delivery.md#notebook-and-delivery)。
 
-- **回答／報告：** [以徹底理解為先（writing.md，第 1 行）](../references/writing.md)：簡潔、格式與術語都服務於理解。每份 `design.md` 與各式報告都先用口語、說人話的方式，簡短概括整個主題的架構與運作概念，讓不熟悉背景的讀者先建立高層次心智模型，再用平實文字交代結論。
+- **回答／報告：** [以徹底理解為先（writing.md，第 1 行）](../references/writing.md)：簡潔、格式與術語都服務於理解。每份 `design.md` 與各式報告都先用口語、說人話的方式，簡短概括整個主題的架構與運作概念，讓不熟悉背景的讀者先建立高層次心智模型，再用平實文字交代結論。開頭概述可用短段落或第一個條列項目。
 
   每次交付前，檢查目標讀者能否不靠猜測或開啟連結，就說明結果、相關責任、意義與必要決定／動作；有缺口就釐清或改寫。
 
-  使用簡短、單一概念的段落或項目，通常 1–3 個短句，以空白行分隔；每段先講重點。交付前拆分過長／多概念區塊；單一密集長項目也不合格。
+  可分開的發現、要求、比較、選項與步驟，優先使用簡短 Markdown 清單；連貫說明較清楚時保留段落。每段／項目只表達一個概念，通常 1–3 個短句，以空白行分隔；先講重點。交付前拆分過長／多概念區塊；單一密集長項目也不合格。
 
-  僅供機器使用的文件／技能提示可大幅精簡，但不得遺失要求、例外、防護、精確性或正確性；混合文件依各部分讀者套用規則。
+  僅供機器使用的文件／技能提示可大幅精簡，但不得遺失要求、例外、防護、精確性或正確性。新寫或大幅修改時，優先使用標題與簡短條列，每項一個可獨立的規則；混合文件依各部分讀者套用規則。
 
   已存 Markdown 行號連結使用 `path#<line-number>`，不得使用 `path:<line-number>`，路徑相對於文件，例如 `[features.md (features.md, line 31)](../references/features.md#31)`；章節連結保留命名錨點。聊天遵循主代理連結要求；沒有此要求時，使用經驗證、相對於工作目錄根的路徑及 `#<line-number>`，若主代理無法解析相對目標則用絕對路徑。
 
@@ -382,7 +396,11 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   替代清理方式須證明可在同一磁碟區回收／還原，且必須拒絕永久刪除實際工作目錄。
 
-- **網頁檢查：** 預設使用 Stagehand 自動化程式碼與 Browserbase `browse` CLI Chrome 操作（[官方瀏覽器技能](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)）；擁有者／專案偏好可覆寫。[瀏覽器測試（browser-testing.md，第 1 行）](../references/browser-testing.md) 涵蓋自有本機／無頭工作階段、存取防護與實際操作流程證據。不新增顧問或權限。
+- **網頁檢查：** 預設使用 Stagehand 自動化程式碼與 Browserbase `browse` CLI Chrome 操作（[官方瀏覽器技能](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)）；擁有者／專案偏好可覆寫。
+
+  Stagehand／`browse` 可操作真正的瀏覽器，不依賴外掛／連接器；缺少外掛存取不會阻擋這些途徑。選工具前先讀規則，回報阻礙前檢查實際前置條件／啟動結果，並遵守更高優先的明確限制。
+
+  [瀏覽器測試（browser-testing.md，第 1 行）](../references/browser-testing.md) 涵蓋自有本機／無頭工作階段、存取防護與實際操作流程證據。不新增顧問或權限。
 
 <a id="agjson--switches--alphabetical"></a>
 

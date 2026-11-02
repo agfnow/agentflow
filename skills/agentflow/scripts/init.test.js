@@ -58,6 +58,50 @@ test('malformed locale and nested Git folder refuse before scaffold writes', () 
   const parent = fixture(), child = path.join(parent, 'child'); fs.mkdirSync(child)
   assert.throws(() => initialize({ cwd: child, lang: 'en' }), /physical Git root/); assert.deepEqual(fs.readdirSync(child), [])
 })
+test('discovery warning explains parent-directory risk with bounded examples in both languages', () => {
+  const root = fixture(), assets = path.join(root, 'assets'); fs.mkdirSync(assets)
+  for (let i = 0; i < 30; i++) fs.symlinkSync('missing', path.join(assets, `icon-${String(i).padStart(2, '0')}.png`))
+  const before = C.treeDigest(root)
+  for (const lang of ['en', 'zh-TW']) {
+    const result = run(root, '--lang', lang)
+    assert.equal(result.status, 1)
+    assert.equal((result.stderr.match(/^  - /gm) || []).length, 3)
+    assert.ok(result.stderr.length < 1400, result.stderr)
+    assert.ok(result.stderr.includes(JSON.stringify(fs.realpathSync(root))))
+    assert.ok(result.stderr.includes('assets' + path.sep + 'icon-00.png'))
+    assert.doesNotMatch(result.stderr, /icon-03.png|host reconciliation/)
+    if (lang === 'en') {
+      assert.match(result.stderr, /0 possible configuration files and 30 unresolved entries/)
+      assert.match(result.stderr, /symbolic links/); assert.match(result.stderr, /27 more entries omitted/)
+      assert.match(result.stderr, /parent folder.*cd into the target project/)
+      assert.match(result.stderr, /If this directory is correct, ask your AI host/)
+    } else {
+      assert.match(result.stderr, /0 個可能的設定檔，以及 30 個待釐清項目/)
+      assert.match(result.stderr, /符號連結/); assert.match(result.stderr, /另有 27 筆未列出/)
+      assert.match(result.stderr, /上層目錄.*cd 到目標專案/)
+      assert.match(result.stderr, /若目錄正確，請讓 AI 主代理/)
+    }
+    assert.equal(C.treeDigest(root), before)
+    assert.equal(fs.existsSync(path.join(root, '.agentflow')), false)
+    assert.equal(C.git(root, ['rev-parse', '--verify', 'HEAD'], { allowFailure: true }).status, 128)
+  }
+})
+test('discovery warning retains ambiguity and malformed-config stops without exposing contents', () => {
+  const root = fixture(), config = require('../assets/.agentflow/ag.json')
+  fs.mkdirSync(path.join(root, '.agentflow')); fs.writeFileSync(path.join(root, '.agentflow/ag.json'), JSON.stringify(config))
+  fs.writeFileSync(path.join(root, 'ag.json'), JSON.stringify(config))
+  let before = C.treeDigest(root)
+  assert.throws(() => initialize({ cwd: root, lang: 'en' }), /2 possible configuration files and 0 unresolved entries/)
+  assert.equal(C.treeDigest(root), before)
+  const malformed = fixture(); fs.writeFileSync(path.join(malformed, 'ag.json'), 'private invalid JSON')
+  before = C.treeDigest(malformed)
+  assert.throws(() => initialize({ cwd: malformed, lang: 'en' }), error => {
+    assert.match(error.message, /0 possible configuration files and 1 unresolved entries/)
+    assert.match(error.message, /"ag.json"/); assert.doesNotMatch(error.message, /private invalid JSON|omitted/)
+    return true
+  })
+  assert.equal(C.treeDigest(malformed), before)
+})
 test('fresh non-Git root initializes through real command with configured external identity', () => {
   const root = fixture(false)
   const result = spawnSync(process.execPath, [launcher, 'init', '--lang', 'en'], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'commit.gpgsign', GIT_CONFIG_VALUE_0: 'false' } })

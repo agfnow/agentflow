@@ -58,7 +58,7 @@ Read [worker settings](review.md#worker-settings) before selected worker validat
 
 - saving-mode on loads [saving mode](saving-mode.md) for minimum sufficient prose/records and reuse; off preserves normal behavior; absent follows migration (effective off only while writes defer). It changes no authority, safeguards, required deliverables/checks/review, model/effort or routes.
 
-- plan-mode optional uses ordinary design/tracker criteria; must requires both before authorized task edits; off prohibits new designs, permits needed trackers and preserves existing contracts. Before task edits, off + gate-design on stops dependent work as a named settings conflict requiring an owner choice. Task modes/explicit instructions, plan-only stops and gates prevail; no setting-driven idle/off-record/setup/lifecycle/Q&A/batch records. Read [planning modes and gates](planning.md#planning-modes-and-gates) before applying these rules, including fast-lane and isolated-task exceptions.
+- plan-mode optional uses ordinary design/tracker criteria; must requires both before authorized task edits; off prohibits new designs, permits needed trackers and preserves existing contracts. Apply [planning modes and gates](planning.md#planning-modes-and-gates) before applying plan-mode, including task-mode/explicit overrides, record-creation exceptions and plan-only stops. off + gate-design on stops dependent work for an owner choice; never waive the conflict.
 
 - plan-order accepts 3ways|external|native|host, default external for complex planning. Before already-needed planning (including advice/recommendation reports/grouping), read [planning routes](review.md#planning-routes) for proportional host selection, explicit/configured 3ways, worker controls, fallback and final synthesis. Task modes, requirements, contracts and gates prevail; settings create no work, plan, advisor stage or implementation authority.
 
@@ -66,9 +66,9 @@ Read [worker settings](review.md#worker-settings) before selected worker validat
 
 - review-order accepts external|native|host, default external. Before already-required result review, read [result-review routes](review.md#result-review-routes) for transport order, diversity, controls/fallback, independence, explicit requirements and bounded disclosure authority. Review requirements/waivers remain in [work](work.md#records-and-review); settings create no review stage.
 
-- gate-design on requires a saved concrete design and owner approval before implementation; off adds no checkpoint. Prior explicit approval of the same design suffices; material changes need renewed approval. Apply [planning modes and gates](planning.md#planning-modes-and-gates), including the plan-mode off conflict and independent-work exception; empty/default answers never approve.
+- gate-design on requires a saved concrete design and owner approval before implementation; off adds no checkpoint. Apply [planning modes and gates](planning.md#planning-modes-and-gates) before implementation for prior approval, material changes, independent work and the plan-mode off conflict; empty/default answers never approve.
 
-- gate-tracker on, when a tracker exists, requires all execution/checks/review passed and owner approval of the concrete checked result before final Reply/release, delivery commit or push; off adds no checkpoint. Retain the open round/claim and awaiting-approval state. Read [planning modes and gates](planning.md#planning-modes-and-gates) before this pause, especially merge-feature prerequisite integration commits, feature-only records/claims and post-approval continuation.
+- gate-tracker on, when a tracker exists, requires all execution/checks/review passed and owner approval of the concrete checked result before final Reply/release, delivery commit or push; off adds no checkpoint. Apply [planning modes and gates](planning.md#planning-modes-and-gates) before this pause for open-round/claim retention, saved approval requests, merge-feature integration exceptions and post-approval continuation.
 
 ## Git delivery
 

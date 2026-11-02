@@ -1,4 +1,4 @@
-# Agentflow 9.1.2 — everyday guide
+# Agentflow 9.1.4 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -13,6 +13,8 @@ Install agentflow using the [package README](https://github.com/agfnow/agentflow
 To prepare a project before opening an agent, run `agf init` in its directory, then edit the empty Ask in `.agentflow/<directory-stem>.devlog.md`. It requires Node 20+, Git and a working Git commit identity; without a shell binding, use `node '<resolved-skill>/scripts/agf.js' init`.
 
 Use `agf init --lang zh-TW` for Traditional Chinese; English is also supported. The command creates Git when absent, reuses HEAD or creates one empty bootstrap, then writes settings/records and commits only setup changes. It makes no model call, push or shell-profile change. Complete existing projects skip unchanged; partial or unsafe state stops for host reconciliation. Bare `zh` is preserved and uses Traditional Chinese; other Chinese locale variants use Traditional Chinese and save `zh-tw`; other valid locales automatically use English and save `use-lang: en-us` for subsequent work. Non-Git setup remains host-driven. See [standalone initialization](../references/setup.md#standalone-initialization).
+
+If configuration discovery stops, the warning names the checked directory, counts possible configurations and unresolved entries, and shows at most three relative paths. Check that you are inside the intended project, rather than its parent folder. If the directory is correct, ask the AI host to inspect the configuration or symbolic links before retrying; do not delete them merely to bypass the warning.
 
 Setup commits suppress Git hooks; use host setup when project policy requires them.
 
@@ -91,6 +93,20 @@ Task states are `TODO`, `DOING`, `BLOCKED` and `DONE`. Work awaiting checks, rev
 
 Useful check and debugging evidence is linked separately, normally under `.agentflow/.tmp/`. Linked evidence is durable despite that name: do not delete it as temporary clutter. The notebook keeps answers, limits and recovery pointers instead of technical logs.
 
+New workflow evidence uses only the applicable fields, in order:
+
+- **Scope:** Which notebook/Ask and necessary source identity.
+
+- **Checks:** Meaningful results and limits.
+
+- **Findings:** Review findings, decisions or unresolved defects and their disposition.
+
+- **Resume:** Unfinished state and next safe action.
+
+Omit empty fields, routine command output and repeated facts; link existing proof or recovery state once. A round may need no separate evidence file.
+
+This is the default with saving mode on or off. Required proof and specialized feature/looper records still apply; existing history is preserved.
+
 Above 750 notebook lines, or on request, older completed rounds can move into one adjacent `<notebook-stem>.archive.md`. Unresolved work and the latest completed round remain live. An explicit notebook rename includes its archive and preserves history.
 
 `backlog.md` holds future work: `proposed` means suggested, and `deferred` means accepted but postponed. Ask to review the backlog and select work before execution; an entry grants no implementation authority.
@@ -128,6 +144,26 @@ nolog: Explain this setting in chat.
 Authorized work still executes; `noop:` does not mean a dry run. The next unmarked message records normally. Quoted examples do not activate markers or modes.
 
 An off-record append request is neither queued nor executed. Resend it without the marker. See the [agent routing rules](../SKILL.md#route-before-records).
+
+## Learn with a visual explanation
+
+Send `eli5: run-tasks` to get a downloadable HTML lesson explaining that command, without executing it. You can also name a concept, architecture or process.
+
+Everything after `eli5:` is explanation data, including commands and markers; put an actual off-record instruction before `eli5:`.
+
+The file works offline and starts with a large overview and short labels. It briefly names the chosen format and why it fits the concept.
+
+Processes use reader-controlled steps and useful animation; static concepts may stay static.
+
+Keyboard, reduced-motion and print/text views keep the explanation usable in other settings.
+
+Browser checks that could not be performed are disclosed.
+
+The host loads the [dedicated visual prompt (eli5.md, line 1)](../references/eli5.md) only for this request. Ordinary activation does not load it.
+
+Existing language, privacy, notebook and receipt rules remain.
+
+Sending or publishing the file needs separate authority.
 
 ## Choose a task mode or advisor
 
@@ -409,7 +445,11 @@ Agentflow relies on the host following instructions. Installed files and valid p
 
 Windows looper use needs Node.js 20+ and Git for Windows. Follow the [agent Windows rules](../references/windows.md); tests on another platform do not prove native Windows or provider/editor behavior.
 
-Browser journeys use Stagehand and Browserbase `browse` by default, subject to your tool preferences and project rules. The host checks actual behavior and access boundaries under the [agent browser-testing rules](../references/browser-testing.md).
+Browser journeys use Stagehand and Browserbase `browse` by default, subject to your tool preferences and project rules.
+
+Stagehand and `browse` control real browsers independently of browser plugins/connectors. A missing or disconnected plugin does not block these routes; the host checks their actual prerequisites and startup before reporting a blocker, while respecting explicit higher-priority restrictions.
+
+The host checks actual behavior and access boundaries under the [agent browser-testing rules](../references/browser-testing.md).
 
 Behavior changes update affected current documentation, examples and translations together. Each fact has an authoritative source; summaries are checked dependents. No documentation impact means no extra documentation record.
 

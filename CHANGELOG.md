@@ -1,5 +1,17 @@
 # Changelog
 
+## 9.1.4 — 2026-11-02
+
+- Added `eli5: <topic-or-command>` for a downloadable, offline HTML visual lesson. Large diagrams, short labels and purposeful interaction explain the subject; commands and markers inside the lesson request never execute or activate workflow modes.
+
+- Retained plugin-independent browser checks through Stagehand and Browserbase `browse`, with prerequisite checks before reporting unavailable browser access.
+
+- Made compact selective evidence the default: retain applicable Scope, Checks, Findings and Resume fields, omit routine output and duplicate facts, and preserve required proof and recovery. No new switch or historical-record deletion.
+
+- Clarified initialization discovery warnings in English and Traditional Chinese: identify the checked directory, summarize counts, show at most three examples and explain the next action without assuming the directory is wrong.
+
+- Conservatively shortened repeated prompt guidance while retaining all 36 prompt files and existing safeguards. Aligned both guides and cheatsheets; schema remains 13. Textual review and recorded scenarios do not establish measured token savings or universal host/platform behavior.
+
 ## 9.1.2 — 2026-10-31
 
 - Restored essential reminders at existing planning and review checkpoints: read the shared Check, preserve required outcomes and safeguards, reject unsupported scope and try concrete simpler replacements. Review also compares total burden. Timing, routes, gates and the separate-command boundary remain unchanged; comparative compliance improvement is unproved.

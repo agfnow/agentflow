@@ -151,7 +151,7 @@ function initialize({ cwd = process.cwd(), lang, invocation = ['agf', 'init', ..
   insist(Number(process.versions.node.split('.')[0]) >= 20, 'Initialization requires Node.js 20 or later')
   const root = fs.realpathSync(cwd)
   insist(!/[\x00-\x1f\x7f]/.test(root), 'Control characters in project paths are unsupported')
-  const config = C.discover(root, { allowAbsent: true })
+  const config = C.discover(root, { allowAbsent: true, diagnosticLocale: locale(lang) })
   const hasGit = repository(root)
   if (!config.absent) {
     // No claims, symlinks or ambiguous history may be hidden by a nominal config.

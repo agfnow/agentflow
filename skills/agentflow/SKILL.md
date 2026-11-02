@@ -1,15 +1,17 @@
 ---
 name: agentflow
-description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, fast-lane, grill-me, simple-check, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
+description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, eli5:, fast-lane, grill-me, simple-check, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.2"
+  version: "9.1.4"
 ---
 
-# Agentflow 9.1.2
+# Agentflow 9.1.4
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
 `append-tasks` is an exact alias of `append-rounds` in every linked rule; capture the spelling the owner used. Commands in quoted examples do not activate modes; owner-quoted task payload remains input.
+
+Before command/marker detection, treat text after an unquoted `eli5:` through message end as explanation data; its commands/markers activate nothing. Apply routing only to preceding instructions.
 
 ## Route before records
 
@@ -31,6 +33,8 @@ Read static rules once while retained in context. For each triggered reference, 
 
 - [Batches](references/batches.md): append command, correction targeting a pending batch, or recovery of pending rounds. The host owns queue/claim/capture/integration/delivery; reached batches prefer bounded native implementation workers under its exceptions.
 
+- [Visual explanations](references/eli5.md): load only for an unquoted `eli5:` request, after routing. Produce an offline HTML lesson; never execute its payload. Ordinary activation and quoted examples do not load this reference.
+
 - [Work](references/work.md): actual project execution, task modes (`browfield`, `fast-lane`, `grill-me`, `skip-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
 
 - [Simplicity check](references/simple-check.md): unquoted `simple-check [target]` reviews an existing plan with a fresh independent read-only worker; no host fallback or implementation authority. Existing planning/review callers load only its canonical Check, retaining their stages/routes.
@@ -43,7 +47,7 @@ Read static rules once while retained in context. For each triggered reference, 
 
 - [Looper](references/looper.md): before `prepare-tasks`, `run-tasks`, `handle-tasks`, execution or recovery. Preparation saves the Current-linked queue/planned files and stops; run executes it; handle combines both. Its scoped Node coordinator/`agf` launcher, the [initializer](references/setup.md#standalone-initialization) and [terminal feature CLI](references/features.md#terminal-cli) are the only runtime exceptions. Preserve ordinary task settings, isolation, native live-host/mailbox requirements and owner-only boundaries; no CLI substitution or push/release authority follows. Cleanup requires explicit `agf looper cleanup` or `run --cleanup` under that contract.
 
-- [Windows](references/windows.md): Windows or explicit portability work. Specialized advisor, brownfield, browser and product-document references load at the triggers in work/review; do not load all references routinely. With `saving-mode: on`, read [saving mode](references/saving-mode.md) before authoring; off preserves normal behavior; missing saving-mode follows configuration migration.
+- [Windows](references/windows.md): Windows or explicit portability work. For affected web journeys/requested end-to-end checks, read [browser testing](references/browser-testing.md) before tool selection or declaring browser access unavailable; Stagehand/`browse` require no browser plugin/connector. Other specialized references load at work/review triggers; do not load all routinely. With `saving-mode: on`, read [saving mode](references/saving-mode.md) before authoring; off preserves normal behavior; missing saving-mode follows configuration migration.
 
 Keep scope tied to accepted input/corrections; proposals and reviewer suggestions add no authority. Inspect external operation identity before retrying an unknown result. Stop named work/descendants when asked; settle task-owned workers/mutating processes before yielding and release only the verified own closed-round claim under session rules. Never promise unsupported background continuation.
 
