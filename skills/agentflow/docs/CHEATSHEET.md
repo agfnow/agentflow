@@ -368,6 +368,10 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Every `design.md` and report of any kind starts with a brief, conversational, plain-language overview of the whole subject’s structure and operation, giving an unfamiliar reader a high-level mental model. Conclusions follow in plain words. The opening overview may be a short paragraph or bullet.
 
+  Explain what readers will learn and why it matters. In long or multi-audience documents, put compact linked contents and purpose-based reading paths after the opening overview and any key answer, before detail: where to start, what matters and what can be skipped. Explain how the main parts help; short documents serving one audience need only a clear opening and headings. See [reading guidance (writing.md, line 11)](../references/writing.md#11).
+
+  In new CJK prose, use one space between adjacent CJK characters and English words or numbers, e.g. `檔內 Signoff 均不能 123 項比對`. Preserve quotations, code, exact identifiers, paths, fixed syntax and historical content. See [CJK spacing (writing.md, line 17)](../references/writing.md#17).
+
   Before every delivery, check that the intended reader can explain the result, relevant responsibilities, significance and needed decision/action without guessing or opening links; clarify or rewrite gaps.
 
   Prefer short Markdown lists for separable findings, requirements, comparisons, options and steps; keep prose where connected explanation helps. Use one concept per paragraph/item, usually 1–3 short sentences, with blank lines; lead each with its main point. Split long/multi-concept blocks before delivery; a single dense bullet fails too.

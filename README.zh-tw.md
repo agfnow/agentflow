@@ -1,4 +1,4 @@
-# Agentflow v9.1.6
+# Agentflow v9.1.7
 
 [English](README.md) · **繁體中文**
 
@@ -205,7 +205,7 @@ v8 與 v9 也共用 `agentflow` 技能名稱及 `.agentflow/` 專案目錄。同
 
 ## 設定與限制
 
-專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.6 分開。
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.7 分開。
 
 `use-lang` 控制新寫的文字；`plan-mode` 決定何時建立規劃文件；`plan-order`、`review-order` 則決定已需要的規劃或審查由誰處理。一般規劃在支援的路徑控制內，優先由 Claude 起草，再由 Codex 質疑、修正與最終整合。已選控制不受支援時會停下來，不默默換模型。
 

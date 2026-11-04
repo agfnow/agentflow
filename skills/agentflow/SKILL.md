@@ -2,10 +2,10 @@
 name: agentflow
 description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, eli5:, fast-lane, grill-me, simple-check, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.6"
+  version: "9.1.7"
 ---
 
-# Agentflow 9.1.6
+# Agentflow 9.1.7
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 

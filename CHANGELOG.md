@@ -1,5 +1,13 @@
 # Changelog
 
+## 9.1.7 — 2026-11-04
+
+- Added purpose and reading guidance near document openings, with compact linked contents and purpose-based reading paths for long or multi-audience documents. Short single-audience documents keep a clear opening and headings.
+
+- Required spaces between new CJK prose and adjacent English words or numbers, preserving quotations, code, identifiers, paths, fixed syntax and historical content.
+
+- Aligned both cheatsheets with the writing guidance. Schema remains 13; publication does not replace existing installations or establish measured readability or model-compliance improvements.
+
 ## 9.1.6 — 2026-11-02
 
 - Reworked `eli5:` into interactive animated HTML lessons with a faithful visual model, subject-specific art direction, meaningful learner actions and inspectable motion. HTML authoring and revisions require GPT Astra/high or Claude Opus/high; unavailable authoring routes are disclosed without silent substitution.
