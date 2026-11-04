@@ -12,6 +12,10 @@ Codex 子代理：每次 `spawn_agent` 都明確設定 `fork_turns: "none"`；�
 
 工作流程證據放在 devlog 之外。把有用的技術檢查、審查發現、不變條件核對與除錯證據存入連結的證據文件；devlog 保留結果、回答、必要通知與復原指引。
 
+新的功能設計、tracker 與其他回合文件放在 `<ag-dir>/features/<name>/artifacts/A-NNN/`；main 工作階段使用 `<ag-dir>/artifacts/A-NNN/`。合併保留相對路徑與連結；既有紀錄維持原位置。
+
+有保留紀錄的功能名稱不可重新使用；只能接續完全相符且仍開放的功能，否則另取名稱，例如 `search-v2`。
+
 新證據依序使用**範圍 → 檢查 → 發現 → 續作**，省略空白／不適用欄位、例行輸出與重複事實。保留必要來源／操作身分、必要結果／審查處置、限制及下一個安全動作。
 
 既有證據／狀態只連結一次；無事實須保留時，不另建檔案。無論 saving-mode 開關，此格式皆為預設；功能／looper 專用格式與必要證據仍適用。[精簡欄位（session.md，第 55 行）](../references/session.md#round-evidence)。
@@ -156,7 +160,7 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 - **`off: <request>`** — 同 `nolog:`。
 
-- **`prepare-tasks <request>`** — 在 `<ag-dir>/artifacts/A-NNN-<name>/` 下準備由 Current 連結的 `planned/queue.json`、`planned/request.md` 與 `planned/group-NNN.md`，然後停止。run-root 為 `planned/`。
+- **`prepare-tasks <request>`** — 在 `<ag-dir>/artifacts/A-NNN-<name>/`（受管理功能使用 `<ag-dir>/features/<feature>/artifacts/A-NNN-<name>/`）下準備由 Current 連結的 `planned/queue.json`、`planned/request.md` 與 `planned/group-NNN.md`，然後停止。run-root 為 `planned/`。
 
   準備結果會儲存兩種執行方式，並在使用者可見的最後回覆中、收據之前直接顯示，即使 `inline-reply: off` 也一樣：在顯示的工作目錄中，先執行 `agf looper status <run-root>`、再執行 `agf looper run <run-root>`，或在對話輸入 `run-tasks`。提示會代入實際路徑；若 `agf` 無法呼叫，則顯示已驗證的安裝版 Node 入口指令。印出提示不會開始執行。
 

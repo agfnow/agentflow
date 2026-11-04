@@ -380,3 +380,37 @@ test('custom config paths produce literal owner-marker ignore rules', async t =>
   } finally { owner.release() }
   assert.equal(result.destination, c.target)
 })
+
+test('retained local or committed feature artifacts reserve names before Git creation', async t => {
+  for (const committed of [false, true]) {
+    const root = fixture(t, { agDir: 'custom records' }), relative = 'custom records/features/reused/artifacts/A-002/design.md'
+    fs.mkdirSync(path.dirname(path.join(root, relative)), { recursive: true })
+    fs.writeFileSync(path.join(root, relative), 'historical design\n')
+    if (committed) {
+      C.git(root, ['add', '--', relative]); C.git(root, ['commit', '-m', 'retained artifact'])
+      fs.renameSync(path.join(root, 'custom records/features/reused'), path.join(root, 'retained-feature-history'))
+      assert.equal(fs.existsSync(path.join(root, relative)), false)
+    }
+    const index = C.git(root, ['ls-files', '--stage']), head = C.git(root, ['rev-parse', 'HEAD'])
+    await assert.rejects(F.create('reused', { cwd: root }), committed ? /Historical feature records exist in committed main:.*features\/reused; choose a fresh name/ : /Retained feature records reserve this name/)
+    assert.equal(fs.existsSync(path.join(root, '.wts/ft-reused')), false)
+    assert.equal(C.git(root, ['show-ref', '--verify', 'refs/heads/feature/reused'], { allowFailure: true }).status, 128)
+    assert.equal(C.git(root, ['ls-files', '--stage']), index)
+    assert.equal(C.git(root, ['rev-parse', 'HEAD']), head)
+    assert.equal(committed ? C.git(root, ['show', `HEAD:${relative}`]) : fs.readFileSync(path.join(root, relative), 'utf8').trim(), 'historical design')
+  }
+})
+test('feature artifact ignore preflight uses feature namespace rather than main artifacts', async t => {
+  for (const ignored of ['.agentflow/features/hidden/artifacts/', '.agentflow/artifacts/']) {
+    const root = fixture(t)
+    fs.writeFileSync(path.join(root, '.gitignore'), ignored + '\n')
+    C.git(root, ['add', '.gitignore']); C.git(root, ['commit', '-m', 'artifact ignores'])
+    if (ignored.includes('/features/')) {
+      await assert.rejects(F.create('hidden', { cwd: root }), /Inherited ignore rules hide feature records/)
+      assert.equal(fs.existsSync(path.join(root, '.wts/ft-hidden/.agentflow/features/hidden/hidden.devlog.md')), false)
+    } else {
+      const r = await F.create('visible', { cwd: root })
+      assert.ok(fs.existsSync(path.join(r.destination, '.agentflow/features/visible/visible.devlog.md')))
+    }
+  }
+})

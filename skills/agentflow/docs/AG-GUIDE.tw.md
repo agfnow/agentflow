@@ -1,4 +1,4 @@
-# Agentflow 9.1.7 — 日常使用指南
+# Agentflow 9.1.8 — 日常使用指南
 
 [English](AG-GUIDE.md) · 繁體中文
 
@@ -247,7 +247,13 @@ main 工作目錄需要先有 commit。準備時可建立前述限定的空白�
 
 請照實際的編號交接訊息操作。Codex 與 Claude Code 使用 `/cd <feature-checkout>` 接著 `godev`，並提供指向實際功能筆記的編輯器建議。其他主機在該處重新開啟；工具裡執行 shell `cd` 不會切換主代理工作階段。
 
-功能筆記預設位於其工作目錄內的 `.agentflow/features/search/search.devlog.md`。生命週期操作不存取 main 的根筆記、封存與認領，即使它們忙碌也一樣；實際 Git 衝突與目標功能認領仍需處理。
+功能筆記預設位於其工作目錄內的 `.agentflow/features/search/search.devlog.md`。
+
+新的功能設計、tracker 與其他回合文件放在 `<ag-dir>/features/<name>/artifacts/A-NNN/`；main 工作階段使用 `<ag-dir>/artifacts/A-NNN/`。合併保留相對路徑與連結；既有紀錄維持原位置。
+
+有保留紀錄的功能名稱不可重新使用；只能接續完全相符且仍開放的功能，否則另取名稱，例如 `search-v2`。
+
+生命週期操作不存取 main 的根筆記、封存與認領，即使它們忙碌也一樣；實際 Git 衝突與目標功能認領仍需處理。
 
 `merge-feature search` 會驗證並整合，保留工作目錄與分支，除非你明確加上 `and cleanup`。適用的核准關卡會在破壞性清理前完成；main 的無關檔案與暫存內容會保留。
 
@@ -317,7 +323,7 @@ looper 將獲准工作分成獨立 worktree 群組。組內任務依序在全新
 
 準備結果會儲存兩種執行方式，並在使用者可見的最後回覆中、收據之前直接顯示，即使 `inline-reply: off` 也一樣：在顯示的工作目錄中，先執行 `agf looper status <run-root>`、再執行 `agf looper run <run-root>`，或在對話輸入 `run-tasks`。提示會代入實際路徑；若 `agf` 無法呼叫，則顯示已驗證的安裝版 Node 入口指令。印出提示不會開始執行。
 
-預設執行根目錄是 `.agentflow/artifacts/A-NNN-<name>/planned/`，包含 `group-NNN.md`、`queue.json`、`request.md`，由「目前工作」連到。你不必手寫佇列 JSON。
+預設執行根目錄是 `.agentflow/artifacts/A-NNN-<name>/planned/`（受管理功能使用 `<ag-dir>/features/<feature>/artifacts/A-NNN-<name>/planned/`），包含 `group-NNN.md`、`queue.json`、`request.md`，由「目前工作」連到。你不必手寫佇列 JSON。
 
 `run-tasks` 執行或接續該連結佇列；`run-tasks <run-root>` 則明確指定。`handle-tasks <request>` 合併準備與執行。
 

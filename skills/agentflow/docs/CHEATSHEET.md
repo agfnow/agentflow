@@ -12,6 +12,10 @@ Codex subagents: every `spawn_agent` explicitly sets `fork_turns: "none"`; suppl
 
 Workflow evidence belongs outside the devlog. Keep useful technical checks, review findings, invariant accounting and debugging proof in linked evidence; the devlog keeps outcomes, answers, required notices and recovery pointers.
 
+New feature designs, trackers and other round artifacts use `<ag-dir>/features/<name>/artifacts/A-NNN/`; main-session artifacts use `<ag-dir>/artifacts/A-NNN/`. Merge preserves these relative paths and links.
+
+Existing records stay at their established locations. Retained feature records reserve the name; resume an exact open feature or choose a fresh name such as `search-v2`.
+
 New evidence uses **Scope → Checks → Findings → Resume**, omitting empty/inapplicable fields, routine output and repeated facts. Keep necessary source/operation identities, required results/review dispositions, limits and next safe actions.
 
 Link existing proof/state once; no separate file when nothing needs retaining. This default applies with saving-mode on or off; specialized feature/looper formats and required proof remain. [Compact fields (session.md, line 55)](../references/session.md#round-evidence).
@@ -154,7 +158,7 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 - **`off: <request>`** — Same as `nolog:`.
 
-- **`prepare-tasks <request>`** — Prepare Current-linked `planned/queue.json`, `planned/request.md` and `planned/group-NNN.md` under `<ag-dir>/artifacts/A-NNN-<name>/`, then stop. Run-root is `planned/`.
+- **`prepare-tasks <request>`** — Prepare Current-linked `planned/queue.json`, `planned/request.md` and `planned/group-NNN.md` under `<ag-dir>/artifacts/A-NNN-<name>/` (managed features: `<ag-dir>/features/<feature>/artifacts/A-NNN-<name>/`), then stop. Run-root is `planned/`.
 
   The preparation result saves both execution choices and shows them in the final visible reply before the receipt, even with `inline-reply: off`: from the shown checkout directory, terminal `agf looper status <run-root>` then `agf looper run <run-root>`, or chat `run-tasks`. Actual paths replace placeholders; if `agf` is unavailable, verified installed Node-entrypoint commands are shown. Printing does not start execution.
 

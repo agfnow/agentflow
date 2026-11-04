@@ -1,5 +1,13 @@
 # Changelog
 
+## 9.1.8 — 2026-11-05
+
+- Place new managed-feature round artifacts beside their feature devlog under `<ag-dir>/features/<name>/artifacts/A-NNN/`, preserving relative paths and links after integration into main. Existing records and explicit destinations retain their locations.
+
+- Reserve feature names while historical records remain; resume only the matching open feature, otherwise choose a fresh name. Retain main-session artifact routing.
+
+- Align bilingual guides and cheatsheets with feature isolation and retained-name protection. Schema remains 13; publication does not replace existing installations.
+
 ## 9.1.7 — 2026-11-04
 
 - Added purpose and reading guidance near document openings, with compact linked contents and purpose-based reading paths for long or multi-audience documents. Short single-audience documents keep a clear opening and headings.

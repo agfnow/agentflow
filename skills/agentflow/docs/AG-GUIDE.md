@@ -1,4 +1,4 @@
-# Agentflow 9.1.7 — everyday guide
+# Agentflow 9.1.8 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -251,7 +251,13 @@ The main checkout needs a commit. Preparation can create the narrow empty bootst
 
 Follow the actual numbered handoff. Codex and Claude Code use `/cd <feature-checkout>` followed by `godev`, plus an editor suggestion naming the actual feature notebook. Other hosts reopen there; shell `cd` alone does not move the host session.
 
-The default feature notebook is `.agentflow/features/search/search.devlog.md` inside its checkout. Lifecycle commands avoid main's root notebook, archive and claim, even when those are busy; real Git conflicts and target-feature claims still matter.
+The default feature notebook is `.agentflow/features/search/search.devlog.md` inside its checkout.
+
+New feature designs, trackers and other round artifacts use `<ag-dir>/features/<name>/artifacts/A-NNN/`; main-session artifacts use `<ag-dir>/artifacts/A-NNN/`. Merge preserves these relative paths and links.
+
+Existing records stay at their established locations. Retained feature records reserve the name; resume an exact open feature or choose a fresh name such as `search-v2`.
+
+Lifecycle commands avoid main's root notebook, archive and claim, even when those are busy; real Git conflicts and target-feature claims still matter.
 
 Send `merge-feature search` to verify and integrate. It retains the checkout and branch unless you explicitly add `and cleanup`. Applicable approval gates precede destructive cleanup; main's unrelated files and staging are preserved.
 
@@ -321,7 +327,7 @@ Give the host numbered outcomes, examples and guarantees to preserve. `prepare-t
 
 The preparation result saves both execution choices and shows them in the final visible reply before the receipt, even with `inline-reply: off`: from the shown checkout directory, terminal `agf looper status <run-root>` then `agf looper run <run-root>`, or chat `run-tasks`. Actual paths replace placeholders; if `agf` is unavailable, verified installed Node-entrypoint commands are shown. Printing does not start execution.
 
-The default run root is `.agentflow/artifacts/A-NNN-<name>/planned/`, containing `group-NNN.md`, `queue.json` and `request.md`, linked from Current. You do not need to handwrite queue JSON.
+The default run root is `.agentflow/artifacts/A-NNN-<name>/planned/` (managed features: `<ag-dir>/features/<feature>/artifacts/A-NNN-<name>/planned/`), containing `group-NNN.md`, `queue.json` and `request.md`, linked from Current. You do not need to handwrite queue JSON.
 
 Use `run-tasks` to execute or resume that linked queue, or `run-tasks <run-root>` to select one explicitly. `handle-tasks <request>` combines preparation and execution.
 

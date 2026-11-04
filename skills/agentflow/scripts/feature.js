@@ -28,7 +28,7 @@ function history(c) {
   return C.git(c.main, ['ls-tree', '-r', '--name-only', c.mainTip, '--', prefix]).trim()
 }
 function assertTrackable(c) {
-  const paths = [c.relativeNotebook, `${c.agDir}/artifacts/A-001/creation.md`, `${c.agDir}/.tmp/${c.name}.devlog.md/A-001.md`]
+  const paths = [c.relativeNotebook, `${c.agDir}/features/${c.name}/artifacts/A-001/creation.md`, `${c.agDir}/.tmp/${c.name}.devlog.md/A-001.md`]
   if (c.config.absent) paths.push(`${c.agDir}/ag.json`)
   const result = C.git(c.target, ['check-ignore', '--no-index', '-z', '--stdin'], { allowFailure: true, input: paths.join('\0') + '\0' })
   C.insist(result.status === 1, result.status === 0 ? `Inherited ignore rules hide feature records: ${result.stdout.split('\0').filter(Boolean).join(', ')}; records were not written; reconcile ignore rules with the host, then repeat new-feature ${c.name}` : `Cannot verify feature record ignore rules: ${result.stderr}`)
@@ -53,7 +53,9 @@ async function create(name, options = {}) {
   let c = C.context(options.cwd || process.cwd(), name, 'new-feature')
   C.noOperation(c.main)
   if (!c.registration) {
-    C.insist(!history(c), `Historical feature records exist in committed main: ${c.relativeNotebook}; host decision required`)
+    const records = C.safePath(c.main, `${c.agDir}/features/${c.name}`)
+    C.insist(!C.exists(records) || fs.statSync(records).isDirectory() && !fs.readdirSync(records).length, `Retained feature records reserve this name: ${records}; choose a fresh name`)
+    C.insist(!history(c), `Historical feature records exist in committed main: ${c.agDir}/features/${c.name}; choose a fresh name`)
     C.insist(fs.statSync(C.safePath(c.main, c.agDir)).isDirectory(), 'Configured Agentflow directory required')
     C.localExclude(c.main, '/.wts/')
     C.git(c.main, ['worktree', 'add', '-b', c.branch, c.target, c.mainTip])

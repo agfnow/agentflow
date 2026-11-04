@@ -617,3 +617,29 @@ test('foreign integrated feature reservation blocks all source and main integrat
   assert.equal(fs.readFileSync(marker, 'utf8'), foreign)
   assert.equal(fs.existsSync(path.join(path.dirname(sourceNotebook), 'intake-state.json')), false)
 })
+
+test('same Ask artifact paths remain isolated across main and two independent features', async () => {
+  const f = fixture(), F = require('./feature'), mainDesign = '.agentflow/artifacts/A-002/design.md'
+  fs.mkdirSync(path.dirname(path.join(f.root, mainDesign)), { recursive: true })
+  fs.writeFileSync(path.join(f.root, mainDesign), 'main design\n')
+  git(f.root, 'add', '--', mainDesign); git(f.root, 'commit', '-m', 'main A-002')
+  const prepared = []
+  for (const name of ['first', 'second']) prepared.push({ name, ...await F.create(name, { cwd: f.root }) })
+  for (const { name, destination: target } of prepared) {
+    const relative = `.agentflow/features/${name}/artifacts/A-002/design.md`
+    fs.mkdirSync(path.dirname(path.join(target, relative)), { recursive: true })
+    fs.writeFileSync(path.join(target, relative), `${name} design\n`)
+    const notebook = `.agentflow/features/${name}/${name}.devlog.md`, book = path.join(target, notebook)
+    fs.appendFileSync(book, '\n+ Design this feature.\n\n# → Reply / A-002\n\n* _2026-11-05 00:00:00 +0000_\n\n[Design](artifacts/A-002/design.md)\n\n---\n\n# → Ask / A-003\n')
+    if (name === 'second') {
+      git(target, 'add', '--', relative, notebook); git(target, 'commit', '-m', 'completed feature artifacts')
+    }
+    await merge(name, { cwd: f.root, checks, ...(name === 'first' ? { include: [relative] } : {}) })
+    assert.equal(fs.readFileSync(path.join(f.root, relative), 'utf8'), `${name} design\n`)
+    const mergedBook = path.join(f.root, notebook)
+    assert.match(fs.readFileSync(mergedBook, 'utf8'), /\[Design\]\(artifacts\/A-002\/design\.md\)/)
+    assert.equal(fs.readFileSync(path.resolve(path.dirname(mergedBook), 'artifacts/A-002/design.md'), 'utf8'), `${name} design\n`)
+  }
+  assert.equal(fs.readFileSync(path.join(f.root, mainDesign), 'utf8'), 'main design\n')
+  assert.equal(fs.readFileSync(path.join(f.root, '.agentflow/features/first/artifacts/A-002/design.md'), 'utf8'), 'first design\n')
+})

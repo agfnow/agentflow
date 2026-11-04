@@ -1,4 +1,4 @@
-# Agentflow v9.1.7
+# Agentflow v9.1.8
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -205,7 +205,7 @@ Both v8 and v9 also use the skill name `agentflow` and project directory `.agent
 
 ## Configuration and limits
 
-Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.7.
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.8.
 
 Use `use-lang` for new human-facing text, `plan-mode` for document creation, and `plan-order`/`review-order` for already-needed planning and review. Ordinary planning prefers a Claude draft followed by Codex challenge, correction and final synthesis within supported route controls. Missing or unsupported selected controls block rather than silently changing the model.
 
