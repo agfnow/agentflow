@@ -140,7 +140,11 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Removed controls:** v8's `completion-cleanup` and interval do not carry over as ordinary agentflow controls. Looper cleanup is opt-in through its explicit command or run flag, never a default/timed collector. It requires completed settled work and supported same-volume Trash, preserving durable records and branches. [looper.md, line 1](../references/looper.md)
 
-**Test policy is less prescriptive:** v8 required a failing test first for every executable behavior change and a real PTY journey for changed terminal features. Current agentflow specifically requires bug reproduction plus relevant behavior/journey checks, without those two universal v8 prescriptions. Retain test-first or PTY requirements as explicit project rules if they are essential.
+**Test-first policy restored in 9.1.9:** v8 required a failing test first for every executable behavior change. Current agentflow again starts executable behavior changes with a focused failing test, then the smallest passing change and refactoring while tests keep passing. [work.md, line 41](../references/work.md#41)
+
+Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation; claim test-driven development only with observed failure-then-pass evidence.
+
+V8 also required a real pseudo-terminal (PTY) journey for changed terminal features. That universal PTY requirement does not carry over: current agentflow requires bug reproduction and relevant behavior/journey checks. Keep a PTY requirement as an explicit project rule if essential.
 
 ## 12. Additions that prevent an oversimplified “lite means fewer capabilities” conclusion
 

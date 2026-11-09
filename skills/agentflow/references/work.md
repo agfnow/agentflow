@@ -38,6 +38,8 @@ Outside fast-lane, prefer bounded native workers for substantial implementation 
 
 - When accepted work changes a fact in maintained user/contributor/maintainer guidance or authorizes documentation authoring/handover, read [documentation guidance](product-docs.md), including its scoped authoring trigger; update affected owners/dependents alongside behavior, including fast-lane/skip-review. No doc impact means no doc record; a first-time suite requires an authorized documentation/handover outcome. Preserve scope, plan-only, gates and waived stages.
 
+- For executable behavior changes, first run a focused test that fails for the intended missing/wrong behavior, make the smallest passing change, then refactor while green. Reuse suitable tests; record red/green evidence and focused regression checks. Documentation-only, mechanical and test-only edits need relevant checks, not an artificial red cycle. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation; never claim TDD without observed red/green evidence.
+
 - Reproduce executable bugs before fixing; then check affected behavior and ordinary user journeys, including rendered output, saved data or actual receipt when requested. Reuse passing evidence until relevant source, inputs or environment change; name the uncovered risk before expanding checks. Unit tests, provider acceptance, receipt and deployment prove different things. For affected web journeys/requested end-to-end checks, read [browser testing](browser-testing.md).
 
 - Inspect saved identity before retrying an external write with an unknown result. Unavailable required checks stay blocked/unproved; reviewer approval cannot replace them. Continue independent work.

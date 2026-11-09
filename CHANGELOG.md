@@ -1,5 +1,13 @@
 # Changelog
 
+## 9.1.9 — 2026-11-10
+
+- Preserve original-question context in external answers: quote at least the first 50 Unicode code points directly below each answer heading, or the whole shorter question, retaining redaction, document openings and historical content.
+
+- Require a failing focused test before executable behavior changes, followed by the smallest passing change and refactoring while green. Documentation, mechanical and test-only edits use relevant checks; infeasible pre-change tests require a recorded reason, alternative proof and remaining gap.
+
+- Align bilingual guides and cheatsheets. Schema remains 13; publication does not replace existing installations or establish measured quality improvements.
+
 ## 9.1.8 — 2026-11-05
 
 - Place new managed-feature round artifacts beside their feature devlog under `<ag-dir>/features/<name>/artifacts/A-NNN/`, preserving relative paths and links after integration into main. Existing records and explicit destinations retain their locations.

@@ -388,6 +388,8 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Reply/subrequest quotes: first paragraph, at most 100 Unicode code points including spaces/punctuation, without splitting a combined character (grapheme); `...` whenever text is omitted. Keep literal backticks without backslash escapes; cut before an unmatched backtick left by truncation. Preserve credential redaction and full Ask input.
 
+  External report/file answers quote each original question directly below its answer heading: at least the first 50 Unicode code points, or the whole question if shorter. Preserve wording and combined characters, mark omissions `...`, redact credentials and quote grouped questions separately. Keep document openings, Reply excerpts and history unchanged. See [question context (writing.md, line 29)](../references/writing.md#29).
+
   Cut repetition; list several documents as nested `-` items with blank lines.
 
   Immediately after the mental-model overview, every report gives conclusions, key findings, applicable recommendations/decisions and material limits before detail; split rather than cut required content; keep the opening complete across short blocks. Postmortems/root-cause reports also give causes/prevention immediately after the overview.
@@ -407,6 +409,12 @@ These checks add no document, mandatory alternative or review stage and do not r
 - **Windows:** [Platform/runtime guidance (windows.md, line 1)](../references/windows.md); native/explicit Node entrypoints and verified npm Node shims use literal argv, Copilot stdin handles long prompts, CRLF bytes stay intact and unknown process observations retain claims. Unsupported custom wrappers need an explicit entrypoint. Native Windows execution needs its own proof.
 
   Alternative cleanup needs same-volume recycle/restore proof and must refuse permanent deletion of the actual checkout.
+
+- **Test-first development:** For executable behavior changes, use test-driven development (TDD): run a focused test that fails for the intended missing or wrong behavior, make the smallest passing change, then refactor while tests keep passing.
+
+  Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation.
+
+  Claim TDD only after observing the intended test fail before the change and pass afterward. See [task checks (work.md, line 41)](../references/work.md#41).
 
 - **Web checks:** Default to Stagehand automation code and Browserbase `browse` CLI Chrome operations ([official browser skill](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)); owner/project preferences override.
 

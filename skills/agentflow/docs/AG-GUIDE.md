@@ -1,4 +1,4 @@
-# Agentflow 9.1.8 — everyday guide
+# Agentflow 9.1.9 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -84,6 +84,8 @@ With the default `inline-reply: off`, the full answer stays in Reply and chat en
 ```
 
 Open that notebook to read the answer. Set `inline-reply: on` for full chat answers, or explicitly request this answer in chat or the terminal. Discussing future output or saying “show me” alone does not change the destination.
+
+External report/file answers quote each original question directly below its answer heading: at least the first 50 Unicode code points, or the whole question if shorter. Preserve wording and combined characters, mark omissions `...`, redact credentials and quote grouped questions separately. Keep document openings, Reply excerpts and history unchanged. See [question context (writing.md, line 29)](../references/writing.md#29).
 
 Necessary notices, blockers and actual feature handoffs still appear in chat. Human labels, including the receipt, follow the configured language.
 
@@ -232,6 +234,12 @@ External planning prefers Claude CLI drafting followed by Codex challenge/synthe
 Host and fast-lane plan directly without worker probes.
 
 Unavailable preferred roles are disclosed; explicit provider, model, effort, independence or read-only requirements still block incompatible fallback. Invalid selected controls need a decision, not silent replacement.
+
+For executable behavior changes, use test-driven development (TDD): run a focused test that fails for the intended missing or wrong behavior, make the smallest passing change, then refactor while tests keep passing.
+
+Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation.
+
+Claim TDD only after observing the intended test fail before the change and pass afterward.
 
 The host first checks the work. Changed code, operational prompts, product artifacts and implementation-ready contracts normally also receive result review; ordinary questions and examples receive host review.
 
