@@ -10,10 +10,10 @@ When intent needs exploration or `grill-me` requests it, conduct an adaptive int
 
 - Use each answer to choose follow-ups; probe contradictions or goal/method mismatches with concrete examples instead of a predetermined questionnaire. Do not repeat answered questions unless new evidence changes them.
 
-- Maintain accepted outcomes, constraints, exclusions and unresolved choices in the existing contract/answer locations, preserving source answers and distinguishing decisions from suggestions; no duplicate interview log.
+- Maintain accepted outcomes, constraints, exclusions and unresolved choices in the existing contract, linking owner questions in the [devlog](../delivery.md#questions-during-work), preserving source answers and distinguishing decisions from suggestions; no duplicate interview log.
 
 - Ask for confirmation only for a material uncertain interpretation or requested checkpoint. Continue authorized independent work while answers are pending; silence, defaults and elapsed time supply no consent.
 
 - Clear ordinary tasks need no interview. Explicit `grill-me` requests at least one owner round: present the inferred outcome, key assumptions and strongest relevant challenge for the owner to confirm or correct, even when no gap was detected; then stop at readiness rather than inventing further questions.
 
-Return the smallest actionable requirements summary: actor/starting state, observable result, relevant limits/failure behavior, exclusions and proving evidence. Reuse existing requirement IDs and answer locations; give newly tracked requirements stable IDs only when useful. Send unresolved owner choices, alternatives and unblocked work to the host. Suggested defaults and empty answers are not approval. Stop when dependent work can proceed without guessing material intent; update the existing contract rather than repeat question history.
+Return the smallest actionable requirements summary: actor/starting state, observable result, relevant limits/failure behavior, exclusions and proving evidence. Reuse existing requirement IDs and source answers; new owner questions use the devlog through the host; give newly tracked requirements stable IDs only when useful. Send unresolved owner choices, alternatives and unblocked work to the host. Suggested defaults and empty answers are not approval. Stop when dependent work can proceed without guessing material intent; update the existing contract rather than repeat question history.

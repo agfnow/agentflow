@@ -6,7 +6,7 @@ Apply before affected work/review to all project agents/reviewers, through the i
 
 - **Issues:** Verify defects against current source/behavior. Owner-authorized bounded fixes may proceed; discuss material risk/wider scope before implementation. Reports grant no fix authority. Project/owner policy sets platform priorities.
 
-- **Shared records:** Only the host writes project rules/backlog/registry; workers/reviewers report candidates. Reread/check unchanged source; stop conflicting writes and preserve concurrent edits. Follow [claims](session.md#notebook-ownership) and [feature merges](features.md). Off-record exchanges create no workflow records/adoption writes.
+- **Shared records:** Only the owner-facing host writes project rules/backlog/registry or [review lessons](deep-review.md#review-lessons); workers/reviewers report candidates. Reread/check unchanged source; stop conflicting writes and preserve concurrent edits. Follow [claims](session.md#notebook-ownership) and [feature merges](features.md). Off-record exchanges create no workflow records/adoption writes.
 
 - **Invariants:** Apply [invariant policy](invariants.md) and authoritative project contracts/registry (default `<ag-dir>/sys-invariants.md`), including design-local guarantees, to affected work/review. Policy defines requirements; the registry stores accepted guarantees. Follow proof, maintenance and notice rules; missing required proof stays unproved.
 

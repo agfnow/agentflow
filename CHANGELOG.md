@@ -1,5 +1,17 @@
 # Changelog
 
+## 9.1.10 — 2026-11-11
+
+- Include the pending risk-routed `deep-review` command and adaptive mid/high checks, fresh-context inspection through existing review routes, and the renamed `brownfield` workflow.
+
+- Keep new owner questions and approval fields in the devlog with stable IDs, linked recovery and preserved historical fields; retain off-record, lifecycle and looper exceptions.
+
+- Make useful goal inference, reasoned recommendations and anticipation part of ordinary agentflow, scaled to the request without mandatory extra insights, templates or a new advisor.
+
+- Preserve explicit requirements and execution scope: advice, inferred intent and agreement with an idea's merits grant no new authority. Existing workflow permissions and completion of authorized normal substeps remain intact.
+
+- Align both guides and cheatsheets. Schema remains 13; publication does not replace existing installations or establish measured behavioral improvements.
+
 ## 9.1.9 — 2026-11-10
 
 - Preserve original-question context in external answers: quote at least the first 50 Unicode code points directly below each answer heading, or the whole shorter question, retaining redaction, document openings and historical content.

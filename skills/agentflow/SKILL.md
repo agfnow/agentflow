@@ -1,13 +1,13 @@
 ---
 name: agentflow
-description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by browfield, godev, gdd, devlog, eli5:, fast-lane, grill-me, simple-check, skip-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
+description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by brownfield, godev, gdd, devlog, eli5:, fast-lane, grill-me, simple-check, skip-review, deep-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.9"
+  version: "9.1.10"
 ---
 
-# Agentflow 9.1.9
+# Agentflow 9.1.10
 
-Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
+Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Infer goals as hypotheses; recommend useful directions and surface consequential next needs without expanding execution scope. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
 `append-tasks` is an exact alias of `append-rounds` in every linked rule; capture the spelling the owner used. Commands in quoted examples do not activate modes; owner-quoted task payload remains input.
 
@@ -35,13 +35,15 @@ Read static rules once while retained in context. For each triggered reference, 
 
 - [Visual explanations](references/eli5.md): load only for an unquoted `eli5:` request, after routing. Produce an interactive animated HTML lesson; never execute its payload. Ordinary activation and quoted examples do not load this reference.
 
-- [Work](references/work.md): actual project execution, task modes (`browfield`, `fast-lane`, `grill-me`, `skip-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
+- [Work](references/work.md): actual project execution, task modes (`brownfield`, `fast-lane`, `grill-me`, `skip-review`, `deep-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
+
+- [Deep review](references/deep-review.md): load only for an explicit invocation with a resolved target or [automatic mid/high routing](references/review.md#risk-triage); substantial inspection prefers fresh context under its route/waiver/looper rules.
 
 - [Simplicity check](references/simple-check.md): unquoted `simple-check [target]` reviews an existing plan with a fresh independent read-only worker; no host fallback or implementation authority. Existing planning/review callers load only its canonical Check, retaining their stages/routes.
 
 - [Review](references/review.md): [planning routes](references/review.md#planning-routes) before already-needed planning, [finished-result review](references/review.md#inspect-the-finished-result) before result review, and worker controls before dispatch. Changed code, operational prompts, product artifacts and implementation-ready contracts require configured result review unless waived under [Work](references/work.md#records-and-review); ordinary Q&A uses host review. Explicit/configured `3ways` loads the full [debate procedure](references/review.md#3ways-compare-before-implementation). Read [Copilot](references/copilot.md) only on a Copilot host or selected Copilot route/profile. Every Codex `spawn_agent` explicitly uses `fork_turns: "none"` with complete bounded context.
 
-- [Delivery](references/delivery.md): before STATUS/Reply rendering, closeout, archive, Git delivery or explicit notebook rename. With `inline-reply: off`, save all substantive answers/proposals/examples/questions at their existing record locations; chat contains activity, required notices/blockers/handoffs and the exact localized receipt. Explicit chat/terminal destination requests and looper’s required preparation terminal choices are the only answer-display exceptions. Otherwise do not echo saved answers through tools.
+- [Delivery](references/delivery.md): before STATUS/Reply rendering, closeout, archive, Git delivery or explicit notebook rename. With `inline-reply: off`, save substantive answers/proposals/examples at their established locations and new owner questions directly in the selected devlog, including mid-round; chat contains activity, required notices/blockers/handoffs and the exact localized receipt. Explicit chat/terminal destination requests and looper’s required preparation terminal choices are the only answer-display exceptions. Otherwise do not echo saved answers through tools.
 
 - [Setup](references/setup.md): eligible initial creation (including missing `agf` shell binding with visible notice) or AGENTS adoption on actual work. [Upkeep](references/upkeep.md): config migration/relocation or approved installation replacement; recognized Agentflow8/integration triggers first load [legacy migration](references/legacy-migration.md); neither grants publication or unrelated edits.
 

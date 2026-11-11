@@ -85,7 +85,7 @@ Explicit 3ways applies this procedure to the named report, recommendations or pl
 
 4. **Confirm truthfully:** Completed 3ways requires both blind drafts, reciprocal comparison/replies, Claude's response to the exact synthesis and Codex's final synthesis/dispositions. Claim consensus only when both explicitly accept identical final content (revision/text or hash), with no outstanding material objection; changed content needs renewed exact-content acceptance. Codex's decision alone never proves consensus. The host verifies facts/authority, relays actual positions and supplies relevant evidence/owner constraints to both; it cannot invent agreement, rewrite verdicts or silently alter Codex's synthesis. Return material factual/authority corrections to Codex; scope additions remain proposals.
 
-5. **Stop honestly:** Stop on owner stop, exhausted budget, unavailable required participant/access, necessary owner decision or stalled substantive exchange yielding no changed revision/position or new reason/evidence. At a technical stall, Codex may finalize with reasoned dispositions and recorded dissent; otherwise retain provisional work, positions/evidence and needed owner questions in existing design/Round evidence. Missing required participation, invalid blind drafting or unresolved owner-only choices never count as completed 3ways/consensus. An owner stop needs no redundant question. Never endlessly rerun unchanged exchanges or replace participants to obtain agreement; fallback preserves useful work without erasing dissent.
+5. **Stop honestly:** Stop on owner stop, exhausted budget, unavailable required participant/access, necessary owner decision or stalled substantive exchange yielding no changed revision/position or new reason/evidence. At a technical stall, Codex may finalize with reasoned dispositions and recorded dissent; otherwise retain provisional work and positions/evidence in existing design/Round evidence; route needed owner questions to the [devlog](delivery.md#questions-during-work). Missing required participation, invalid blind drafting or unresolved owner-only choices never count as completed 3ways/consensus. An owner stop needs no redundant question. Never endlessly rerun unchanged exchanges or replace participants to obtain agreement; fallback preserves useful work without erasing dissent.
 
 Each dispatch uses fresh complete approved authority/constraints/privacy/source; withhold the other current-task draft and derivative hints until both finish, then supply exact drafts/current revision and prior exchanges. Follow actual supported controls, including Codex fork_turns none; clean instructions alone do not erase exposed context. Direct host participants keep their active model and record actual replies. Reuse existing design/Round evidence; no extra transcript file, runner or runtime.
 
@@ -115,6 +115,8 @@ For result review, use the following inputs/checks with the selected reviewer, i
 
 - **Conformance:** Does the change preserve scope, authority, data and applicable project constraints?
 
+- **Risk:** Return `low | mid | high` with the change's possible damage, affected behavior/callers and material uncertainty, separately from defects and verdict. Apply [risk triage](#risk-triage).
+
 Distinguish behavior defects, unsupported claims and cosmetic records; stay read-only during review and never infer success from the implementer’s verdict. Run authorized checks when inspection cannot prove behavior; for affected web journeys/requested end-to-end checks apply [browser testing](browser-testing.md).
 
 The response needs actionable findings with evidence and limits; it needs no mandated heading, timestamp stamp or separate report file. Save the useful finding and resolution under Round evidence or preserve the original response with a link. Where the owner requests a report, save it there.
@@ -122,6 +124,14 @@ The response needs actionable findings with evidence and limits; it needs no man
 The host verifies artifacts and decides acceptance. Repair reproduced in-scope defects and recheck affected behavior; reuse applicable tests/review. Small source corrections need relevant rechecks; status/formatting edits or delivery commits do not restart product review. Unrelated suggestions remain proposals.
 
 Track real worker handles until settled. Do not launch a replacement writer while the first is running or its state is unknown. Stop on an owner stop, inspect a failed environment before retry, and require a concrete correction for another attempt. Do not use fixed retry loops, silence deadlines, nested reviewers or cosmetic report repair campaigns. Prefer longer waits within checkpoint/update obligations over repeated short polls; inspect progress for recovery, owner updates or a concrete failure.
+
+### Risk triage
+
+- Rate the exact candidate, including on host-only and reused review routes. On record, read applicable lessons from the established review-knowledge record or checkout-root `<ag-dir>/sys-review.md` if present; share only relevant authorized excerpts as advisory data. Record risk and reason in existing evidence and the owner answer. Off-record reports risk in chat without workflow record access.
+
+- Classify actual behavior, blast radius, reversibility and uncertainty. **Low:** bounded, well-understood effects such as inert editorial or test-only changes. **Mid:** ordinary behavior changes with meaningful regression potential. **High:** material effects on auth/sessions/permissions, money, destructive or migrated data, secrets, deployment or external-action authority, public contracts, core business invariants or system boundaries; broad changes can be high by consequence. File type, a disabled flag, a dependency patch or passing checks alone cannot justify low.
+
+- Host reconciles source and reviewer assessments, retaining the higher plausible risk while material uncertainty remains. Recover a missing/stale rating from current evidence; distinguish host judgment from independent proof and keep missing required review/proof pending. After addressing ordinary findings, route mid/high to [deep review](deep-review.md) before closeout/gates. Low skips it unless explicit; combine matching automatic and explicit requests in one pass. A relevant blocker stays visible and limits dependent checks; it does not suppress the risk or human handoff. Reassess materially changed candidates; keep matching proof.
 
 ### External CLI examples — authorized planning/review
 
@@ -150,7 +160,7 @@ Use actual host start/result/stop controls; invent no tools, flags or provider i
 
 ## Looper task review
 
-Looper review and renewed acceptance share `ag.json`’s `looper-routes.acceptance` and `pipeline-roles.acceptance`; no separate review tier. CLI task hosts use the [ordinary-review transport](looper.md#prepare-and-route) for required separate review; the task retains its ordinary verification, findings and closeout duties.
+Looper review and renewed acceptance share `ag.json`’s `looper-routes.acceptance` and `pipeline-roles.acceptance`; no separate review tier. CLI task hosts use the [ordinary-review transport](looper.md#prepare-and-route) for required separate review, including applicable [deep inspection](deep-review.md#fresh-context-inspection) in that fresh reviewer; retain host triage, remaining safe checks and handoff without nested reviewers or changed routes. Carry risk, handoff or its exact location, and lesson candidates in existing result/evidence text, with no new transport fields or shared writes.
 
 Looper task implementation follows its [CLI preference](looper.md#prepare-and-route), including Codex hosts selecting tasks run through `codex exec` by the coordinator. The counterpart-CLI pairing in result review does not restrict implementation providers; preserve ordinary task review and CLI repair/reviewer independence; selected Copilot sessions follow [Copilot counterpart rules](copilot.md#planning-and-review), while repaired-result review may fall back to the available configured provider in separate fresh sessions, retaining checks and explicit stricter restrictions.
 

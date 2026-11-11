@@ -4,6 +4,10 @@
 
 啟動時只讀取所選路徑需要的指示。閒置啟動檢查設定與目前工作，不認領筆記或新增紀錄；未完成工作則依原有程序接續。主代理重用仍在背景中的靜態規則，讀取適用章節與前置規則，並保留必要的完整安全檢查。[載入規則（SKILL.md，第 30 行）](../SKILL.md#load-only-the-applicable-procedure)。
 
+一般 agentflow 會把推測的目標視為不能凌駕明確要求的假設，提出建議方向，並簡短指出影響結果的後續需求。低影響的模糊處可採用並說明假設；重大決定仍需你的意見。
+
+建議、推測的意圖或認同想法本身的優點不會賦予新權限；既有工作流程權限仍有效，已授權工作的正常子步驟不必反覆核准。不強制補充洞見、不新增固定回答格式，也不新增 `active-helper` 顧問。
+
 以下依字母排序的聊天命令是專案擁有者給代理的指示，並非 shell 命令。使用時不加引號。功能操作另有[終端機 CLI](#feature-cli--依字母排序)，looper 另有 [shell CLI](#looper-cli--依字母排序)。詳細說明：[指南](AG-GUIDE.tw.md)、[設定（configuration.md，第 1 行）](../references/configuration.md)、[功能分支（features.md，第 1 行）](../references/features.md)。
 
 擷取擁有者輸入：每個文字段落前加上 `+ `；相關段落可共用第一個前綴。保留程式碼內文、既有前綴與歷史；各組之間以空白行分隔，不放獨立的 `--`。[擷取規則（session.md，第 5 行）](../references/session.md#activate-and-recover)。
@@ -50,11 +54,11 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 不得簡化成只有命令的區塊。其他主代理仍使用編號範本，並提供重新啟動指示。
 
-## 選用的 browfield 流程
+## 選用的 brownfield 流程
 
-當功能需要有系統地探索不熟悉的既有程式碼時，使用 `browfield <task>`，或要求八步驟的既有程式碼開發程序。主代理也可因已指出的重大探索／回歸保護需求而選用；單憑儲存庫已存在不會啟動此流程。
+當功能需要有系統地探索不熟悉的既有程式碼時，使用 `brownfield <task>`，或要求八步驟的既有程式碼開發程序。主代理也可因已指出的重大探索／回歸保護需求而選用；單憑儲存庫已存在不會啟動此流程。
 
-選用後，[內附參考文件（browfield.md，第 1 行）](../references/browfield.md) 提供探索、規則追溯、影響／風險排序、基準行為確認、規格、實作、驗證與保全程序。既有 agentflow 模式、核准關卡、紀錄與審查仍適用；顧問方法僅依需要重用。不需另裝技能，也不需依序執行八位顧問。
+選用後，[內附參考文件（brownfield.md，第 1 行）](../references/brownfield.md) 提供探索、規則追溯、影響／風險排序、基準行為確認、規格、實作、驗證與保全程序。既有 agentflow 模式、核准關卡、紀錄與審查仍適用；顧問方法僅依需要重用。不需另裝技能，也不需依序執行八位顧問。
 
 <a id="commands--alphabetical"></a>
 
@@ -110,7 +114,19 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 - **`append-tasks <work>`** — `append-rounds` 的完全相同別名：所有批次規則均適用，擷取輸入時保留你輸入的拼法。它新增稍後的 Ask／Reply 批次，不會將任務加入 looper 佇列。[批次規則（batches.md，第 1 行）](../references/batches.md#append-rounds)。
 
-- **`browfield [task]`** — 在 agentflow 中，為不熟悉既有程式碼的已授權功能選用八步驟流程。未指定內容時，使用明確的目前任務，否則詢問是哪個任務；不保存常駐設定，也不自行創造工作。[程序（browfield.md，第 1 行）](../references/browfield.md)。
+- **`brownfield [task]`** — 在 agentflow 中，為不熟悉既有程式碼的已授權功能選用八步驟流程。未指定內容時，使用明確的目前任務，否則詢問是哪個任務；不保存常駐設定，也不自行創造工作。[程序（brownfield.md，第 1 行）](../references/brownfield.md)。
+
+- **`deep-review [target]`** — 對指定的變更、差異或成果進行深入驗證，即使風險低也會執行。省略目標時，採用明確的目前成果或剛完成的成果。可檢查並執行安全的探測。保留測試或修正程式仍須實作授權。
+
+  一般成果審查會評為低、中或高風險。中、高風險自動啟用深入審查。大量細節檢查通常交給具全新背景的工作代理，優先併入必要的獨立審查；回傳精簡發現／證據，由主代理核對、探測、整合並交接。
+
+  只由主代理審查的路由、`skip-review` 與 `fast-lane` 維持主代理直接檢查。
+
+  一般工作代理路由無法使用時，揭露主代理備援與背景限制；必要獨立性仍會阻擋完成。
+
+  Looper 保留其允許的全新審查代理與路由，不增加巢狀審查代理。
+
+  沿用仍適用的證據，只針對剩餘缺口做檢查。交接摘要會指出需要人工查看的風險路徑與決策。既有核准規則仍適用。[程序（deep-review.md，第 1 行）](../references/deep-review.md)。
 
 - **`devlog`** — 啟動 agentflow；開始／續作優先使用 `godev`。
 
@@ -142,7 +158,7 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 - **`grill-me [topic]`** — 明確要求自適應需求訪談：先檢查證據，進行相互銜接的多輪提問並提供替代方案／建議，再依回答追問，準備充分時停止。至少一輪由擁有者確認／修正推定成果、關鍵假設及最有力的相關質疑。
 
-  未指定內容時，使用明確的目前主題，否則詢問主題；不保存常駐模式。引號中的提及不會觸發。既有回答路由仍適用；不授予實作權限。
+  未指定內容時，使用明確的目前主題，否則詢問主題；不保存常駐模式。引號中的提及不會觸發。擁有者問題寫入 devlog；不授予實作權限。
 
 - **`handle-tasks <request>`** — 準備群組，可選擇依賴較早群組，再執行其佇列；結合 `prepare-tasks` 與 `run-tasks`。[契約（looper.md，第 23 行）](../references/looper.md#prepare-and-route)。
 
@@ -340,7 +356,13 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 - **續作／回答：** `godev`；在聊天或已存問題的 `ans:` 欄位回答。
 
-  新 Reply 問題將「建議預設值：」及內容獨立成縮排段落，與問題及唯一的 `- ans:` 欄位前後各空一行；保留歷史。[格式規則](../references/delivery.md#notebook-and-delivery)。
+  新問題直接寫入 devlog，包括一輪中途的關卡／訪談／核准問題，集中於 Reply 前唯一的「待答問題」區段。
+
+  Current 直接或透過既有 tracker 連到問題 ID、受阻關卡與接續動作。Tracker／設計／報告不新增問題或回答欄位。
+
+  接續時讀取唯一欄位與後續解決紀錄；保留歷史位置與未結束一輪的認領。[路由與例外](../references/delivery.md#questions-during-work)。
+
+  新問題將「建議預設值：」及內容獨立成縮排段落，與問題及唯一的 `- ans:` 欄位前後各空一行；保留歷史。[格式規則](../references/delivery.md#notebook-and-delivery)。
 
 - **未來工作：** 要求檢視待辦清單；執行前先選定。已選定的稍後工作，每批以獨立訊息傳送 `append-rounds <work>`。
 
@@ -404,11 +426,11 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   若不熟悉背景的讀者無法重述工作與後果，先改寫再提問；尊重已定決策。
 
-- **未完成交接：** 將工作／授權／復原保留在追蹤文件，沒有追蹤文件時則放 Current；從 STATUS Current 連結主要復原資訊，新 Ask 除擁有者輸入外保持空白，並遵循舊有 Ask 連結。[Git 交付（delivery.md，第 40 行）](../references/delivery.md#git-delivery) 保留所有權宣告／重試／失敗防護。
+- **未完成交接：** 將工作／授權／復原保留在追蹤文件，沒有追蹤文件時則放 Current；從 STATUS Current 連結主要復原資訊，新 Ask 除擁有者輸入外保持空白，並遵循舊有 Ask 連結。[Git 交付（delivery.md，第 50 行）](../references/delivery.md#git-delivery) 保留所有權宣告／重試／失敗防護。
 
 - **已結束輪次的所有權釋放：** 確認 Reply 加上下一個 Ask；讓任務所屬執行代理／操作收妥，並在交還控制前保存未完成授權、精確身分與下一個動作。未結輪次的暫停與功能生命週期例外仍各依其規則。釋放不代表完成或核准。繼續前重新取得所有權並重讀。
 
-  參閱[所有權、身分與拒絕規則（session.md，第 31 行）](../references/session.md#notebook-ownership)及[先前交付的分離規則（delivery.md，第 40 行）](../references/delivery.md#git-delivery)。
+  參閱[所有權、身分與拒絕規則（session.md，第 31 行）](../references/session.md#notebook-ownership)及[先前交付的分離規則（delivery.md，第 50 行）](../references/delivery.md#git-delivery)。
 
 - **Windows：** [平台／執行環境指引（windows.md，第 1 行）](../references/windows.md)；原生／明確指定的 Node 進入點，以及經驗證的 npm Node shim，使用字面 argv；Copilot stdin 處理長提示，CRLF 位元組保持原樣，程序觀察不明時保留所有權宣告。不支援的自訂包裝程式須明確指定進入點。原生 Windows 執行需要自己的證據。
 
@@ -418,7 +440,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   文件、機械式與僅測試變更只需相關檢查。若無法合理執行變更前測試，須在實作前記錄原因、替代證據與剩餘缺口。
 
-  只有實際觀察到預期測試在變更前失敗、變更後通過，才可宣稱採用 TDD。參閱[任務檢查（work.md，第 41 行）](../references/work.md#41)。
+  只有實際觀察到預期測試在變更前失敗、變更後通過，才可宣稱採用 TDD。參閱[任務檢查（work.md，第 45 行）](../references/work.md#45)。
 
 - **網頁檢查：** 預設使用 Stagehand 自動化程式碼與 Browserbase `browse` CLI Chrome 操作（[官方瀏覽器技能](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)）；擁有者／專案偏好可覆寫。
 

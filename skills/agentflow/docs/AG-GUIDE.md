@@ -1,10 +1,14 @@
-# Agentflow 9.1.9 — everyday guide
+# Agentflow 9.1.10 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
 Agentflow keeps your request, decisions and answer in your project, with enough recovery notes to resume in another session. Give the agent a goal, examples of success and anything it must preserve.
 
 The stable Agentflow 9 skill is named `agentflow`. This guide explains everyday use; the [cheatsheet](CHEATSHEET.md) lists every command, advisor and setting.
+
+Ordinary agentflow infers your likely goal as a hypothesis subordinate to explicit requirements, recommends a direction and briefly surfaces consequential next needs. Low-impact ambiguity can use a stated assumption; material decisions still need your input.
+
+Advice, inferred intent and agreement with an idea's merits grant no new authority; existing workflow permissions remain valid, and authorized work proceeds without repeated approval for normal substeps. This adds no obligatory insight, new answer template or `active-helper` advisor.
 
 ## Finish your first task
 
@@ -52,9 +56,13 @@ Open the same project and send `godev`. The host reads the active request, saved
 
 The host loads instructions by route and section, reusing static rules still in context. An idle start checks configuration and current work; execution, planning, workers and special procedures load when needed. Required safety checks remain; no timing or cost reduction is guaranteed. See [loading rules](../SKILL.md#load-only-the-applicable-procedure).
 
-You can answer in chat or in the saved question's `ans:` field. Empty answers, suggested defaults and elapsed time never count as approval.
+New owner questions go directly in the devlog, including brownfield gates, interviews and approval requests raised before a round finishes. An open round uses one **Open questions** section before Reply. Current links the question and blocked gate, directly or through tracker Recovery when a tracker exists. Trackers hold work state, with no new questions or answer fields.
 
-New Reply questions put `Suggested default:` in its own indented paragraph, with a blank line before and after it. The answer field stays below it; existing history is preserved.
+You can answer in chat or in the devlog question's single `ans:` field. Empty answers, suggested defaults and elapsed time never count as approval.
+
+After interruption, the host reads that field and later resolutions, then resumes the same gate. A different session needs the normal claim handoff before resuming. Historical fields remain at their original locations.
+
+New questions put `Suggested default:` in its own indented paragraph, with a blank line before and after it. The answer field stays below it; existing history is preserved.
 
 ```markdown
 - **Q-178-1 — Review:** Approve this checked result?
@@ -197,9 +205,9 @@ The result is PASS, REVISE or BLOCKED for the reviewed revision. It cannot fall 
 
 It grants no implementation authority and keeps other checks and approval gates. Ordinary planning/review reads and applies the [same checklist](../references/simple-check.md#check): preserve required outcomes and safeguards, reject unsupported scope and test concrete simpler replacements. Review compares total burden, including operation, attention and recovery. These reminders add no workers or stages.
 
-Use `browfield <task>` for an eight-step path through unfamiliar existing code, from discovery and rule tracing to baseline, specification, implementation, verification and preservation. The spelling is intentional.
+Use `brownfield <task>` for an eight-step path through unfamiliar existing code, from discovery and rule tracing to baseline, specification, implementation, verification and preservation.
 
-An existing repository alone does not activate it. No separate installation or eight-advisor sequence is required; ordinary approvals and review remain. See the [agent brownfield procedure](../references/browfield.md).
+An existing repository alone does not activate it. No separate installation or eight-advisor sequence is required; ordinary approvals and review remain. Material questions appear in the devlog while the round stays open; passed gates proceed automatically unless you requested a guided pause. See the [agent brownfield procedure](../references/brownfield.md).
 
 Use `advisors: requirements, explore` for focused advice. The host can also choose advisors for a named investigation gap; advice authorizes no proposed changes and requires no separate worker per role.
 
@@ -246,6 +254,26 @@ The host first checks the work. Changed code, operational prompts, product artif
 `review-order` defaults to `external`: counterpart CLI, then fresh native agent, then disclosed host fallback. Separate review prefers a different known planner family when supported, then another configured model. Repeated or unknown identity is disclosed; it is not proof of diversity.
 
 A host fallback cannot satisfy required independence. Missing checks remain unproved even when a reviewer accepts the source.
+
+### Risk triage and deep review
+
+Result review rates the candidate `low`, `mid` or `high` by what the change could affect. Material changes to permissions, payments or destructive data operations are high. An editorial change may be low when its effects are bounded and understood.
+
+Deep review runs automatically for mid/high. Substantial inspection normally uses a fresh worker, preferably within the already-needed separate review, returning concise findings and evidence. The host verifies findings, performs requested probes and owns integration, persistent fixes, the handoff and shared lessons. Matching inspection is reused rather than repeated.
+
+Host-only routes, fast-lane and skip-review retain direct host checks.
+
+If ordinary worker routes are unavailable, the host discloses its fallback and lost context isolation; required independence remains blocking.
+
+Looper uses its permitted fresh reviewer without nested reviewers or changed routes.
+
+Use `deep-review [target]` to request it at any risk. For example, `deep-review the diff for the parser change` asks for inspection and safe probes. Product fixes and persistent test changes require implementation authority.
+
+The handoff explains the risk and points to the exact behavior, decisions and evidence a human should check. For high-risk changes, it identifies sensitive paths for careful human inspection. Approval follows the existing project rules and gates.
+
+The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 128)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
+
+### Approval gates
 
 `gate-design: on` requires design approval before implementation and conflicts with `plan-mode: off`. `gate-tracker: on` requires approval of checked results before final delivery when a tracker exists.
 

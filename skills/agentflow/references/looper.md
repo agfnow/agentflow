@@ -164,6 +164,8 @@ Runtime presentation supports English and Traditional Chinese via use-lang; unsu
 
 ## Scope and maintenance
 
+When the owner-facing host reports an inspected completed run, surface mid/high human-review actions and material gaps from existing task results or pointers in the ordinary answer. Reconcile qualified [lesson candidates](deep-review.md#review-lessons) as host. Reuse proof and disclose unavailable or removed evidence. No aggregate artifact, replay, group gate or new integration-repair triage; standalone terminal reports remain generated from existing data.
+
 Isolated task/repair/review sessions do no configuration migration writes or session release checks; those belong to the owner-facing host. Read only the inherited configuration path supplied by the coordinator, independent of record-only session overrides; missing/unsafe configuration blocks dependent work without defaults. Interpret documented mappings in memory only; unknown/conflicting mappings remain blocked. Coordinator requires canonical config and host migration; it never relocates or rewrites config. Preserve task allowed_paths and read-only root configuration.
 
 No push, release or publication authority follows. Default runs retain worktrees/evidence; only the explicit cleanup command/flag grants the bounded cleanup above. Ordinary host workflow remains instructions-only; reviewed runtime modules and the package/`agf` launcher are the narrow exception, with publication separately authorized.

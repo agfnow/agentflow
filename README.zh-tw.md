@@ -1,4 +1,4 @@
-# Agentflow v9.1.9
+# Agentflow v9.1.10
 
 [English](README.md) · **繁體中文**
 
@@ -71,6 +71,8 @@ godev 改善歡迎頁面。保留現有連結，發佈前先讓我檢查。
   只有這項要求才載入獨立提示；既有紀錄與收據規則仍適用。
 
 - `fast-lane <工作>` 由主代理直接處理；`skip-review <工作>` 由主代理自行審查。必要檢查與你明確要求的核准仍保留。
+
+- 成果審查會評定風險。中、高風險變更會針對缺口檢查，並提供人工審查摘要。任何風險等級都可用 `deep-review [target]` 明確要求。[深入審查指南](skills/agentflow/docs/AG-GUIDE.tw.md#風險分級與深入審查)。
 
 - `grill-me <主題>` 讓代理先訪談；`3ways <需求>` 讓 Claude／Codex 各自獨立盲寫、交互辯論，再由 Codex 最終整合／技術決斷（保留異議，只有雙方接受相同內容才算共識）；`advisors: <名稱>` 取得聚焦建議。提出計畫或建議不代表已核准實作。
 
@@ -205,7 +207,7 @@ v8 與 v9 也共用 `agentflow` 技能名稱及 `.agentflow/` 專案目錄。同
 
 ## 設定與限制
 
-專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.9 分開。
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.10 分開。
 
 `use-lang` 控制新寫的文字；`plan-mode` 決定何時建立規劃文件；`plan-order`、`review-order` 則決定已需要的規劃或審查由誰處理。一般規劃在支援的路徑控制內，優先由 Claude 起草，再由 Codex 質疑、修正與最終整合。已選控制不受支援時會停下來，不默默換模型。
 

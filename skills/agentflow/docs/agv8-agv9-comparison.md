@@ -82,7 +82,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Concrete impact:** asking for a complex feature does not promise a full set of old stage reports. A team whose audit process needs a requirements or security report must explicitly request that deliverable and its acceptance conditions.
 
-**Replacement:** describe the evidence and decisions required, then select focused advisors. `browfield` offers structured existing-code discovery; it is not an automatic recreation of the full v8 pipeline.
+**Replacement:** describe the evidence and decisions required, then select focused advisors. `brownfield` offers structured existing-code discovery; it is not an automatic recreation of the full v8 pipeline.
 
 ## 7. Approval gates and automatic defaults: changed semantics
 
@@ -140,7 +140,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Removed controls:** v8's `completion-cleanup` and interval do not carry over as ordinary agentflow controls. Looper cleanup is opt-in through its explicit command or run flag, never a default/timed collector. It requires completed settled work and supported same-volume Trash, preserving durable records and branches. [looper.md, line 1](../references/looper.md)
 
-**Test-first policy restored in 9.1.9:** v8 required a failing test first for every executable behavior change. Current agentflow again starts executable behavior changes with a focused failing test, then the smallest passing change and refactoring while tests keep passing. [work.md, line 41](../references/work.md#41)
+**Test-first policy restored in 9.1.9:** v8 required a failing test first for every executable behavior change. Current agentflow again starts executable behavior changes with a focused failing test, then the smallest passing change and refactoring while tests keep passing. [work.md, line 45](../references/work.md#45)
 
 Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation; claim test-driven development only with observed failure-then-pass evidence.
 

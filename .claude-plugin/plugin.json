@@ -1,6 +1,6 @@
 {
   "name": "agentflow",
-  "version": "9.1.9",
+  "version": "9.1.10",
   "description": "Save project requests, decisions and answers so another session can resume the work.",
   "author": {
     "name": "agfnow"

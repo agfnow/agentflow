@@ -4,6 +4,10 @@ English · [繁體中文](CHEATSHEET.tw.md)
 
 Startup reads only the instructions for the selected route. Idle activation checks configuration and current work without claiming or creating records; unfinished work resumes normally. The host reuses retained static rules, reads applicable sections with their prerequisites, and keeps mandatory full safety scans. [Loading rules (SKILL.md, line 30)](../SKILL.md#load-only-the-applicable-procedure).
 
+Ordinary agentflow infers your likely goal as a hypothesis subordinate to explicit requirements, recommends a direction and briefly surfaces consequential next needs. Low-impact ambiguity can use a stated assumption; material decisions still need your input.
+
+Advice, inferred intent and agreement with an idea's merits grant no new authority; existing workflow permissions remain valid, and authorized work proceeds without repeated approval for normal substeps. This adds no obligatory insight, new answer template or `active-helper` advisor.
+
 The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Feature operations have a [terminal CLI](#feature-cli--alphabetical); looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG-GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
 
 Owner-input capture: prefix each prose paragraph with `+ `; related paragraphs may share one first prefix. Preserve code interiors, existing prefixes and history; blank lines separate groups, with no standalone `--`. [Capture rule (session.md, line 5)](../references/session.md#activate-and-recover).
@@ -50,11 +54,11 @@ Main-rooted sessions explicitly remain in main; partial cleanup uses its exact r
 
 Never abbreviate to a bare command block. Other hosts keep the numbered template with restart instructions.
 
-## Optional browfield path
+## Optional brownfield path
 
-Use `browfield <task>` or ask for the eight-step brownfield procedure when a feature needs structured discovery of unfamiliar existing code. The host may also select it for a named material discovery/regression-protection need; an existing repository alone does not activate it.
+Use `brownfield <task>` or ask for the eight-step brownfield procedure when a feature needs structured discovery of unfamiliar existing code. The host may also select it for a named material discovery/regression-protection need; an existing repository alone does not activate it.
 
-Once selected, the [bundled reference (browfield.md, line 1)](../references/browfield.md) supplies discovery, rule tracing, impact/risk ranking, baseline characterization, specification, implementation, verification and preservation. Existing agentflow modes, gates, records and review remain; advisor methods are reused only as needed. No separate skill installation or eight-advisor sequence.
+Once selected, the [bundled reference (brownfield.md, line 1)](../references/brownfield.md) supplies discovery, rule tracing, impact/risk ranking, baseline characterization, specification, implementation, verification and preservation. Existing agentflow modes, gates, records and review remain; advisor methods are reused only as needed. No separate skill installation or eight-advisor sequence.
 
 ## Commands — alphabetical
 
@@ -108,7 +112,19 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 - **`append-tasks <work>`** — Exact alias of `append-rounds`: all batch rules apply, and captured input keeps the spelling you typed. It adds later Ask/Reply batches, not tasks to a looper queue. [Batch rules (batches.md, line 1)](../references/batches.md#append-rounds).
 
-- **`browfield [task]`** — Select the optional eight-step brownfield path within agentflow for authorized features in unfamiliar existing code. Bare invocation uses a clear active task or asks which task; no persistent setting or invented work. [Procedure (browfield.md, line 1)](../references/browfield.md).
+- **`brownfield [task]`** — Select the optional eight-step brownfield path within agentflow for authorized features in unfamiliar existing code. Bare invocation uses a clear active task or asks which task; no persistent setting or invented work. [Procedure (brownfield.md, line 1)](../references/brownfield.md).
+
+- **`deep-review [target]`** — Force adaptive verification for an identified change, diff or result, even at low risk. With no target, uses an unambiguous active or just-finished result. Review grants inspection and safe probes. Persistent tests and fixes require implementation authority.
+
+  Ordinary result review assigns low, mid or high. Mid/high automatically get deep review. Substantial inspection normally uses a fresh-context worker, preferably within required separate review; return concise findings/proof for host verification, probes, integration and handoff.
+
+  Host-only routes, `skip-review` and `fast-lane` retain direct host checks.
+
+  Unavailable ordinary worker routes disclose host fallback/context limits; required independence still blocks.
+
+  Looper retains its permitted fresh reviewer and route, with no nested reviewers.
+
+  Reuse matching proof and run only checks that address remaining gaps. The handoff points humans to risky paths and decisions. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
 
 - **`devlog`** — Activate agentflow; prefer `godev` for start/resume.
 
@@ -140,7 +156,7 @@ Once selected, the [bundled reference (browfield.md, line 1)](../references/brow
 
 - **`grill-me [topic]`** — Explicit adaptive requirements interview: inspect evidence first, ask connected rounds with alternatives/recommendation, use answers for follow-ups and stop when ready. At least one owner round confirms/corrects the inferred outcome, key assumptions and strongest relevant challenge.
 
-  Bare command uses a clear active topic or asks for one without persisting a mode; quoted mentions do not trigger. Existing answer routing applies; no implementation authority.
+  Bare command uses a clear active topic or asks for one without persisting a mode; quoted mentions do not trigger. Owner questions go in the devlog; no implementation authority.
 
 - **`handle-tasks <request>`** — Prepare groups with optional earlier-group dependencies, then execute their queue; combines `prepare-tasks` and `run-tasks`. [Contract (looper.md, line 23)](../references/looper.md#prepare-and-route).
 
@@ -336,7 +352,13 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Resume/answer:** `godev`; reply in chat or the saved question's `ans:` field.
 
-  New Reply questions keep `Suggested default:` and its value in a separate indented paragraph, blank-separated from the question and single `- ans:` field; preserve history. [Format rule](../references/delivery.md#notebook-and-delivery).
+  New questions go directly in the devlog, including mid-round gates/interviews/approvals in one pre-Reply **Open questions** section.
+
+  Current links the question ID, blocked gate and resume action, directly or through an existing tracker. Trackers/designs/reports have no new questions or answer fields.
+
+  Resume reads the single field and later resolutions; preserve historical locations and the open-round claim. [Routing and exceptions](../references/delivery.md#questions-during-work).
+
+  New questions keep `Suggested default:` and its value in a separate indented paragraph, blank-separated from the question and single `- ans:` field; preserve history. [Format rule](../references/delivery.md#notebook-and-delivery).
 
 - **Future work:** Ask to review backlog; select before execution. For already-chosen later work, send `append-rounds <work>` as a separate message for each batch.
 
@@ -400,11 +422,11 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Rewrite before asking if an unfamiliar reader cannot retell the work and consequence; respect settled decisions.
 
-- **Unfinished handoff:** Keep work/authorization/recovery in the tracker, or Current without one; link canonical recovery from STATUS Current, keeping new Asks empty apart from owner input and honoring legacy Ask links. [Git delivery (delivery.md, line 40)](../references/delivery.md#git-delivery) retains claim/retry/failure safeguards.
+- **Unfinished handoff:** Keep work/authorization/recovery in the tracker, or Current without one; link canonical recovery from STATUS Current, keeping new Asks empty apart from owner input and honoring legacy Ask links. [Git delivery (delivery.md, line 50)](../references/delivery.md#git-delivery) retains claim/retry/failure safeguards.
 
 - **Closed-round claim release:** Verify Reply plus next Ask; settle task-owned workers/operations and save unfinished authority, exact identities and next action before yielding. Open-round pauses and feature-lifecycle exceptions retain their rules. Release grants neither completion nor approval. Reacquire/reread before continuing.
 
-  See [ownership, identity and refusal rules (session.md, line 31)](../references/session.md#notebook-ownership) and [prior-delivery separation (delivery.md, line 40)](../references/delivery.md#git-delivery).
+  See [ownership, identity and refusal rules (session.md, line 31)](../references/session.md#notebook-ownership) and [prior-delivery separation (delivery.md, line 50)](../references/delivery.md#git-delivery).
 
 - **Windows:** [Platform/runtime guidance (windows.md, line 1)](../references/windows.md); native/explicit Node entrypoints and verified npm Node shims use literal argv, Copilot stdin handles long prompts, CRLF bytes stay intact and unknown process observations retain claims. Unsupported custom wrappers need an explicit entrypoint. Native Windows execution needs its own proof.
 
@@ -414,7 +436,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation.
 
-  Claim TDD only after observing the intended test fail before the change and pass afterward. See [task checks (work.md, line 41)](../references/work.md#41).
+  Claim TDD only after observing the intended test fail before the change and pass afterward. See [task checks (work.md, line 45)](../references/work.md#45).
 
 - **Web checks:** Default to Stagehand automation code and Browserbase `browse` CLI Chrome operations ([official browser skill](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)); owner/project preferences override.
 

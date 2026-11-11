@@ -1,4 +1,4 @@
-# Agentflow v9.1.9
+# Agentflow v9.1.10
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -71,6 +71,8 @@ Open that file to read the answer. Set `inline-reply: on` for full saved answers
   The dedicated prompt loads only for this request; normal records and receipts remain.
 
 - Use `fast-lane <task>` for direct host work, or `skip-review <task>` for host review. Required checks and explicit approvals still apply.
+
+- Result review assigns a risk level. Mid/high changes receive targeted checks and a human-review handoff. Use `deep-review [target]` to request it at any risk. [Deep review guide](skills/agentflow/docs/AG-GUIDE.md#risk-triage-and-deep-review).
 
 - Use `grill-me <topic>` for an interview, `3ways <request>` for blind independent Claude/Codex drafts, reciprocal debate and Codex’s final synthesis/technical decisions (record dissent; claim consensus only on exact dual acceptance), or `advisors: <names>` for focused advice. A plan or suggestion does not approve implementation.
 
@@ -205,7 +207,7 @@ Both v8 and v9 also use the skill name `agentflow` and project directory `.agent
 
 ## Configuration and limits
 
-Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.9.
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.10.
 
 Use `use-lang` for new human-facing text, `plan-mode` for document creation, and `plan-order`/`review-order` for already-needed planning and review. Ordinary planning prefers a Claude draft followed by Codex challenge, correction and final synthesis within supported route controls. Missing or unsupported selected controls block rather than silently changing the model.
 
