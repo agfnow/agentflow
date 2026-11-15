@@ -6,7 +6,7 @@ Startup reads only the instructions for the selected route. Idle activation chec
 
 Ordinary agentflow infers your likely goal as a hypothesis subordinate to explicit requirements, recommends a direction and briefly surfaces consequential next needs. Low-impact ambiguity can use a stated assumption; material decisions still need your input.
 
-Advice, inferred intent and agreement with an idea's merits grant no new authority; existing workflow permissions remain valid, and authorized work proceeds without repeated approval for normal substeps. This adds no obligatory insight, new answer template or `active-helper` advisor.
+Suggestions do not authorize implementation. Once work is authorized, routine steps need no repeated approval.
 
 The alphabetical chat commands below are owner instructions, not shell commands. Use unquoted. Feature operations have a [terminal CLI](#feature-cli--alphabetical); looper has a separate [shell CLI](#looper-cli--alphabetical). Details: [guide](AG-GUIDE.md), [configuration (configuration.md, line 1)](../references/configuration.md), [features (features.md, line 1)](../references/features.md).
 
@@ -14,25 +14,27 @@ Owner-input capture: prefix each prose paragraph with `+ `; related paragraphs m
 
 Codex subagents: every `spawn_agent` explicitly sets `fork_turns: "none"`; supply all necessary context in the task message. [Delegation (review.md, line 32)](../references/review.md#give-one-bounded-assignment).
 
-Workflow evidence belongs outside the devlog. Keep useful technical checks, review findings, invariant accounting and debugging proof in linked evidence; the devlog keeps outcomes, answers, required notices and recovery pointers.
+`save-evidence` defaults `off`: checks/review still run, but no separate round evidence is saved or read during ordinary recovery. Do not redirect proof into the devlog, tracker or another path; retain only essential pending state, authority, blockers, operation identities and next action in Current/existing tracker. Explicit inspection or named deliverable requests prevail for their scope. Existing evidence/history remains unchanged; enabling later does not backfill it.
+
+If skipped old evidence contains essential recovery state, the host names the blocked link. Explicitly authorize inspection or have recovery re-proved before dependent actions. Approval still applies only to the same checked result; missing proof must be rechecked, and material changes need renewed approval.
 
 New feature designs, trackers and other round artifacts use `<ag-dir>/features/<name>/artifacts/A-NNN/`; main-session artifacts use `<ag-dir>/artifacts/A-NNN/`. Merge preserves these relative paths and links.
 
 Existing records stay at their established locations. Retained feature records reserve the name; resume an exact open feature or choose a fresh name such as `search-v2`.
 
-New evidence uses **Scope → Checks → Findings → Resume**, omitting empty/inapplicable fields, routine output and repeated facts. Keep necessary source/operation identities, required results/review dispositions, limits and next safe actions.
+With `save-evidence: on`, new evidence uses **Scope → Checks → Findings → Resume**, omitting empty/inapplicable fields, routine output and repeated facts. Keep necessary source/operation identities, required results/review dispositions, limits and next safe actions.
 
-Link existing proof/state once; no separate file when nothing needs retaining. This default applies with saving-mode on or off; specialized feature/looper formats and required proof remain. [Compact fields (session.md, line 55)](../references/session.md#round-evidence).
+Keep a few short bullets for ordinary work; retain only facts unsafe to reconstruct and the minimum check/review disposition needed for completion or reuse. Consolidate superseded active notes, omit copied drafts, setup narration and repeated model/control descriptions. No file when nothing needs retaining. This is independent of saving-mode; mandatory lifecycle/looper/migration/release operational records remain, never alternate sinks for disabled evidence. [Compact fields (session.md, line 55)](../references/session.md#round-evidence).
 
-Use `<ag-dir>/.tmp/A-NNN.md` for useful new proof, linked from Current and its producing Ask before Reply. Other notebooks use `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md`; verify the notebook and Ask identity before reuse.
+When enabled, use `<ag-dir>/.tmp/A-NNN.md` for useful new proof, linked from Current and its producing Ask before Reply. Other notebooks use `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md`; verify the notebook and Ask identity before reuse.
 
 Existing explicit destinations remain authoritative. Check Git ignores before creating evidence, choose a safe unused nonignored location on collision, and include the evidence in authorized delivery.
 
 Before interruption, link resume-critical evidence directly from Current or through a tracker's Recovery section. Name its purpose and the next safe action; STATUS Current keeps the canonical recovery link while work remains.
 
-Resume reads those links and verifies identity and live state before dependent work. Missing or mismatched proof remains unproved; filenames alone are not proof.
+When enabled, resume reads those evidence links and verifies identity and live state before dependent work. Missing or mismatched proof remains unproved; filenames alone are not proof.
 
-Honor legacy Ask links without copying them into new Asks. New Asks contain owner input, while Current and trackers carry recovery links.
+Honor permitted legacy links without copying them into new Asks; off skips old separate proof links and requires rechecks when needed. New Asks contain owner input, while Current and trackers carry recovery links.
 
 Preserve linked evidence and history. There is no automatic deletion, ignore rule or required file for every round; keep each fact once.
 
@@ -76,7 +78,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   - `acceptance` — Apply the canonical final-review checklist; reuse a matching required review.
 
-  - `codewalk` — Map unfamiliar code.
+  - `codewalk` — Map unfamiliar affected code, flows, likely edit locations and checks; read-only. [Compare with product-docs and see examples](AG-GUIDE.md#codewalk-or-product-docs).
 
   - `explore` — Compare alternatives/risks.
 
@@ -86,9 +88,9 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   - `learn` — Investigate lessons/failures.
 
-  - `product-docs` — Resolve a named product-map, first-time suite, handover or substantial doc-drift gap; advice only, bundled `better`, missing role inherits. [Prompt (product-docs.md, line 1)](../references/advisors/product-docs.md).
+  - `product-docs` — Resolve a named product-map, first-time suite, handover or substantial doc-drift gap; advice only, bundled `better`, missing role inherits. [Prompt (product-docs.md, line 1)](../references/advisors/product-docs.md). Expected output: a small document map, ownership guidance or recommendations with evidence/limits. [Selection and examples](AG-GUIDE.md#codewalk-or-product-docs).
 
-  - `requirements` — Clarify intent/success; evidence-informed connected interview rounds when exploration is needed or `grill-me` requests it.
+  - `requirements` — Shared interview method for `go-hunt` and `spec-out`; clarify intent/success through evidence-informed connected rounds. Ordinary advice alone requires no extra report.
 
   - `security-scan` — Examine trust boundaries; select source/dependency/secret checks and record reproducible findings/coverage.
 
@@ -124,7 +126,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   Looper retains its permitted fresh reviewer and route, with no nested reviewers.
 
-  Reuse matching proof and run only checks that address remaining gaps. The handoff points humans to risky paths and decisions. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
+  Reuse matching proof and run only checks that address remaining gaps. Answers surface decision-changing blockers/uncertainty, sensitive actions needing attention and actual approval requests. Routine risk/route/approval footers stay only in enabled evidence; off saves no substitute. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
 
 - **`devlog`** — Activate agentflow; prefer `godev` for start/resume.
 
@@ -152,11 +154,15 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
 - **`gdd`** — Activation alias; prefer `godev`.
 
+- **`go-hunt [topic]`** — Explicit adaptive requirements interview: inspect evidence first, ask connected rounds with alternatives/recommendation, use answers for follow-ups and stop when ready. At least one owner round confirms/corrects the inferred outcome, key assumptions and strongest relevant challenge.
+
+  Uses `requirements`. For feature discovery, start/reuse one DRAFT `design.md` when permitted; keep the [handoff](../references/advisors/requirements.md#interview-handoff) there across rounds. Include a faithful Source request summary with provenance/revision/date and unread-source gaps, separate from clarified requirements, decisions/rationale, evidence/assumptions, open choices, success and readiness. Link originals and devlog Q&A; no separate report on this path.
+
+  Standalone/no-design cases reuse a requirements contract, otherwise `probe-report.md`; never disguise a design. Reuse existing reports; explicit destinations and off-record/no-file/read-only limits prevail.
+
+  Bare command uses a clear active topic or asks without persisting a mode; quoted mentions do not trigger. Owner questions go in the devlog; no automatic specification or implementation. Continue explicitly: `spec-out Complete this feature in the same design.md and produce its tracker.md. Design only.`
+
 - **`godev [request]`** — Start/resume; initialize eligible fresh folders, asking before non-Git setup whether to create a Git repository; ask for work when idle.
-
-- **`grill-me [topic]`** — Explicit adaptive requirements interview: inspect evidence first, ask connected rounds with alternatives/recommendation, use answers for follow-ups and stop when ready. At least one owner round confirms/corrects the inferred outcome, key assumptions and strongest relevant challenge.
-
-  Bare command uses a clear active topic or asks for one without persisting a mode; quoted mentions do not trigger. Owner questions go in the devlog; no implementation authority.
 
 - **`handle-tasks <request>`** — Prepare groups with optional earlier-group dependencies, then execute their queue; combines `prepare-tasks` and `run-tasks`. [Contract (looper.md, line 23)](../references/looper.md#prepare-and-route).
 
@@ -184,11 +190,21 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
 - **`simple-check [target]`** — Review a named existing plan, or the unambiguous active plan, with a fresh independent read-only worker. Checks original outcomes, scope and concrete simplifications; returns PASS, REVISE or BLOCKED for that revision. No host fallback or implementation authority; missing/ambiguous targets need clarification. [Command and checklist](../references/simple-check.md#command).
 
-- **`skip: <request>`** — Same as `nolog:`.
-
 - **`skip-review [task]`** — Host review only for one task; keep planning and checks, waive ordinary separate review including its risk-boundary rule.
 
-`grill-me` explicitly selects its interview despite fast-lane’s advisor skip, retaining other rules; no persistent setting or mandatory worker/document. `fast-lane` and `skip-review` last until their task finishes, including resume; their bare invocation needs unfinished work. Neither changes settings.
+- **`skip: <request>`** — Same as `nolog:`.
+
+- **`spec-out [request]`** — Explicitly create/revise one Product/Tech/Art contract in the existing design using the [bundled procedure](../references/spec-out.md) and [template](../references/spec-out-template.md). Bare invocation uses a clear active target or asks.
+
+  Reuse the same feature draft and valid `go-hunt` interview/linked answers; reopen only remaining or changed gaps, without a question cap. Investigate relevant Product/Tech/Art evidence. Final delivery checks original-request/AC/INV coverage and material specification gaps; produce/reuse one linked tracker with unstarted execution TODO. Keep DRAFT for material gaps; readiness is neither implementation success nor approval. Planned implementation tests remain unrun.
+
+  Authorized prototype work follows [UX prototypes](../references/ux-prototype.md): browser HTML/CSS/JS by default for interactive lo-fi/hi-fi, isolated mock state, a matching revision report and opt-in review guidance; lightweight task cards suffice, targeted tours only when useful. No automatic executable prototype or production authority.
+
+  Preserve the Source request summary; existing reports become historical inputs with successor links only on authorized design transition. Direct spec-out needs no interim report. Stage limits, planning/task-mode exceptions and gates prevail; name prevented final deliverables. Pause text/meaning conflicts for humans. [GitHub collaboration](../references/spec-out-github.md) grants no external-write authority.
+
+  Ordinary planning, the `spec` advisor, task size, quoted examples and `eli5:` payloads do not activate it. Existing planning modes, gates, devlog questions and review remain; no implementation authority.
+
+`go-hunt` explicitly selects its interview despite fast-lane’s advisor skip and retains its handoff; artifact creation follows the handoff rule and applicable planning/task-mode exceptions. No persistent setting or mandatory worker. `fast-lane` and `skip-review` last until their task finishes, including resume; their bare invocation needs unfinished work. Neither changes settings.
 
 Host checks, explicit plans/reviews, gates and feature rules remain. `skip-review` replaces earlier review requests; same-message/later explicit reviews prevail. Off-record aliases affect one exchange only.
 
@@ -352,11 +368,11 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Resume/answer:** `godev`; reply in chat or the saved question's `ans:` field.
 
-  New questions go directly in the devlog, including mid-round gates/interviews/approvals in one pre-Reply **Open questions** section.
+  New questions go directly in the devlog. While work continues, gates/interviews/approvals may use one pre-Reply **Open questions** section; when yielding for answers, save recovery, close with Reply plus next Ask and release the settled claim.
 
   Current links the question ID, blocked gate and resume action, directly or through an existing tracker. Trackers/designs/reports have no new questions or answer fields.
 
-  Resume reads the single field and later resolutions; preserve historical locations and the open-round claim. [Routing and exceptions](../references/delivery.md#questions-during-work).
+  Answers resume in the next round under a new claim: read the original field and later resolutions, then record the resolution in that round. Keep historical fields in place; unanswered gates still block dependent work. Waiting alone retains no claim and grants no completion, approval or gated delivery. [Routing and exceptions](../references/delivery.md#questions-during-work).
 
   New questions keep `Suggested default:` and its value in a separate indented paragraph, blank-separated from the question and single `- ans:` field; preserve history. [Format rule](../references/delivery.md#notebook-and-delivery).
 
@@ -372,7 +388,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Approved Git initialization or eligible setup in an existing repository without commits creates one empty bootstrap, preserving staged/untracked contents even with auto-commit off. Explicit prohibitions skip it; other refs, unsafe Git state or commit failure stop. Existing HEAD is reused. First delivery excludes unrelated pre-existing contents unless separately authorized; bootstrap alone grants no push. See [empty bootstrap](../references/setup.md#empty-bootstrap).
 
-  Empty registry creation still gets an invariant notice with no accepted IDs. Archives, round documents and actual worktrees remain on demand. Off-record/feature rules prevail; no automatic Git initialization or rules.md copy.
+  Successful `agf init` output shows only confirmation, the notebook path and the next step: add your request under Ask / A-002, then run `godev` in your coding agent. Setup details and the empty-registry notice stay in the notebook; accepted-guarantee changes still require normal notices. Archives, round documents and actual worktrees remain on demand. Off-record/feature rules prevail; no automatic Git initialization or rules.md copy.
 
 - **Registry comparison:** Retain each authoritative registry’s physical path and original exact-byte/SHA-256 baseline (or absence) at first task read; preserve across recovery, saving needed bytes/retrievable snapshot reference in existing evidence before interruption.
 
@@ -424,7 +440,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Unfinished handoff:** Keep work/authorization/recovery in the tracker, or Current without one; link canonical recovery from STATUS Current, keeping new Asks empty apart from owner input and honoring legacy Ask links. [Git delivery (delivery.md, line 50)](../references/delivery.md#git-delivery) retains claim/retry/failure safeguards.
 
-- **Closed-round claim release:** Verify Reply plus next Ask; settle task-owned workers/operations and save unfinished authority, exact identities and next action before yielding. Open-round pauses and feature-lifecycle exceptions retain their rules. Release grants neither completion nor approval. Reacquire/reread before continuing.
+- **Closed-round claim release:** Verify Reply plus next Ask; settle task-owned workers/operations and save unfinished authority, exact identities and next action before yielding. Owner-answer pauses, including approval gates, close/release the round; a process that may still mutate, failed persistence or unverified closeout blocks release. Non-question feature-lifecycle exceptions retain their rules. Release grants neither completion nor approval. Reacquire/reread before continuing.
 
   See [ownership, identity and refusal rules (session.md, line 31)](../references/session.md#notebook-ownership) and [prior-delivery separation (delivery.md, line 50)](../references/delivery.md#git-delivery).
 
@@ -486,9 +502,9 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
 - **`omit-asker`** — `on`: omit owner name from new Ask headings; `off`: include it. Default `on`.
 
-- **`omit-run`** — `on`: omit RUN milestones; `off`: record them. Default `on`; keep evidence elsewhere.
+- **`omit-run`** — `on`: omit RUN milestones; `off`: record them. Default `on`; follow save-evidence for proof storage.
 
-- **`omit-wip`** — `on`: recovery elsewhere; `off`: WIP every ten active minutes, before context reset/unfinished handoff. Default `on`, setup template `off`.
+- **`omit-wip`** — `on`: recovery elsewhere; `off`: WIP every ten active minutes, before context reset/unfinished handoff. Default `on`, including the setup template.
 
 - **`plan-mode`** — `must`: design.md + tracker.md before actual task edits; `optional`: create when warranted (default); `off`: no new design, tracker when needed.
 
@@ -520,7 +536,9 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   - `host` — Host directly; no worker probes.
 
-- **`saving-mode`** — `on`: load [saving mode (saving-mode.md, line 1)](../references/saving-mode.md) for minimum sufficient prose/records, fewer optional documents and valid-proof reuse; `off`: normal behavior. Required; setup/migration default `off`, existing values preserved. Routine 100–200 words is a soft target; explicit detail, comprehension, safeguards, required records/checks/review, gates and deliverables prevail. No model/route changes or retroactive restoration.
+- **`save-evidence`** — Optional `on|off`, default `off`: no separate round-evidence writes or ordinary recovery reads; no alternate proof sink. `on` saves only useful minimal evidence. Existing files stay untouched; explicit inspection/deliverable requests prevail for their scope. Checks, review, approvals, essential pending state and required lifecycle/looper/migration/release records remain. Missing proof requires rechecking, never assumed success. Enabling is prospective. [Storage policy](../references/session.md#evidence-storage).
+
+- **`saving-mode`** — `on`: load [saving mode (saving-mode.md, line 1)](../references/saving-mode.md) for minimum sufficient prose/records, fewer optional documents and valid-proof reuse; `off`: normal behavior. Required; setup/migration default `off`, existing values preserved. Routine 100–200 words is a soft target; explicit detail, comprehension, safeguards, required records/checks/review, gates and deliverables prevail. No model/route changes or retroactive restoration. [Compare the four combinations with save-evidence](AG-GUIDE.md#save-evidence-and-saving-mode-together).
 
 - **`use-lang`** — Locale tag, e.g. `en-us`, `zh-TW` → language for every new human string, including template/scaffold labels, notices and receipt `Updated`; default detected OS locale, then `en-us`. English prompts/assets supply meaning.
 

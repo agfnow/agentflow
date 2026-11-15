@@ -11,10 +11,11 @@
     "inline-reply": "off",
     "omit-asker": "on",
     "omit-run": "on",
-    "omit-wip": "off",
+    "omit-wip": "on",
     "plan-mode": "optional",
     "plan-order": "external",
     "review-order": "external",
+    "save-evidence": "off",
     "saving-mode": "off",
     "use-lang": "en-us"
   },

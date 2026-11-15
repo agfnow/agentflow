@@ -6,7 +6,7 @@ Use only after [task modes](work.md#task-modes) select advisor work. Host choose
 
 Choose the smallest useful set; apply common rules with each selected prompt. Read selected prompts only. `advisors: name, name` selects exact names below; reject empty/unknown names before reads/dispatch, deduplicate in supplied order and honor dependencies. Ask only for uninferable question/target scope. Selection authorizes accepted-task advice, not implementing proposals.
 
-- [requirements](advisors/requirements.md): unclear material product intent, scope or success.
+- [requirements](advisors/requirements.md): unclear material product intent, scope or success; shared interview method explicitly selected by `go-hunt` and included in `spec-out`.
 
 - [codewalk](advisors/codewalk.md): unfamiliar affected paths/data flow/interfaces or a stale relevant map.
 
@@ -40,4 +40,4 @@ Advisors are reasoning roles, not required workers. Planning advice follows [pla
 
 Apply [writing](writing.md) to human-facing output: short, single-concept paragraphs/items. Return answer, checked sources/observations, uncertainty and next implication. Separate owner decisions, facts, assumptions and proposals; route owner questions through the host to [devlog questions](delivery.md#questions-during-work). Advisors cannot broaden scope, approve changes or settle owner-only choices.
 
-Keep contracts in existing designs, recovery in Current/tracker and workflow proof once under [Round evidence](session.md#round-evidence). Specification updates the existing design or contract record when needed under normal creation rules; no second spec. Separate reports require substantial reusable evidence or explicit requests; place under the producing Ask’s artifacts with exact source/scope/limits. Probes use explicitly bounded scratch paths there; package no hooks/runners/helpers. Host checks actual results, updates canonical contracts and continues authorized work when resolved.
+Keep contracts in existing designs, recovery in Current/tracker and workflow proof once under [Round evidence](session.md#round-evidence). Specification updates the existing design or contract record when needed under normal creation rules; no second spec. Separate reports require substantial reusable evidence, explicit requests or `go-hunt`'s [interview handoff](advisors/requirements.md#interview-handoff); place under the producing Ask’s artifacts with exact source/scope/limits. Probes use explicitly bounded scratch paths there; package no hooks/runners/helpers. Host checks actual results, updates canonical contracts and continues authorized work when resolved.

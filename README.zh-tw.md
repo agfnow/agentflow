@@ -1,4 +1,4 @@
-# Agentflow v9.1.10
+# Agentflow v9.1.11
 
 [English](README.md) · **繁體中文**
 
@@ -72,9 +72,13 @@ godev 改善歡迎頁面。保留現有連結，發佈前先讓我檢查。
 
 - `fast-lane <工作>` 由主代理直接處理；`skip-review <工作>` 由主代理自行審查。必要檢查與你明確要求的核准仍保留。
 
-- 成果審查會評定風險。中、高風險變更會針對缺口檢查，並提供人工審查摘要。任何風險等級都可用 `deep-review [target]` 明確要求。[深入審查指南](skills/agentflow/docs/AG-GUIDE.tw.md#風險分級與深入審查)。
+- 成果審查會評定風險。中、高風險變更會針對缺口檢查；答案呈現影響判斷的缺口、須由人處理的敏感動作及實際核准要求。例行審查細節只存於已啟用的證據。任何風險等級都可用 `deep-review [target]` 明確要求。[深入審查指南](skills/agentflow/docs/AG-GUIDE.tw.md#風險分級與深入審查)。
 
-- `grill-me <主題>` 讓代理先訪談；`3ways <需求>` 讓 Claude／Codex 各自獨立盲寫、交互辯論，再由 Codex 最終整合／技術決斷（保留異議，只有雙方接受相同內容才算共識）；`advisors: <名稱>` 取得聚焦建議。提出計畫或建議不代表已核准實作。
+- `switches.save-evidence` 預設 `off`：檢查／審查仍執行，但不另存每輪證據，一般復原也不讀取。`on` 保存有用的最少證據。既有歷史與必要操作紀錄保留；不可改存其他位置，也不補寫過去。[儲存細節](skills/agentflow/references/session.md#evidence-storage)。
+
+- `go-hunt <主題>` 讓代理先訪談；`3ways <需求>` 讓 Claude／Codex 各自獨立盲寫、交互辯論，再由 Codex 最終整合／技術決斷（保留異議，只有雙方接受相同內容才算共識）；`advisors: <名稱>` 取得聚焦建議。提出計畫或建議不代表已核准實作。
+
+- `spec-out <需求>` 沿用同一份功能草稿，整理 Product／Tech／Art 設計與 tracker，重用有效訪談答案。沒有另外授權實作，就停在設計。詳見[完整規格](skills/agentflow/docs/AG-GUIDE.tw.md#明確要求完整規格)。
 
 - 訊息含未加引號的 `nolog:`、`noop:`、`off:` 或 `skip:`，這一輪就不留下流程紀錄，但工作仍可執行。帶這些標記的追加批次不會排入，也不會執行。
 
@@ -207,9 +211,11 @@ v8 與 v9 也共用 `agentflow` 技能名稱及 `.agentflow/` 專案目錄。同
 
 ## 設定與限制
 
-專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.10 分開。
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.11 分開。
 
-`use-lang` 控制新寫的文字；`plan-mode` 決定何時建立規劃文件；`plan-order`、`review-order` 則決定已需要的規劃或審查由誰處理。一般規劃在支援的路徑控制內，優先由 Claude 起草，再由 Codex 質疑、修正與最終整合。已選控制不受支援時會停下來，不默默換模型。
+`use-lang` 決定新增文字的語言，`plan-mode` 決定何時建立規劃文件。需求與做法清楚、風險低時，主代理直接規劃。複雜規劃採用 `plan-order`；需要其他代理時，優先由 Claude 起草，再由 Codex 質疑、修正並產出最終計畫。明確指定的路徑或設定的 `3ways` 優先；`plan-order: host` 則由主代理規劃。
+
+`review-order` 決定需要審查的成果由誰檢查。已選控制不受支援時會停止該路徑，不會默默換模型。
 
 `auto-commit`、`auto-push` 預設都是 `on`。想只保留本機修改，開始前先確認這兩項；它們不代表可發佈或部署。
 

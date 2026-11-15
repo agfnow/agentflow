@@ -42,7 +42,7 @@ Require Git, Node.js and supported configured task providers. Resolve installed 
 
 ## Queue and records
 
-`ag.json` owns editable settings; `queue.json` schema 2 owns instructions, scheduling/progress/recovery and immutable attempt evidence. `ag.json` uses schema 13 and requires switches.saving-mode on|off; the coordinator refuses missing/invalid values before claims, leaving migration to the host. Markdown carries task instructions, not scheduling state. Reject unregistered handwritten groups. Registered task text may change before starting; do not silently revise started work. No `groups.json`, `state.json`, fingerprints, dependency waves or promotion command.
+Ordinary task evidence follows [evidence storage](session.md#evidence-storage); save-evidence off does not disable coordinator queue/attempt/process/check/integration records or required result fields. Never redirect disabled ordinary evidence into those records. `ag.json` owns editable settings; `queue.json` schema 2 owns instructions, scheduling/progress/recovery and immutable attempt evidence. `ag.json` uses schema 13 and requires switches.saving-mode on|off; the coordinator refuses missing/invalid values before claims, leaving migration to the host. Markdown carries task instructions, not scheduling state. Reject unregistered handwritten groups. Registered task text may change before starting; do not silently revise started work. No `groups.json`, `state.json`, fingerprints, dependency waves or promotion command.
 
 ### Schema and inputs
 
@@ -164,7 +164,7 @@ Runtime presentation supports English and Traditional Chinese via use-lang; unsu
 
 ## Scope and maintenance
 
-When the owner-facing host reports an inspected completed run, surface mid/high human-review actions and material gaps from existing task results or pointers in the ordinary answer. Reconcile qualified [lesson candidates](deep-review.md#review-lessons) as host. Reuse proof and disclose unavailable or removed evidence. No aggregate artifact, replay, group gate or new integration-repair triage; standalone terminal reports remain generated from existing data.
+When the owner-facing host reports an inspected completed run, surface decision-changing human-review actions and material gaps from existing task results or pointers in the ordinary answer. Reconcile qualified [lesson candidates](deep-review.md#review-lessons) as host. Reuse proof and disclose unavailable or removed evidence. No aggregate artifact, replay, group gate or new integration-repair triage; standalone terminal reports remain generated from existing data.
 
 Isolated task/repair/review sessions do no configuration migration writes or session release checks; those belong to the owner-facing host. Read only the inherited configuration path supplied by the coordinator, independent of record-only session overrides; missing/unsafe configuration blocks dependent work without defaults. Interpret documented mappings in memory only; unknown/conflicting mappings remain blocked. Coordinator requires canonical config and host migration; it never relocates or rewrites config. Preserve task allowed_paths and read-only root configuration.
 

@@ -1419,6 +1419,26 @@ test('ag.json alone selects shared implementation/acceptance tiers and extensibl
   assert.ok(!Object.hasOwn(L.load(root), 'task_worker'))
 })
 
+test('optional save-evidence accepts missing/on/off and rejects invalid values before claims', async () => {
+  const { root, repo } = fixture([['a.txt']])
+  const file = path.join(repo, '.agentflow/ag.json'), original = JSON.parse(fs.readFileSync(file))
+  const queue = fs.readFileSync(path.join(root, 'queue.json'), 'utf8')
+  for (const value of [undefined, 'on', 'off']) {
+    const config = structuredClone(original)
+    if (value !== undefined) config.switches['save-evidence'] = value
+    fs.writeFileSync(file, JSON.stringify(config))
+    assert.doesNotThrow(() => L.read_settings(repo))
+    assert.equal(require('./feature-common').discover(repo).settings['save-evidence'], value)
+  }
+  for (const value of [true, null, '', 'ON', 'invalid']) {
+    const config = structuredClone(original); config.switches['save-evidence'] = value
+    fs.writeFileSync(file, JSON.stringify(config))
+    await assert.rejects(L.run(root, { agent, checks }), /save-evidence/)
+    assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
+    assert.equal(fs.readFileSync(path.join(root, 'queue.json'), 'utf8'), queue)
+  }
+})
+
 test('invalid selected settings fail before claims; status remains read-only without valid settings', async () => {
   const { root, repo } = fixture([['a.txt']])
   const file = path.join(repo, '.agentflow/ag.json'), original = fs.readFileSync(file, 'utf8')

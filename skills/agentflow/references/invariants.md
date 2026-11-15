@@ -1,6 +1,6 @@
 # System invariants
 
-Maintain durable product guarantees across rounds; historical designs retain local decisions. Use host instructions, no hooks/helpers.
+Apply [evidence storage](session.md#evidence-storage) to all proof/accounting persistence below: off keeps assessments in context and essential pending state in Current/tracker, never substitutes proof records; missing proof requires rechecking. Maintain durable product guarantees across rounds; historical designs retain local decisions. Use host instructions, no hooks/helpers.
 
 ## Discover and reconcile
 
@@ -8,7 +8,7 @@ Maintain durable product guarantees across rounds; historical designs retain loc
 
 - At first task read, retain each authoritative registry’s physical path and independent exact-byte baseline or SHA-256, or record absence. Preserve that original baseline across recovery; never substitute post-change values. Before interruption, persist needed baseline identity/bytes or a retrievable snapshot in existing recovery evidence: hashes detect differences but cannot explain them without original bytes. Before shared-record writes and at closeout, reread/compare; inspect all changed bytes, including formatting, against that baseline. Record accepted updates/diffs without replacing it. Every byte change, including formatting, requires the content-change notice below; path-only moves require relocation notices. Reconcile foreign changes with their source/authority; never overwrite or silently adopt them. Missing baseline/bytes requires disclosed proof limits and reconciliation of current content/history, never an unchanged claim. Matching hashes prove only baseline byte equality. No registry self-hash, sidecar, hook or runtime; comparison grants no write authority. Off-record/idle rules prevail.
 
-- After authoritative-path discovery, first-time setup creates an empty registry scaffold; otherwise create only for the first accepted durable guarantee. Empty scaffolds establish no guarantees but still require the invariant notice heading, stating scaffold creation and no accepted IDs. Managed feature initialization reuses inherited shared records without setup scaffolds. Prefer one small scoped registry; split only for size, never duplicate authoritative contracts.
+- After authoritative-path discovery, first-time setup creates an empty registry scaffold; otherwise create only for the first accepted durable guarantee. Empty scaffolds establish no guarantees; explain creation and no accepted requirements under the invariant notice heading in the saved Reply only, without routine terminal/chat notice. Managed feature initialization reuses inherited shared records without setup scaffolds. Prefer one small scoped registry; split only for size, never duplicate authoritative contracts.
 
 - On first adoption in existing projects, reconcile a bounded set of current requirements/contracts, architecture, tests/code and active designs; inspect historical `<ag-dir>/artifacts/A-NNN/design.md` as candidates, never authority. Verify current decisions, deduplicate and identify superseded rules/contradictions before promotion. Record inspected coverage/unresolved candidates in linked Round evidence. Claim no exhaustive migration; infer no requirements from code alone. Preserve historical designs.
 

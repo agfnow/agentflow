@@ -1,6 +1,6 @@
 # Delegation and review
 
-Read before dispatch. The host owns scope, decisions, integration, evidence and notebook; workers return bounded results/challenges.
+Read before dispatch. [Evidence storage](session.md#evidence-storage) governs all recording requirements here; disabled storage waives persistence only, never review, controls or required independence. The host owns scope, decisions, integration, evidence and notebook; workers return bounded results/challenges.
 
 Review requirements follow [work rules](work.md#records-and-review), its task modes and explicit owner requests; this guide adds none. Worker metadata grants no dispatch authority. Required result review follows configured review-order under [result-review routes](#result-review-routes) after host verification. Supply request, constraints, final artifacts/evidence without inherited conversation. Seek defects, omissions and simpler alternatives. Reuse review only with matching routing, scope and independence.
 
@@ -127,11 +127,11 @@ Track real worker handles until settled. Do not launch a replacement writer whil
 
 ### Risk triage
 
-- Rate the exact candidate, including on host-only and reused review routes. On record, read applicable lessons from the established review-knowledge record or checkout-root `<ag-dir>/sys-review.md` if present; share only relevant authorized excerpts as advisory data. Record risk and reason in existing evidence and the owner answer. Off-record reports risk in chat without workflow record access.
+- Rate the exact candidate, including on host-only and reused review routes. On record, read applicable lessons from the established review-knowledge record or checkout-root `<ag-dir>/sys-review.md` if present; share only relevant authorized excerpts as advisory data. Assess risk/reason internally; retain it only in enabled evidence. Owner answers include risk details only when decision-changing, requiring sensitive human action/approval, or explicitly requested; no routine footer. Off-record preserves the same display rule without workflow records.
 
 - Classify actual behavior, blast radius, reversibility and uncertainty. **Low:** bounded, well-understood effects such as inert editorial or test-only changes. **Mid:** ordinary behavior changes with meaningful regression potential. **High:** material effects on auth/sessions/permissions, money, destructive or migrated data, secrets, deployment or external-action authority, public contracts, core business invariants or system boundaries; broad changes can be high by consequence. File type, a disabled flag, a dependency patch or passing checks alone cannot justify low.
 
-- Host reconciles source and reviewer assessments, retaining the higher plausible risk while material uncertainty remains. Recover a missing/stale rating from current evidence; distinguish host judgment from independent proof and keep missing required review/proof pending. After addressing ordinary findings, route mid/high to [deep review](deep-review.md) before closeout/gates. Low skips it unless explicit; combine matching automatic and explicit requests in one pass. A relevant blocker stays visible and limits dependent checks; it does not suppress the risk or human handoff. Reassess materially changed candidates; keep matching proof.
+- Host reconciles source and reviewer assessments, retaining the higher plausible risk while material uncertainty remains. Reassess a missing/stale rating from live source and permitted evidence; distinguish host judgment from independent proof and keep missing required review/proof pending. After addressing ordinary findings, route mid/high to [deep review](deep-review.md) before closeout/gates. Low skips it unless explicit; combine matching automatic and explicit requests in one pass. A relevant blocker stays visible and limits dependent checks; it does not suppress the risk or human handoff. Reassess materially changed candidates; keep matching proof.
 
 ### External CLI examples — authorized planning/review
 

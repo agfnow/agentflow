@@ -1,4 +1,4 @@
-# Agentflow v9.1.10
+# Agentflow v9.1.11
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -72,9 +72,13 @@ Open that file to read the answer. Set `inline-reply: on` for full saved answers
 
 - Use `fast-lane <task>` for direct host work, or `skip-review <task>` for host review. Required checks and explicit approvals still apply.
 
-- Result review assigns a risk level. Mid/high changes receive targeted checks and a human-review handoff. Use `deep-review [target]` to request it at any risk. [Deep review guide](skills/agentflow/docs/AG-GUIDE.md#risk-triage-and-deep-review).
+- Result review assigns a risk level. Mid/high changes receive targeted checks; answers surface decision-changing gaps, sensitive human actions and actual approval requests. Routine review details stay only in enabled evidence. Use `deep-review [target]` to request it at any risk. [Deep review guide](skills/agentflow/docs/AG-GUIDE.md#risk-triage-and-deep-review).
 
-- Use `grill-me <topic>` for an interview, `3ways <request>` for blind independent Claude/Codex drafts, reciprocal debate and Codex’s final synthesis/technical decisions (record dissent; claim consensus only on exact dual acceptance), or `advisors: <names>` for focused advice. A plan or suggestion does not approve implementation.
+- `switches.save-evidence` defaults `off`: checks/review continue without separate round-proof storage or ordinary recovery reads. `on` keeps minimal useful evidence. Existing history and necessary operational records remain; no alternate proof sink or backfill. [Storage details](skills/agentflow/references/session.md#evidence-storage).
+
+- Use `go-hunt <topic>` for an interview, `3ways <request>` for blind independent Claude/Codex drafts, reciprocal debate and Codex’s final synthesis/technical decisions (record dissent; claim consensus only on exact dual acceptance), or `advisors: <names>` for focused advice. A plan or suggestion does not approve implementation.
+
+- Use `spec-out <request>` to develop the same feature draft into a Product/Tech/Art design and linked tracker. It reuses valid interview answers and stops before implementation unless you authorize that separately. [Specification guide](skills/agentflow/docs/AG-GUIDE.md#request-a-full-specification).
 
 - Include unquoted `nolog:`, `noop:`, `off:` or `skip:` to keep one exchange off-record. The requested work still executes; an off-record append request is neither staged nor executed.
 
@@ -207,9 +211,11 @@ Both v8 and v9 also use the skill name `agentflow` and project directory `.agent
 
 ## Configuration and limits
 
-Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.10.
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.11.
 
-Use `use-lang` for new human-facing text, `plan-mode` for document creation, and `plan-order`/`review-order` for already-needed planning and review. Ordinary planning prefers a Claude draft followed by Codex challenge, correction and final synthesis within supported route controls. Missing or unsupported selected controls block rather than silently changing the model.
+Use `use-lang` for new human-facing text and `plan-mode` for when to create planning documents. Simple, understood, low-risk plans stay with the host. Complex planning uses `plan-order`; worker routes prefer a Claude draft followed by Codex review, correction and the final plan. An explicit route or configured `3ways` takes precedence; `plan-order: host` keeps planning with the host.
+
+`review-order` chooses who reviews work that needs review. Unsupported selected controls stop that route rather than silently changing the model.
 
 `auto-commit` and `auto-push` default on. Check them before starting if you want local edits only; they grant no publication or deployment authority.
 

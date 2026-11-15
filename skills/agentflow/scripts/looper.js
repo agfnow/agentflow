@@ -82,6 +82,8 @@ function read_settings(repo) {
   const saving = config.switches?.['saving-mode']
   insist(saving !== undefined, 'ag.json switches.saving-mode missing: migrate via the owner-facing host')
   insist(saving === 'on' || saving === 'off', 'ag.json switches.saving-mode must be on or off')
+  const evidence = config.switches?.['save-evidence']
+  insist(evidence === undefined || evidence === 'on' || evidence === 'off', 'ag.json switches.save-evidence must be on or off')
   const limits = config['looper-limits'] === undefined ? {} : config['looper-limits']
   insist(limits && typeof limits === 'object' && !Array.isArray(limits), 'ag.json looper-limits must be an object')
   const max_workers = limits['max-workers'] === undefined ? 3 : limits['max-workers']

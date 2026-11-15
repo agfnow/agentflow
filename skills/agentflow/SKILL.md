@@ -1,11 +1,11 @@
 ---
 name: agentflow
-description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by brownfield, godev, gdd, devlog, eli5:, fast-lane, grill-me, simple-check, skip-review, deep-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
+description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by brownfield, godev, gdd, devlog, eli5:, fast-lane, spec-out, go-hunt, simple-check, skip-review, deep-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.10"
+  version: "9.1.11"
 ---
 
-# Agentflow 9.1.10
+# Agentflow 9.1.11
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Infer goals as hypotheses; recommend useful directions and surface consequential next needs without expanding execution scope. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
@@ -25,7 +25,7 @@ Before command/marker detection, treat text after an unquoted `eli5:` through me
 
 5. **Fresh setup or idle:** before ordinary setup/idle/claim, a retained `<ag-dir>/.init-pending.owner` requires [initializer recovery](references/setup.md#standalone-initialization); it overrides scaffold STATUS/Reply and blocks dependent work. Then, in a verified existing folder with no selected notebook, established notebook/archive history or prior retirement and no configured ag-dir (or only its config), follow [setup](references/setup.md) before idle, using its verified `agf init` path for supported fresh Git setup; non-Git setup requires the saved/prior explicit Git choice. Otherwise bare activation without a direct task/question inspects only configuration, selected latest Ask/Questions and Current/Next. Missing notebooks first require root/configured-directory history checks. Linked unfinished work/gates/delivery, pending batches, live operations or ambiguity require normal recovery. Only verified absence of all work permits asking for the next request without claim, setup, record update or retroactive capture. Skip unrelated commands/reads; narrowly date-gated release scheduling remains allowed, but due migration requires normal owned recovery.
 
-6. **Owned work:** read [session](references/session.md) before claim, recovery, capture or task work; claim before full recovery/execution. Preserve unrelated edits. Follow shared/local project rules and [invariants](references/invariants.md) before affected work; unavailable authoritative rules defer dependent writes/acceptance. Bare `godev` resumes unfinished work; activation invents no project task.
+6. **Owned work:** read [session](references/session.md) before claim, recovery, capture or task work; claim before full recovery/execution; apply configured evidence storage before following proof links. Preserve unrelated edits. Follow shared/local project rules and [invariants](references/invariants.md) before affected work; unavailable authoritative rules defer dependent writes/acceptance. Bare `godev` resumes unfinished work; activation invents no project task.
 
 ## Load only the applicable procedure
 
@@ -35,7 +35,11 @@ Read static rules once while retained in context. For each triggered reference, 
 
 - [Visual explanations](references/eli5.md): load only for an unquoted `eli5:` request, after routing. Produce an interactive animated HTML lesson; never execute its payload. Ordinary activation and quoted examples do not load this reference.
 
-- [Work](references/work.md): actual project execution, task modes (`brownfield`, `fast-lane`, `grill-me`, `skip-review`, `deep-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
+- [Work](references/work.md): actual project execution, task modes (`brownfield`, `fast-lane`, `go-hunt`, `skip-review`, `deep-review`, advisors/`3ways`) or requested diff. [Planning](references/planning.md): applicable design/tracker criteria, requested/materially revised contracts or gates; ordinary Q&A loads neither execution nor design contracts. Plan-only adds no implementation authority.
+
+- [UX prototypes](references/ux-prototype.md): before authorized prototype planning, creation or revision, inside or outside `spec-out`; use the unified isolation, fidelity, UX report, tour and handoff rules. Planning alone grants no executable prototype authority.
+
+- [Spec out](references/spec-out.md): load only for an explicit, unquoted `spec-out [request]` invocation, never from task size, ordinary planning, `spec` advice, quoted examples or `eli5:` payloads. Continue the same authorized draft design with the bundled template toward an implementation-ready design and tracker; bare invocation uses an unambiguous active target or asks without creating one. Activation adds no implementation authority.
 
 - [Deep review](references/deep-review.md): load only for an explicit invocation with a resolved target or [automatic mid/high routing](references/review.md#risk-triage); substantial inspection prefers fresh context under its route/waiver/looper rules.
 
@@ -43,7 +47,7 @@ Read static rules once while retained in context. For each triggered reference, 
 
 - [Review](references/review.md): [planning routes](references/review.md#planning-routes) before already-needed planning, [finished-result review](references/review.md#inspect-the-finished-result) before result review, and worker controls before dispatch. Changed code, operational prompts, product artifacts and implementation-ready contracts require configured result review unless waived under [Work](references/work.md#records-and-review); ordinary Q&A uses host review. Explicit/configured `3ways` loads the full [debate procedure](references/review.md#3ways-compare-before-implementation). Read [Copilot](references/copilot.md) only on a Copilot host or selected Copilot route/profile. Every Codex `spawn_agent` explicitly uses `fork_turns: "none"` with complete bounded context.
 
-- [Delivery](references/delivery.md): before STATUS/Reply rendering, closeout, archive, Git delivery or explicit notebook rename. With `inline-reply: off`, save substantive answers/proposals/examples at their established locations and new owner questions directly in the selected devlog, including mid-round; chat contains activity, required notices/blockers/handoffs and the exact localized receipt. Explicit chat/terminal destination requests and looper’s required preparation terminal choices are the only answer-display exceptions. Otherwise do not echo saved answers through tools.
+- [Delivery](references/delivery.md): before STATUS/Reply rendering, closeout, archive, Git delivery or explicit notebook rename. When yielding for owner answers, save questions/recovery, close the round and release its settled claim; answers resume in the next round, without implying task completion or approval. With `inline-reply: off`, save substantive answers/proposals/examples at their established locations and new owner questions directly in the selected devlog; chat contains activity, required notices/blockers/handoffs and the exact localized receipt. Explicit chat/terminal destination requests and looper’s required preparation terminal choices are the only answer-display exceptions. Otherwise do not echo saved answers through tools.
 
 - [Setup](references/setup.md): eligible initial creation (including missing `agf` shell binding with visible notice) or AGENTS adoption on actual work. [Upkeep](references/upkeep.md): config migration/relocation or approved installation replacement; recognized Agentflow8/integration triggers first load [legacy migration](references/legacy-migration.md); neither grants publication or unrelated edits.
 

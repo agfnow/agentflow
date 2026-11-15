@@ -86,7 +86,7 @@ function discover(root, { allowAbsent = false, diagnosticLocale = 'en' } = {}) {
   const c = candidates[0], targetSchema = require('../assets/.agentflow/ag.json')['schema-version']
   const legacy = ['skip-asker', 'skip-run', 'skip-wip', 'skip-plan', 'target-doc', 'workspace-dir', 'lang', 'ask-names', 'log-verbosity', 'allowed-worker', 'review-policy', 'cli-provider', 'allow-ag', 'away-gates', 'streams', 'auto-reply', 'notebook-ownership', 'large-work-minutes', 'git-timeout-ms', 'completion-cleanup', 'completion-cleanup-interval-days', 'metrics']
   insist(c.canonical && (c.value['schema-version'] === undefined || c.value['schema-version'] === targetSchema) && !legacy.some(k => k in c.settings) && !('cross-check' in (c.value['pipeline-roles'] || {})) && !Object.values(c.value['external-workers'] || {}).some(v => v && typeof v === 'object' && ('tiers' in v || 'family' in v)) && ['on', 'off'].includes(c.settings['saving-mode']), `Configuration migration requires host continuation: ${c.file}`)
-  for (const key of ['inline-reply', 'omit-asker', 'omit-run', 'omit-wip', 'gate-design', 'gate-tracker', 'auto-commit', 'auto-push', 'saving-mode']) {
+  for (const key of ['inline-reply', 'omit-asker', 'omit-run', 'omit-wip', 'gate-design', 'gate-tracker', 'auto-commit', 'auto-push', 'save-evidence', 'saving-mode']) {
     insist(c.settings[key] === undefined || ['on', 'off'].includes(c.settings[key]), `Invalid ${key}: ${c.file}; expected on|off`)
   }
   for (const [key, values] of [['plan-mode', ['must', 'optional', 'off']], ['plan-order', ['3ways', 'external', 'native', 'host']], ['review-order', ['external', 'native', 'host']]]) {

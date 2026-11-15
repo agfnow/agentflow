@@ -247,7 +247,7 @@ test('recognized exact A-001 preparation appends only missing Reply and next Ask
 })
 test('invalid recognized switches stop before branch/worktree mutation', async t => {
   const root = fixture(t), configPath = path.join(root, '.agentflow/ag.json')
-  for (const [key, value] of [['auto-commit', 'invalid'], ['gate-tracker', true], ['plan-mode', 'always'], ['plan-order', 'unrecognized'], ['review-order', 'external-first']]) {
+  for (const [key, value] of [['save-evidence', 'invalid'], ['save-evidence', true], ['auto-commit', 'invalid'], ['gate-tracker', true], ['plan-mode', 'always'], ['plan-order', 'unrecognized'], ['review-order', 'external-first']]) {
     const config = { 'schema-version': 13, switches: { 'saving-mode': 'off', [key]: value } }
     fs.writeFileSync(configPath, JSON.stringify(config))
     await assert.rejects(F.create('invalid', { cwd: root }), new RegExp(key))

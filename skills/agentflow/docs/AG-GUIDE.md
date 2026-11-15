@@ -1,4 +1,4 @@
-# Agentflow 9.1.10 — everyday guide
+# Agentflow 9.1.11 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -6,9 +6,17 @@ Agentflow keeps your request, decisions and answer in your project, with enough 
 
 The stable Agentflow 9 skill is named `agentflow`. This guide explains everyday use; the [cheatsheet](CHEATSHEET.md) lists every command, advisor and setting.
 
-Ordinary agentflow infers your likely goal as a hypothesis subordinate to explicit requirements, recommends a direction and briefly surfaces consequential next needs. Low-impact ambiguity can use a stated assumption; material decisions still need your input.
+The agent checks the project before suggesting a direction. It can make and explain small assumptions to keep work moving, but asks you about decisions that could change the result. Agreeing with a suggestion does not automatically authorize implementation; once you have authorized the work, routine steps need no repeated approval.
 
-Advice, inferred intent and agreement with an idea's merits grant no new authority; existing workflow permissions remain valid, and authorized work proceeds without repeated approval for normal substeps. This adds no obligatory insight, new answer template or `active-helper` advisor.
+Start with the first task below. After that, jump to the section that fits your next job:
+
+- [Resume work](#resume-unfinished-work) or [find a saved answer](#find-your-answer-and-records).
+
+- [Clarify an idea](#choose-a-task-mode-or-advisor), then [request a specification](#request-a-full-specification). You can skip these for a straightforward fix.
+
+- [Choose checks and approvals](#plan-check-review-and-approve), or [change settings](#change-configuration-deliberately).
+
+- [Develop a separate feature](#work-on-a-separate-feature), [use terminal feature commands](#use-feature-commands-in-your-terminal), or [run groups of tasks](#run-groups-with-the-optional-looper). These are optional.
 
 ## Finish your first task
 
@@ -16,7 +24,13 @@ Install agentflow using the [package README](https://github.com/agfnow/agentflow
 
 To prepare a project before opening an agent, run `agf init` in its directory, then edit the empty Ask in `.agentflow/<directory-stem>.devlog.md`. It requires Node 20+, Git and a working Git commit identity; without a shell binding, use `node '<resolved-skill>/scripts/agf.js' init`.
 
-Use `agf init --lang zh-TW` for Traditional Chinese; English is also supported. The command creates Git when absent, reuses HEAD or creates one empty bootstrap, then writes settings/records and commits only setup changes. It makes no model call, push or shell-profile change. Complete existing projects skip unchanged; partial or unsafe state stops for host reconciliation. Bare `zh` is preserved and uses Traditional Chinese; other Chinese locale variants use Traditional Chinese and save `zh-tw`; other valid locales automatically use English and save `use-lang: en-us` for subsequent work. Non-Git setup remains host-driven. See [standalone initialization](../references/setup.md#standalone-initialization).
+Use `agf init --lang zh-TW` for Traditional Chinese. The command sets up Git if needed, reuses an existing commit or creates one empty first commit, and commits only the setup files. It does not call a model, push changes or edit your shell profile.
+
+Running it again on a complete project changes nothing. If setup is incomplete or unsafe, ask your coding agent to inspect it before retrying. To work without Git, use setup through the agent instead.
+
+The initializer supports English and Traditional Chinese. It preserves bare `zh`; other Chinese locale tags become `zh-tw`. Other valid locales use English and save `use-lang: en-us` for later work. See [standalone initialization](../references/setup.md#standalone-initialization).
+
+### If setup stops
 
 If configuration discovery stops, the warning names the checked directory, counts possible configurations and unresolved entries, and shows at most three relative paths. Check that you are inside the intended project, rather than its parent folder. If the directory is correct, ask the AI host to inspect the configuration or symbolic links before retrying; do not delete them merely to bypass the warning.
 
@@ -50,17 +64,41 @@ Existing HEAD is reused. Other refs or an unsafe Git state stop bootstrap; a fai
 
 If setup began without a task, the host asks for your next request when finished. See [agent setup rules](../references/setup.md#first-time-setup) for exact eligibility and recovery.
 
+## Request a full specification
+
+Use `spec-out <request>` to turn an idea into a design that covers what to build (Product), how it should work (Tech), and how it should look and feel (Art). It continues the same `design.md` used for the feature, using the [specification template](../references/spec-out-template.md).
+
+This is an explicit command. Ordinary planning and the `spec` advisor do not start it automatically.
+
+The host first uses the `requirements` interview method to check what you need. A completed, recorded `go-hunt` interview for the same feature counts if its answers are still valid. You do not need to repeat it.
+
+Later calls reuse valid answers and investigation. The host asks about remaining gaps or changes, then continues the requested stage. There is no fixed question limit.
+
+Bare `spec-out` uses an unambiguous active specification target or asks for one. Existing planning modes, gates, devlog questions and review still apply; the command grants no implementation authority.
+
+Tech checks code, tests, data and dependencies. Art compares available Figma designs, the running product and reusable components. If contributors’ edits conflict in wording or meaning, the host pauses that part for a human decision instead of silently choosing an interpretation.
+
+Authorized prototype stages follow the [unified UX prototype method](../references/ux-prototype.md). Choose fidelity by the unresolved question; default to local browser HTML/CSS/JS for interactive lo-fi and hi-fi. Deliver isolated mock interactions, a matching revision report and opt-in review guidance; use lightweight task cards, adding a targeted tour only when useful. Specification alone does not authorize building a prototype.
+
+When using GitHub, follow the [role access, feedback and revision review guide](../references/spec-out-github.md); shared writes retain existing task authority.
+
 ## Resume unfinished work
 
 Open the same project and send `godev`. The host reads the active request, saved questions and linked recovery notes, then checks live files and operations before continuing.
 
-The host loads instructions by route and section, reusing static rules still in context. An idle start checks configuration and current work; execution, planning, workers and special procedures load when needed. Required safety checks remain; no timing or cost reduction is guaranteed. See [loading rules](../SKILL.md#load-only-the-applicable-procedure).
+The host loads the procedures needed for the job and reuses rules already in context. Starting an idle session does not load every planning or execution procedure. See [loading rules](../SKILL.md#load-only-the-applicable-procedure).
 
-New owner questions go directly in the devlog, including brownfield gates, interviews and approval requests raised before a round finishes. An open round uses one **Open questions** section before Reply. Current links the question and blocked gate, directly or through tracker Recovery when a tracker exists. Trackers hold work state, with no new questions or answer fields.
+Questions for you go in the devlog, including interviews and approval requests. While the host keeps working, they may appear in **Open questions** before Reply.
+
+When it needs your answer to continue, the host saves where it stopped, adds Reply and the next Ask, then releases its claim once its workers and operations have settled. **Current** points to the question, directly or through the tracker. Ending a round does not mean the task is complete or approved.
+
+### Answer a saved question
 
 You can answer in chat or in the devlog question's single `ans:` field. Empty answers, suggested defaults and elapsed time never count as approval.
 
-After interruption, the host reads that field and later resolutions, then resumes the same gate. A different session needs the normal claim handoff before resuming. Historical fields remain at their original locations.
+When you answer, the host claims the next round, reads the original question and any later resolutions, and continues from the saved stopping point. Old question fields stay where they were.
+
+Waiting for you alone does not keep the notebook claimed. A process that might still write, or recovery notes that could not be saved, prevents release; the host reports that blocker. Another session's claim still needs an explicit handoff.
 
 New questions put `Suggested default:` in its own indented paragraph, with a blank line before and after it. The answer field stays below it; existing history is preserved.
 
@@ -93,7 +131,7 @@ With the default `inline-reply: off`, the full answer stays in Reply and chat en
 
 Open that notebook to read the answer. Set `inline-reply: on` for full chat answers, or explicitly request this answer in chat or the terminal. Discussing future output or saying “show me” alone does not change the destination.
 
-External report/file answers quote each original question directly below its answer heading: at least the first 50 Unicode code points, or the whole question if shorter. Preserve wording and combined characters, mark omissions `...`, redact credentials and quote grouped questions separately. Keep document openings, Reply excerpts and history unchanged. See [question context (writing.md, line 29)](../references/writing.md#29).
+When an answer goes in a separate report, its heading is followed by enough of your original question to identify what it answers. The exact rule is at [writing.md, line 29](../references/writing.md#29).
 
 Necessary notices, blockers and actual feature handoffs still appear in chat. Human labels, including the receipt, follow the configured language.
 
@@ -101,9 +139,13 @@ A design explains intended behavior, preserved guarantees and acceptance. A trac
 
 Task states are `TODO`, `DOING`, `BLOCKED` and `DONE`. Work awaiting checks, review or delivery remains `DOING`; `DONE` needs completion evidence.
 
-Useful check and debugging evidence is linked separately, normally under `.agentflow/.tmp/`. Linked evidence is durable despite that name: do not delete it as temporary clutter. The notebook keeps answers, limits and recovery pointers instead of technical logs.
+`save-evidence` defaults off. The host still checks and reviews the work, but does not save separate round-proof files or read old ones during ordinary recovery. Existing evidence stays intact; you can explicitly ask to inspect it.
 
-New workflow evidence uses only the applicable fields, in order:
+Current or an existing tracker keeps what is needed to continue: pending work, authority, blockers, uncertain operations and the next action. It does not become a substitute proof log. Missing proof may mean rerunning a check; it never counts as success.
+
+If skipped old evidence contains essential recovery state, the host names the blocked link. Explicitly authorize inspection or have recovery re-proved before dependent actions. Approval still applies only to the same checked result; missing proof must be rechecked, and material changes need renewed approval.
+
+With `save-evidence: on`, useful evidence is linked separately, normally under `.agentflow/.tmp/`. Keep only applicable fields, in order:
 
 - **Scope:** Which notebook/Ask and necessary source identity.
 
@@ -113,9 +155,11 @@ New workflow evidence uses only the applicable fields, in order:
 
 - **Resume:** Unfinished state and next safe action.
 
-Omit empty fields, routine command output and repeated facts; link existing proof or recovery state once. A round may need no separate evidence file.
+Enabled evidence should be a few useful bullets: facts a later session cannot safely reconstruct, meaningful results and remaining limits. Empty fields, routine command diaries and copied transcripts are omitted. Some rounds need no evidence file.
 
-This is the default with saving mode on or off. Required proof and specialized feature/looper records still apply; existing history is preserved.
+Evidence storage is separate from saving mode. Records needed to retry feature operations, operate the looper, or recover a migration or release still follow their own rules. They cannot be used to hide ordinary proof that you chose not to save.
+
+An explicit request to save a named deliverable still applies. Turning evidence storage on affects future work; it does not recreate missing history.
 
 Above 750 notebook lines, or on request, older completed rounds can move into one adjacent `<notebook-stem>.archive.md`. Unresolved work and the latest completed round remain live. An explicit notebook rename includes its archive and preserves history.
 
@@ -195,9 +239,25 @@ A bare command uses clear unfinished work; otherwise the host asks for a task or
 
 Explicit plans/reviews, configured gates and feature rules still apply; `skip-review` replaces earlier review requests, while same-message or later explicit review requirements prevail.
 
-Use `grill-me <topic>` for a requirements interview. The host inspects context, asks connected short rounds about the goal, assumptions and strongest relevant challenge, then follows up on your answers.
+Use `go-hunt <topic>` for a requirements interview. The host inspects context, asks connected short rounds about the goal, assumptions and strongest relevant challenge, then follows up on your answers.
 
-At least one round lets you confirm or correct its understanding. The interview stops when material intent is clear; it authorizes discussion, and can be requested during fast-lane work.
+At least one round lets you confirm or correct its understanding. The interview stops when material intent is clear; it authorizes discussion, and can be requested during fast-lane work. `go-hunt` and `spec-out` both use the `requirements` reasoning role; a separate worker is optional.
+
+If you intend to develop a specification next, `go-hunt` starts or reuses one draft `design.md`. The [interview handoff](../references/advisors/requirements.md#interview-handoff) lives there too.
+
+It keeps your original request separate from clarified requirements, decisions, assumptions and proposed solutions. It links the source ticket or notes and the devlog answers, identifies the source version/date and anything not yet read, and records success criteria, open choices and the next step.
+
+Later rounds continue that document. For requirements-only work, or when new designs are disabled, the host uses an existing requirements document or creates `probe-report.md`. That report must not be used to bypass a no-design setting. Explicit file destinations, no-file, read-only and off-record requests still apply.
+
+To move from interview to design, send:
+
+```text
+spec-out Continue this feature in the same draft design.md. Investigate Tech/Art and deliver an implementation-ready design.md and linked tracker.md. Design only; wait for approval before implementation.
+```
+
+The host reuses valid answers and checks that requirements connect to acceptance criteria (AC) and guarantees to preserve (INV). Unstarted implementation tasks stay `TODO`; planned tests are not reported as run. A design with important gaps stays DRAFT. A ready specification is neither a successful implementation nor approval to build it.
+
+The normal feature path needs no separate `probe-report.md`. If an existing report later transitions to an authorized design, retain it as historical input with a successor link and maintain current requirements only in the design. `go-hunt` does not automatically invoke `spec-out`; stage limits, planning modes, task-mode exceptions and gates still apply.
 
 `simple-check [target]` asks a fresh independent reviewer to challenge an existing plan against your original requirements and test concrete simpler replacements. Omit the target only when the active plan is unambiguous.
 
@@ -207,9 +267,27 @@ It grants no implementation authority and keeps other checks and approval gates.
 
 Use `brownfield <task>` for an eight-step path through unfamiliar existing code, from discovery and rule tracing to baseline, specification, implementation, verification and preservation.
 
-An existing repository alone does not activate it. No separate installation or eight-advisor sequence is required; ordinary approvals and review remain. Material questions appear in the devlog while the round stays open; passed gates proceed automatically unless you requested a guided pause. See the [agent brownfield procedure](../references/brownfield.md).
+An existing repository alone does not activate it. No separate installation or eight-advisor sequence is required; ordinary approvals and review remain. Questions go in the devlog; waiting for your answer closes the round and releases its settled claim. Passed gates proceed automatically unless you requested a guided pause. See the [agent brownfield procedure](../references/brownfield.md).
 
 Use `advisors: requirements, explore` for focused advice. The host can also choose advisors for a named investigation gap; advice authorizes no proposed changes and requires no separate worker per role.
+
+### Codewalk or product-docs?
+
+Both inspect the product, but serve different readers: `codewalk` helps an implementer understand affected code; `product-docs` helps users or maintainers understand the product through its documentation.
+
+- **Choose `codewalk` when you need to find or trace implementation.** It maps entry points, data flow, dependencies, interfaces, likely edit locations and checks, with inspected scope and remaining gaps. It stays read-only and stops once the affected paths are sufficiently understood.
+
+  Example: `advisors: codewalk` with “Trace feature creation and identify the affected files and checks.”
+
+- **Choose `product-docs` for a documentation map, first suite, maintainer handover or substantial documentation drift.** It compares accepted behavior, source, tests and current docs, then returns the smallest useful document map, ownership guidance or recommendations, with evidence and limits.
+
+  Example: `advisors: product-docs` with “Assess whether a new maintainer can understand feature creation from the guide; recommend focused improvements.”
+
+A codewalk can supply technical facts for a maintainer guide; product-docs determines how those facts help its readers and stay current. Reuse those findings rather than repeat the same investigation.
+
+The host may select either role when a concrete gap warrants it; selection is conditional judgment, not a guaranteed automatic pass. Ordinary affected-doc updates use direct host maintenance; fast-lane ordinarily skips advisors.
+
+Neither role requires a separate worker or standalone report. Useful findings normally go into existing records; a separate report needs an explicit request or substantial reusable findings. Selecting advice grants no authority to edit, reorganize or publish; those actions need accepted task scope.
 
 For a defined pre-release candidate, `advisors: final-audit` assesses readiness after checks and assembly. A GO verdict still grants no publication authority. Find all roles in the [cheatsheet](CHEATSHEET.md#commands--alphabetical); exact selection mechanics are [agent rules](../references/ag.md).
 
@@ -221,11 +299,13 @@ Planning starts with accepted outcomes and constraints, then seeks the simplest 
 
 `plan-mode` defaults to `optional`: bounded reversible work usually needs no design, multiple outcomes/delegation/interruption need a tracker, and multi-part behavior changes need a design. `must` requires both before task edits; `off` prevents new designs but allows needed trackers. Existing contracts and checks remain.
 
-Simple planning stays with the host when requirements, approach and dependencies are understood and risk is low. Several tasks or groups alone do not make a plan complex; the six-task writing/news/archive example can be grouped directly, while factual news research remains an execution requirement.
+Straightforward, low-risk planning stays with the host when the requirements, approach and dependencies are clear. Having many tasks or groups does not by itself require another planner.
 
-Material uncertainty, consequential architectural tradeoffs, cross-system coupling or changed security/privacy/destructive/external-action boundaries use `plan-order` (default `external`). Worker routes prefer Claude’s first draft, then Codex’s challenge, corrections and final plan. Explicit task routes/requirements and configured `3ways` prevail; configured `host` stays direct. The host records a short reason and reassesses if complexity appears.
+Uncertain requirements, major architecture choices, coupled systems or changes to security, privacy, destructive operations or external actions use `plan-order` (default `external`). Worker routes prefer a Claude draft followed by Codex review, correction and the final plan.
 
-This changes planning delegation, not required designs/trackers, review, checks or approval gates. Reuse matching plans, review and passing evidence; keep handoffs concise and forbid nested agents. A Codex host can challenge a Claude draft directly, without a second planning worker.
+An explicit route or configured `3ways` takes precedence; `plan-order: host` keeps planning with the host. The host reassesses the route if new complexity appears.
+
+These choices decide who plans. They do not remove required designs, trackers, review, checks or approvals. A Codex host can review a Claude draft directly; it need not launch a second planning worker.
 
 Use `3ways <request>` for separate blind Claude and Codex plans, followed by comparison and reciprocal debate. Neither sees the other’s current-task draft or hints until both finish; shared original evidence and accepted prior contracts are allowed.
 
@@ -239,7 +319,7 @@ Missing required participants or valid blind drafts leaves provisional work. Own
 
 External planning prefers Claude CLI drafting followed by Codex challenge/synthesis; a Codex host can do the latter directly. Native prefers the same roles within supported native/direct-host controls.
 
-Host and fast-lane plan directly without worker probes.
+With `plan-order: host`, or in fast-lane, the host plans directly without looking for planning workers.
 
 Unavailable preferred roles are disclosed; explicit provider, model, effort, independence or read-only requirements still block incompatible fallback. Invalid selected controls need a decision, not silent replacement.
 
@@ -269,7 +349,7 @@ Looper uses its permitted fresh reviewer without nested reviewers or changed rou
 
 Use `deep-review [target]` to request it at any risk. For example, `deep-review the diff for the parser change` asks for inspection and safe probes. Product fixes and persistent test changes require implementation authority.
 
-The handoff explains the risk and points to the exact behavior, decisions and evidence a human should check. For high-risk changes, it identifies sensitive paths for careful human inspection. Approval follows the existing project rules and gates.
+Answers tell you about blockers, uncertainty that affects your decision, sensitive actions needing attention and actual approval requests. Routine review accounting stays out of the answer and is saved only when evidence storage is on. When you need to inspect a sensitive change, the host identifies the path and consequence.
 
 The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 128)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
 
@@ -361,7 +441,13 @@ Looper divides authorized work into isolated worktree groups. Tasks within a gro
 
 Give the host numbered outcomes, examples and guarantees to preserve. `prepare-tasks <request>` saves group plans, a queue and the exact original request, then stops for inspection.
 
-The preparation result saves both execution choices and shows them in the final visible reply before the receipt, even with `inline-reply: off`: from the shown checkout directory, terminal `agf looper status <run-root>` then `agf looper run <run-root>`, or chat `run-tasks`. Actual paths replace placeholders; if `agf` is unavailable, verified installed Node-entrypoint commands are shown. Printing does not start execution.
+After preparation, you get two ways to continue, even with `inline-reply: off`:
+
+- In the shown terminal directory, run `agf looper status <run-root>`, then `agf looper run <run-root>`.
+
+- In chat, send `run-tasks`.
+
+The host substitutes the actual paths. If `agf` is unavailable, it shows the verified Node command instead. These instructions do not start execution.
 
 The default run root is `.agentflow/artifacts/A-NNN-<name>/planned/` (managed features: `<ag-dir>/features/<feature>/artifacts/A-NNN-<name>/planned/`), containing `group-NNN.md`, `queue.json` and `request.md`, linked from Current. You do not need to handwrite queue JSON.
 
@@ -371,7 +457,9 @@ First setup detects installed Codex/Claude CLIs and fills task, repair and accep
 
 Repaired results can use the available configured reviewer, including the same provider, in a separate fresh session. Checks, independent review and renewed acceptance remain required; explicit stricter provider requirements prevail.
 
-Main can advance while the looper runs. The coordinator records compatible forward changes and merges onto the latest main; you do not manually refresh the queue base. If main advances during checks or landing, it carries the checked result into a new merge and checks again, retaining completed tasks, accepted repairs and earlier evidence. Branch changes, rewritten history, uncertain landing effects or conflicting authority still require reconciliation.
+Other work can move main forward while the looper runs. The coordinator merges onto the latest compatible main. If main changes during checks, it merges and checks again while keeping completed tasks and accepted repairs.
+
+Switching branches, rewriting history, uncertain integration results or conflicting authority still need investigation. You do not need to edit the queue base manually.
 
 An active Git operation or lock can pause landing. Resume the same queue after it ends; successful tasks stay preserved.
 
@@ -387,9 +475,11 @@ Group records live in `.aglite-records/` and stay out of product integration. De
 
 For shell use, install `agf` as described by the [agent looper contract](../references/looper.md) and use `agf looper run [run-root]` or `agf looper status [run-root]`. Shell omission means the current directory; chat `run-tasks` instead follows Current. See the [CLI/settings reference](CHEATSHEET.md#looper-cli--alphabetical) and [retained files](../references/looper.md#retained-files).
 
+### Follow progress and clean up
+
 `run` shows timestamped progress on stderr and a final result on stdout. Quiet periods get a 30-second heartbeat; this is not an ETA or proof that a worker is advancing. The result distinguishes completed tasks from groups checked and integrated, lists output/evidence locations and saved blocking reasons, and tells you what to resolve before resuming.
 
-Sections and progress events have blank lines. Timestamped progress has two columns: the timestamp, then the message. Wrapped text and reviewer details align in the message column; terminal wrapping follows its current width. Pipes keep full hanging logical lines; status and saved reports preserve complete commands and paths.
+Progress and result sections use blank lines for readability. Long messages wrap to the terminal width; piped output and saved reports keep complete commands and paths.
 
 Opt in with `agf looper cleanup <run-root>` afterward, or add `--cleanup` to `agf looper run`.
 
@@ -401,7 +491,9 @@ Avoid cleanup to retain full history; `status` and completed-run repeats still w
 
 Cleanup currently requires macOS and accessible same-volume Trash. Task success plus cleanup failure exits 1; resolve the blocker and retry the manual command. Default, blocked and stopped runs retain scratch; see [cleanup safety](../references/looper.md#explicit-cleanup).
 
-CLI tasks request their ordinary independent review through the coordinator, which launches the configured reviewer outside the task sandbox. This avoids nested CLI startup failures while preserving task write restrictions, reviewer independence and ordinary closeout. No additional review stage is added. Blocked results show worker evidence and exact attempt paths; execution/result failures also retain `failure.json` beside the transcript.
+CLI tasks ask the coordinator to launch their independent reviewer in a fresh session. This keeps the existing task restrictions and review requirement while avoiding nested CLI startup failures.
+
+Blocked results point to the worker's evidence and attempt directory. Execution or result-parsing failures also leave `failure.json` beside the transcript.
 
 Exit codes are 0 (complete), 2 (blocked or stopped), and 1 (error). When saved state was observed, a unique `evidence/run-<time>-<UUID>.txt` report retains the result; an early validation error may have no report. Reports are historical snapshots; `queue.json` remains current execution state. `status` changes no files and also shows declared outputs, blockers, dependencies and report locations. A draft in a worktree is not yet an integrated result; listed output paths do not prove files exist.
 
@@ -443,7 +535,7 @@ Outstanding native work additionally needs actual stopped-result proof; see [the
 
 A live host can diagnose technical blockers within existing authority, operate the inbox and resume.
 
-`handle-tasks` does not create a persistent supervisor, survive host shutdown or guarantee autonomous recovery.
+`handle-tasks` does not start a permanent supervisor or guarantee recovery after the host closes.
 
 Native work requires that live host; CLI-only execution can proceed without native dispatch. Neither mode proves reliable completion of 1,000 unattended tasks.
 
@@ -461,7 +553,25 @@ Original input, history, machine syntax and established artifact languages stay 
 
 Verified task changes and owner edits are committed separately, subject to the pre-existing-content exclusion after bootstrap. Git delivery grants no deployment, publication, external-message or unrelated-change authority.
 
+`save-evidence` is optional `on|off`, default `off`; missing values require no migration or schema change (schema 13 remains current). Invalid values stop dependent work. Use `on` for minimal separate proof; `off` reduces recovery detail without removing design/tracker/devlog/Git recovery. It does not waive checks, reviews or approvals.
+
 `saving-mode` is required and defaults off. Migration adds a missing value as off and preserves existing on/off. Turning it on reduces optional prose/records and reuses evidence; comprehension, requested detail, required checks, gates and recovery remain. It changes no models or routes.
+
+### Save-evidence and saving-mode together
+
+`save-evidence` controls whether separate proof is retained; `saving-mode` reduces optional writing overall. They are independent: a single on/off switch would lose useful choices.
+
+Read each combination below as `save-evidence` / `saving-mode`:
+
+- **`off` / `off` (defaults):** ordinary answer detail, without separate round evidence. This does not mean “save everything”; ordinary minimality rules still apply.
+
+- **`off` / `on`:** less optional prose and fewer optional documents, without separate round evidence. Choose this to write and retain as little as necessary.
+
+- **`on` / `off`:** ordinary answer detail, retaining only useful minimal separate evidence.
+
+- **`on` / `on`:** less optional writing, while retaining useful minimal separate evidence. Saving mode never enables evidence storage that is off.
+
+All four preserve requested deliverables, required checks/review, approvals and essential recovery. Dedicated lifecycle, looper, migration and release operational records remain required where applicable. Neither switch changes models or review routes; turning evidence storage on applies prospectively, without recreating past proof.
 
 `pipeline-roles` and `model-family` select models/effort for work already chosen, and launch nothing alone. Unsupported selected settings block rather than change silently.
 

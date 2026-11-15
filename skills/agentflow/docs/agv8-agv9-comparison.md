@@ -6,7 +6,7 @@ That change has concrete consequences. An assistant can still violate the same w
 
 Treat this as a migration to a redesigned product. Agentflow 8 configuration and queues are not supported as drop-in inputs; configuration has a guarded conversion path, while old queues require separate recovery and new preparation. Start with the [guarded legacy migration rules](../references/legacy-migration.md); retain v8 for active work that cannot yet be safely handed off.
 
-This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.0**, configuration schema **13**. Current source references below belong to this package.
+This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.11**, configuration schema **13**. Current source references below belong to this package.
 
 Version 8 is preserved at [`agfnow/agentflow-v8`](https://github.com/agfnow/agentflow-v8); stable v9 uses [`agfnow/agentflow`](https://github.com/agfnow/agentflow). Use the matching repository’s installation instructions. Existing installations must be rebound deliberately; the repository rename alone does not migrate them.
 
@@ -36,7 +36,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Before:** v8 exposed startup/setup, settings, hook management, notebook operations, stream operations and closeout through its helper surface.
 
-**Now:** the agentflow launcher accepts the three `agf looper` commands and the separate [terminal feature commands](../references/features.md#terminal-cli): `new-feature`/`newft`, `merge-feature`/`mergeft`, and `drop-feature`/`dropft`. `agf shell <zsh|bash|powershell>` prints the caller-directory function. Chat commands such as `godev` and `prepare-tasks` remain host instructions. [agf.js, line 1](../scripts/agf.js) [features.md, line 1](../references/features.md)
+**Now:** the agentflow launcher accepts `agf init`, the three `agf looper` commands and the separate [terminal feature commands](../references/features.md#terminal-cli): `new-feature`/`newft`, `merge-feature`/`mergeft`, and `drop-feature`/`dropft`. `agf shell <zsh|bash|powershell>` prints the caller-directory function. Chat commands such as `godev` and `prepare-tasks` remain host instructions. [agf.js, line 1](../scripts/agf.js) [features.md, line 1](../references/features.md)
 
 **Concrete impact:** a script invoking `agf start`, `agf settings`, `agf close`, `agf new` or the old `agf-looper` cannot be fixed by changing its install directory alone. A shell alias may still resolve to v8 even when the assistant loads agentflow.
 
@@ -136,7 +136,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Changed:** v8's helper compacted at 750 lines or 768 KiB; current agentflow instructs the host to archive above 750 lines or on request, without the old byte-size trigger. Long lines can therefore pass the old size threshold without triggering the same documented action. [SKILL.md, line 1](../SKILL.md)
 
-**Changed:** `log-verbosity` becomes separate omission controls. Missing `omit-wip` defaults on, but the bundled setup template explicitly sets it off; migrating users should choose deliberately. Legacy conversion maps effective v8 log choices; current agentflow schema migration is a separate procedure. Inspect the mapped result rather than assume identical log semantics. [configuration.md, line 1](../references/configuration.md) [ag.json, line 1](../assets/.agentflow/ag.json)
+**Changed:** `log-verbosity` becomes separate omission controls. Both missing `omit-wip` and the bundled setup template default to on, so routine WIP entries are omitted. Recovery notes still remain in Current or the tracker. Legacy conversion maps effective v8 log choices; current agentflow schema migration is a separate procedure. Inspect the mapped result rather than assume identical log semantics. [configuration.md, line 1](../references/configuration.md) [ag.json, line 1](../assets/.agentflow/ag.json)
 
 **Removed controls:** v8's `completion-cleanup` and interval do not carry over as ordinary agentflow controls. Looper cleanup is opt-in through its explicit command or run flag, never a default/timed collector. It requires completed settled work and supported same-volume Trash, preserving durable records and branches. [looper.md, line 1](../references/looper.md)
 
@@ -154,7 +154,7 @@ V8 also required a real pseudo-terminal (PTY) journey for changed terminal featu
 
 - **Durable project guidance:** canonical system-invariant maintenance, shared project rules and affected product-documentation maintenance are explicit current responsibilities. Their coverage should be assessed from source rather than inferred from a file-count reduction. [product-docs.md, line 1](../references/product-docs.md)
 
-- **Task controls:** `fast-lane`, `skip-review`, `grill-me`, `saving-mode` and `append-rounds` cover different concerns. None should be treated as a blanket substitute for old `skip-ag` or `no-ag`. [SKILL.md, line 1](../SKILL.md) [configuration.md, line 1](../references/configuration.md)
+- **Task controls:** `fast-lane`, `skip-review`, `go-hunt`, `save-evidence`, `saving-mode` and `append-rounds` cover different concerns. None should be treated as a blanket substitute for old `skip-ag` or `no-ag`. [SKILL.md, line 1](../SKILL.md) [configuration.md, line 1](../references/configuration.md)
 
 - **Configuration upkeep and release checks:** known agentflow predecessor settings migrate without resetting owner choices; on-record activation may check stable Agentflow releases on a two-day schedule. Installation replacement still requires explicit approval. Agentflow 9 is the stable successor to the aglite beta; Agentflow 8.x is not an eligible upgrade. [configuration.md, line 1](../references/configuration.md)
 

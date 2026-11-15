@@ -1,5 +1,17 @@
 # Changelog
 
+## 9.1.11 — 2026-11-15
+
+- Add `spec-out` for staged specification work with a shared design template, readiness checks and bounded GitHub collaboration; replace the `grill-me` requirements interview command with `go-hunt`. Neither command grants implementation or publication authority.
+
+- Unify authorized UX prototype work around isolated synthetic data, meaningful interactions, matching reports and optional review tours; preserve fidelity decisions, human acceptance and production boundaries.
+
+- Add optional `save-evidence: on|off`, default `off`, to avoid separate routine proof records while retaining required checks, review, recovery and release operation identities. Schema remains 13.
+
+- Close settled rounds and release their claims when awaiting owner answers, preserving pending approvals and task recovery. Align the setup template with `omit-wip: on`.
+
+- Clarify standalone initialization receipts and validate evidence settings in feature and looper entry points, with regression tests and updated English/Traditional Chinese guides and cheatsheets. Publication does not replace existing installations or establish native Windows, provider-wide or measured model-quality guarantees.
+
 ## 9.1.10 — 2026-11-11
 
 - Include the pending risk-routed `deep-review` command and adaptive mid/high checks, fresh-context inspection through existing review routes, and the renamed `brownfield` workflow.

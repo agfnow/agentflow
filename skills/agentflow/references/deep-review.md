@@ -1,6 +1,6 @@
 # Deep review
 
-Run after applicable [result review and triage](review.md#risk-triage) for mid/high or an explicit [request](work.md#task-modes) at any risk. Bind to the exact candidate and its accepted scope. Unless host-only routes/waivers apply, fresh-context workers own substantial inspection; the host verifies findings and owns integration, acceptance and handoff. Use ordinary authority, routes, gates and record locations; add no advisor or approval. Host-only waivers preserve adaptive host checks and handoff without reinstating waived steps.
+Run after applicable [result review and triage](review.md#risk-triage) for mid/high or an explicit [request](work.md#task-modes) at any risk. Bind to the exact candidate and its accepted scope. Unless host-only routes/waivers apply, fresh-context workers own substantial inspection; the host verifies findings and owns integration, acceptance and handoff. Apply [evidence storage](session.md#evidence-storage) to recording, retaining all checks and review. Use ordinary authority, routes, gates and record locations; add no advisor or approval. Host-only waivers preserve adaptive host checks and handoff without reinstating waived steps.
 
 ## Fresh-context inspection
 
@@ -26,9 +26,9 @@ Run after applicable [result review and triage](review.md#risk-triage) for mid/h
 
 ## Human handoff
 
-- Save one concise localized handoff at the existing answer destination before any applicable approval. State exact candidate, risk/reason, intent, material decisions, acceptance/invariant outcome and uncertainty. Link proof instead of copying per-ID accounting or logs. Identify actual route/waiver and gaps that affect judgment. Keep low risk to its short risk disposition unless explicit review or material uncertainty warrants more.
+- Keep routine candidate identity, risk/reason, review route, sensitive-location lists, acceptance/invariant results, proof limits and approval-status accounting only in enabled evidence. With storage off, assess them in context without substitute records. No routine review footer or “no approval pending” statement in answers.
 
-- Rank exact file/diff locations, why each matters, and what the human should confirm. Include material data shape/flow, coupling, test assertions and behavioral evidence. For high risk, mark sensitive paths for careful human review, including failure/recovery, downstream effects and specialist decisions. State actual human-review/approval status; agent checks prove neither. Existing project rules and gates decide whether delivery pauses.
+- At the existing answer destination, surface only blockers, uncertainty affecting the owner's decision, sensitive actions needing human attention and actual approval requests, plus explicitly requested review detail. Explain the affected location, consequence and needed action; link available proof without copying logs. For high risk, identify sensitive failure/recovery, downstream effects and specialist decisions needing review. Agent checks never imply human approval; existing rules/gates decide pauses. Do not omit material warnings for brevity.
 
 ## Review lessons
 
