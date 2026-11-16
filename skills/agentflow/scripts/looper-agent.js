@@ -495,7 +495,7 @@ function diagnostic_text(value) {
 }
 
 async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir,
-  signal, on_launch, on_descendant }) {
+  signal, timeout_ms = 20 * 60 * 1000, on_launch, on_descendant }) {
   safe_directory(attempt_dir)
   const schema = result_schema(attempt)
   const schema_file = path.join(attempt_dir, 'schema.json')
@@ -564,11 +564,11 @@ async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir
   let resolved_command
   try { resolved_command = resolve_command(command, { env: copilot ? copilot.env : process.env, cwd }) }
   catch (error) { throw failure('launch', error) }
-  fs.writeFileSync(path.join(attempt_dir, 'launch.json'), JSON.stringify({ selection, role, cwd, command, resolved_command,
+  fs.writeFileSync(path.join(attempt_dir, 'launch.json'), JSON.stringify({ selection, role, cwd, command, resolved_command, timeout_ms,
     ...(copilot ? { session_id: copilot.session_id, home: copilot.home, environment_names: Object.keys(copilot.env) } : {}) }))
   let observation
   try { observation = await execute({ command, cwd, log: transcript,
-    stdin: full, ...(copilot ? { env: copilot.env } : {}), signal, timeout_ms: 20 * 60 * 1000,
+    stdin: full, ...(copilot ? { env: copilot.env } : {}), signal, timeout_ms,
     on_launch: async identity => {
       write_json(path.join(attempt_dir, 'process.json'), identity)
       await on_launch?.(identity)
