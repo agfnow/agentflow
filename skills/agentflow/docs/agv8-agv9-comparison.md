@@ -6,7 +6,7 @@ That change has concrete consequences. An assistant can still violate the same w
 
 Treat this as a migration to a redesigned product. Agentflow 8 configuration and queues are not supported as drop-in inputs; configuration has a guarded conversion path, while old queues require separate recovery and new preparation. Start with the [guarded legacy migration rules](../references/legacy-migration.md); retain v8 for active work that cannot yet be safely handed off.
 
-This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.11**, configuration schema **13**. Current source references below belong to this package.
+This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.12**, configuration schema **14**. Current source references below belong to this package.
 
 Version 8 is preserved at [`agfnow/agentflow-v8`](https://github.com/agfnow/agentflow-v8); stable v9 uses [`agfnow/agentflow`](https://github.com/agfnow/agentflow). Use the matching repository’s installation instructions. Existing installations must be rebound deliberately; the repository rename alone does not migrate them.
 
@@ -46,7 +46,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Before:** v8 used integer schema 8, `workspace-dir`, `target-doc`, `lang`, worker permission lists and per-profile model tiers. The old repository's local settings are owner choices, not universal defaults.
 
-**Now:** agentflow uses `<checkout>/<ag-dir>/ag.json`, schema 13, locale tags and shared model catalogs. Known agentflow predecessor schemas and proven Agentflow 8 inputs follow different migration procedures. Schema 8 and residual v8 controls trigger guarded legacy classification before normal validation; a stamp alone does not prove full-v8 provenance. [configuration.md, line 1](../references/configuration.md), [legacy-migration.md, line 1](../references/legacy-migration.md).
+**Now:** agentflow uses `<checkout>/<ag-dir>/ag.json`, schema 14, locale tags and shared model catalogs. Known agentflow predecessor schemas and proven Agentflow 8 inputs follow different migration procedures. Schema 8 and residual v8 controls trigger guarded legacy classification before normal validation; a stamp alone does not prove full-v8 provenance. [configuration.md, line 1](../references/configuration.md), [legacy-migration.md, line 1](../references/legacy-migration.md).
 
 **Concrete impact:** moving v8’s JSON and changing only its schema number can leave old settings without their intended effect. A preserved unknown key is not an implemented control. Ambiguous routing, unsupported settings and unrepresentable restrictions stop dependent changes rather than choose or reset silently.
 
@@ -140,7 +140,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Removed controls:** v8's `completion-cleanup` and interval do not carry over as ordinary agentflow controls. Looper cleanup is opt-in through its explicit command or run flag, never a default/timed collector. It requires completed settled work and supported same-volume Trash, preserving durable records and branches. [looper.md, line 1](../references/looper.md)
 
-**Test-first policy restored in 9.1.9:** v8 required a failing test first for every executable behavior change. Current agentflow again starts executable behavior changes with a focused failing test, then the smallest passing change and refactoring while tests keep passing. [work.md, line 45](../references/work.md#45)
+**Test-first policy restored in 9.1.9:** v8 required a failing test first for every executable behavior change. Current agentflow again starts executable behavior changes with a focused failing test, then the smallest passing change and refactoring while tests keep passing. [work.md, line 47](../references/work.md#47)
 
 Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation; claim test-driven development only with observed failure-then-pass evidence.
 

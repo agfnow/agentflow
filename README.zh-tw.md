@@ -1,4 +1,4 @@
-# Agentflow v9.1.11
+# Agentflow v9.1.12
 
 [English](README.md) · **繁體中文**
 
@@ -182,11 +182,11 @@ CLI 任務透過協調程序轉送原有的獨立審查，保留任務沙箱與�
 
 先完成或安全交接舊版仍在跑的代理、stream 與佇列，並保留它們的紀錄。舊佇列不能只改檔名就當成新 looper 任務。
 
-遇到可辨識的 Agentflow 8 專案時，主代理才載入獨立遷移提示。可安全對照的內容會自動升成 schema 13；無法直接保留的限制、舊核准規則或不明認領，會先請你做具體決定。
+遇到可辨識的 Agentflow 8 專案時，主代理才載入獨立遷移提示。可安全對照的內容會自動升成 schema 14；無法直接保留的限制、舊核准規則或不明認領，會先請你做具體決定。
 
 遷移會更新專案設定與目前狀態，移除確認屬於舊版的專案 hooks 或啟動指示，並留下可還原的私人備份。對話歷史與其他工具的設定會保留。
 
-agentflow 的 schema 9、10、11、12 也能升級。缺少必填的 `saving-mode` 時會補上 `off`，既有有效值保持不變。
+agentflow 的 schema 9、10、11、12、13 也能升級至 14。只有缺少必填的 `saving-mode` 或 `save-evidence` 時才補上 `off`；既有有效值保持不變，無效值會停止後續工作。
 
 例如 `skip-wip: off` 會變成 `omit-wip: off`，保留原本意思。
 
@@ -211,7 +211,7 @@ v8 與 v9 也共用 `agentflow` 技能名稱及 `.agentflow/` 專案目錄。同
 
 ## 設定與限制
 
-專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 13，與套件版本 9.1.11 分開。
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 14，與套件版本 9.1.12 分開。
 
 `use-lang` 決定新增文字的語言，`plan-mode` 決定何時建立規劃文件。需求與做法清楚、風險低時，主代理直接規劃。複雜規劃採用 `plan-order`；需要其他代理時，優先由 Claude 起草，再由 Codex 質疑、修正並產出最終計畫。明確指定的路徑或設定的 `3ways` 優先；`plan-order: host` 則由主代理規劃。
 

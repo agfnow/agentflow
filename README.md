@@ -1,4 +1,4 @@
-# Agentflow v9.1.11
+# Agentflow v9.1.12
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -182,11 +182,11 @@ See the [looper contract](skills/agentflow/references/looper.md) and [settings](
 
 Finish or safely hand off active old workers, streams and queues first. Keep their records; old queue files cannot become new looper jobs by renaming them.
 
-When the host encounters a recognized Agentflow 8 project, it loads a separate migration procedure. Safe cases upgrade automatically to schema 13; unsupported restrictions, old consequential-only approval rules or ambiguous ownership wait for a specific decision.
+When the host encounters a recognized Agentflow 8 project, it loads a separate migration procedure. Safe cases upgrade automatically to schema 14; unsupported restrictions, old consequential-only approval rules or ambiguous ownership wait for a specific decision.
 
 Migration updates project configuration and STATUS, retires confirmed old project hooks/startup units, and retains private recoverable originals. Conversation history and unrelated settings survive.
 
-Known agentflow schemas9/10/11/12 also migrate. The required `saving-mode` is added as `off` when missing; an existing valid value stays unchanged.
+Known agentflow schemas 9/10/11/12/13 also migrate to 14. Required `saving-mode` and `save-evidence` are added as `off` only when missing; valid existing values stay unchanged and invalid values stop dependent work.
 
 In particular, `skip-wip: off` becomes `omit-wip: off`, preserving its meaning.
 
@@ -211,7 +211,7 @@ Both v8 and v9 also use the skill name `agentflow` and project directory `.agent
 
 ## Configuration and limits
 
-Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 13 is separate from package version 9.1.11.
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 14 is separate from package version 9.1.12.
 
 Use `use-lang` for new human-facing text and `plan-mode` for when to create planning documents. Simple, understood, low-risk plans stay with the host. Complex planning uses `plan-order`; worker routes prefer a Claude draft followed by Codex review, correction and the final plan. An explicit route or configured `3ways` takes precedence; `plan-order: host` keeps planning with the host.
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 9.1.12 — 2026-11-17
+
+- Require explicit `save-evidence: on|off` in configuration schema 14; migrate only missing values to `off`, preserve valid choices and reject invalid values in host, initializer, feature and looper paths.
+
+- Share failure-driven adaptive verification across planning, implementation, ordinary/deep review, acceptance, final audit, brownfield and looper review prompts. Select checks for concrete consequential failures; scope state/formal claims to proved properties and implementation correspondence.
+
+- Require implementation reviews to trace intent and consequential decisions to accepted requirements; disclose risk and proof limits. Keep machine-facing agent instructions in English while configured locale governs user-facing writing.
+
+- Bound verification repairs by existing authority and keep acceptance claims tied to observed evidence. Update both guides and cheatsheets; align the public v8/v9 comparison with schema 14. Publication does not replace installations or establish measured model reliability, universal regression freedom or new platform/provider guarantees.
+
 ## 9.1.11 — 2026-11-15
 
 - Add `spec-out` for staged specification work with a shared design template, readiness checks and bounded GitHub collaboration; replace the `grill-me` requirements interview command with `go-hunt`. Neither command grants implementation or publication authority.

@@ -13,7 +13,7 @@ function fixture(physicalName) {
   if (physicalName) { root = path.join(root, physicalName); fs.mkdirSync(root) }
   git(root, 'init', '-b', 'main'); git(root, 'config', 'user.name', 'Fixture'); git(root, 'config', 'user.email', 'fixture@localhost')
   fs.mkdirSync(path.join(root, '.agentflow'))
-  fs.writeFileSync(path.join(root, '.agentflow/ag.json'), JSON.stringify({ 'schema-version': schema, switches: { 'saving-mode': 'off', 'notebook-name': 'root.devlog.md', 'auto-commit': 'off', 'auto-push': 'off' } }))
+  fs.writeFileSync(path.join(root, '.agentflow/ag.json'), JSON.stringify({ 'schema-version': schema, switches: { 'save-evidence': 'off', 'saving-mode': 'off', 'notebook-name': 'root.devlog.md', 'auto-commit': 'off', 'auto-push': 'off' } }))
   fs.writeFileSync(path.join(root, '.agentflow/root.devlog.md'), 'private root\n')
   fs.writeFileSync(path.join(root, 'product'), 'base\n'); fs.writeFileSync(path.join(root, 'owner'), 'owner base\n')
   git(root, 'add', '.'); git(root, 'commit', '-m', 'base')
@@ -426,7 +426,7 @@ test('full new-feature journey preserves private uncommitted configuration throu
     git(root, 'init', '-b', 'main'); git(root, 'config', 'user.name', 'Fixture'); git(root, 'config', 'user.email', 'fixture@localhost')
     if (!unborn) git(root, 'commit', '--allow-empty', '-m', 'committed base')
     fs.mkdirSync(path.join(root, '.agentflow'))
-    const config = { 'schema-version': schema, privateSetting: 'owner-only', switches: { 'saving-mode': 'off', 'auto-commit': 'on', 'auto-push': 'off', 'use-lang': 'en-us' } }
+    const config = { 'schema-version': schema, privateSetting: 'owner-only', switches: { 'save-evidence': 'off', 'saving-mode': 'off', 'auto-commit': 'on', 'auto-push': 'off', 'use-lang': 'en-us' } }
     const configText = JSON.stringify(config, null, 2) + '\n'
     fs.writeFileSync(path.join(root, '.agentflow/ag.json'), configText)
     fs.writeFileSync(path.join(root, 'owner'), 'owner staged\n'); git(root, 'add', 'owner')

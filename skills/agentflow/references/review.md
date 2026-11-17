@@ -4,7 +4,7 @@ Read before dispatch. [Evidence storage](session.md#evidence-storage) governs al
 
 Review requirements follow [work rules](work.md#records-and-review), its task modes and explicit owner requests; this guide adds none. Worker metadata grants no dispatch authority. Required result review follows configured review-order under [result-review routes](#result-review-routes) after host verification. Supply request, constraints, final artifacts/evidence without inherited conversation. Seek defects, omissions and simpler alternatives. Reuse review only with matching routing, scope and independence.
 
-A selected acceptance or final-audit advisor may supply this same pass after host verification when it covers the exact final source/scope, every accepted outcome and applicable INV/AC, evidence limits, minimality, and its own route follows configured review-order and required independence/provider. Host-run advice cannot satisfy required independent review. Retain uncovered obligations, not a second equivalent pass. Review alone does not require loading ag.md or acceptance.md.
+A selected acceptance or final-audit advisor may supply this same pass after host verification when it covers the exact final source/scope, every accepted outcome and applicable INV/AC, implementation intent/decisions, evidence limits, minimality, and its own route follows configured review-order and required independence/provider. Host-run advice cannot satisfy required independent review. Retain uncovered obligations, not a second equivalent pass. Review alone does not require loading ag.md or acceptance.md.
 
 For a Copilot host or selected Copilot route/profile, read [Copilot](copilot.md) before selection/dispatch. Its verified model-family/native-preset controls and fresh-session counterpart rules extend these routes; exact task restrictions and ordinary proof requirements prevail.
 
@@ -31,7 +31,7 @@ For a Copilot host or selected Copilot route/profile, read [Copilot](copilot.md)
 
 ## Give one bounded assignment
 
-Send the following in the worker message. A separate brief file is useful only when a tool requires it or the task must survive a restart.
+Write every native/external worker assignment in English regardless of OS/configured locale, including planning, implementation, review and looper handoffs. Preserve original quoted inputs/source; separately specify the configured or explicitly requested language for user-facing deliverables. Send the following in the worker message. A separate brief file is useful only when a tool requires it or the task must survive a restart.
 
 ```text
 Goal: [one requested outcome or review question]
@@ -39,7 +39,7 @@ Authority and inputs: [original Ask/exact owner text and accepted decisions, exa
 Source: [commit plus declared patch, or exact saved file identities]
 Allowed writes: [named paths; review is read-only except its response]
 Checks: [design/plan, every applicable INV/AC ID and validation evidence; passing checks to reuse]
-Return: changed paths, observed results, material issues/limits, next action; human-facing output follows supplied writing guidance
+Return: changed paths, observed results, material issues/limits, next action; machine-only findings in English; user-facing deliverables in [configured/requested language], following supplied writing guidance
 Stop: missing authority, conflicting requirements or unavailable required access
 Do this assigned work directly. Do not start other agents, run another workflow,
 change the owner notebook/settings, expand scope, or publish/send/deploy.
@@ -111,7 +111,11 @@ For result review, use the following inputs/checks with the selected reviewer, i
 
 - **Outcome:** Apply [canonical Check](simple-check.md#check) to original owner requirements/accepted decisions, explicit deltas and final behavior, not only the derived design. Include failure/ordinary-use cases; for consequential architecture also include a check rejecting the inadequate alternative and verify its responsibility flow/lifecycle comparison preceded expensive pilots. Which observations are missing?
 
+- **Intent and decisions:** For implementation review, including retrospective review, trace accepted `design.md` goals/acceptance criteria to code/tests and material mechanisms back to an accepted purpose. Judge consequential decisions/tradeoffs against those goals/constraints, including failure paths and simpler adequate choices; flag mismatches, unsupported mechanisms and missing proof without inventing intent. Without a design, use original requirements/accepted decisions and disclose missing context; do not create a design or revalidate product goals.
+
 - **Minimality:** Read and apply the same [Check](simple-check.md#check) to the design’s Minimality check and final patch. Challenge unsupported scope and substantial mechanisms with concrete simpler replacements; preserve required outcomes/safeguards and compare total burden. Existing review routes/stages remain; do not invoke the explicit command or add workers solely for this checklist.
+
+- **Verification strength:** Apply [adaptive verification](verification.md): challenge requirement-derived expected results, name plausible consequential violations still unproved and select the cheapest discriminating checks. Use state/model/formal methods for their named gaps, with explicit scope and implementation correspondence; agreement alone is no proof. Reuse matching host evidence without assuming it covers missing behavior.
 
 - **Conformance:** Does the change preserve scope, authority, data and applicable project constraints?
 
@@ -121,13 +125,13 @@ Distinguish behavior defects, unsupported claims and cosmetic records; stay read
 
 The response needs actionable findings with evidence and limits; it needs no mandated heading, timestamp stamp or separate report file. Save the useful finding and resolution under Round evidence or preserve the original response with a link. Where the owner requests a report, save it there.
 
-The host verifies artifacts and decides acceptance. Repair reproduced in-scope defects and recheck affected behavior; reuse applicable tests/review. Small source corrections need relevant rechecks; status/formatting edits or delivery commits do not restart product review. Unrelated suggestions remain proposals.
+The host verifies artifacts and decides acceptance. Repair reproduced in-scope defects under [bounded repair](verification.md#repair-and-stopping) and recheck affected behavior; reuse applicable tests/review. Small source corrections need relevant rechecks; status/formatting edits or delivery commits do not restart product review. Unrelated suggestions remain proposals.
 
 Track real worker handles until settled. Do not launch a replacement writer while the first is running or its state is unknown. Stop on an owner stop, inspect a failed environment before retry, and require a concrete correction for another attempt. Do not use fixed retry loops, silence deadlines, nested reviewers or cosmetic report repair campaigns. Prefer longer waits within checkpoint/update obligations over repeated short polls; inspect progress for recovery, owner updates or a concrete failure.
 
 ### Risk triage
 
-- Rate the exact candidate, including on host-only and reused review routes. On record, read applicable lessons from the established review-knowledge record or checkout-root `<ag-dir>/sys-review.md` if present; share only relevant authorized excerpts as advisory data. Assess risk/reason internally; retain it only in enabled evidence. Owner answers include risk details only when decision-changing, requiring sensitive human action/approval, or explicitly requested; no routine footer. Off-record preserves the same display rule without workflow records.
+- Rate the exact candidate, including standalone/retrospective and host-only reviews and reused routes. On record, read applicable lessons from the established review-knowledge record or checkout-root `<ag-dir>/sys-review.md` if present; share only relevant authorized excerpts as advisory data. For every review of an implementation result (code, operational prompt or product artifact), state `low | mid | high` and a short consequence-based reason at the existing answer destination; name material uncertainty that limits the rating. Keep detailed assessment only in enabled evidence. Off-record uses the same answer rule without workflow records. Plan/design review, ordinary Q&A, explanations and examples do not require this risk statement.
 
 - Classify actual behavior, blast radius, reversibility and uncertainty. **Low:** bounded, well-understood effects such as inert editorial or test-only changes. **Mid:** ordinary behavior changes with meaningful regression potential. **High:** material effects on auth/sessions/permissions, money, destructive or migrated data, secrets, deployment or external-action authority, public contracts, core business invariants or system boundaries; broad changes can be high by consequence. File type, a disabled flag, a dependency patch or passing checks alone cannot justify low.
 
@@ -160,7 +164,7 @@ Use actual host start/result/stop controls; invent no tools, flags or provider i
 
 ## Looper task review
 
-Looper review and renewed acceptance share `ag.json`’s `looper-routes.acceptance` and `pipeline-roles.acceptance`; no separate review tier. CLI task hosts use the [ordinary-review transport](looper.md#prepare-and-route) for required separate review, including applicable [deep inspection](deep-review.md#fresh-context-inspection) in that fresh reviewer; retain host triage, remaining safe checks and handoff without nested reviewers or changed routes. Carry risk, handoff or its exact location, and lesson candidates in existing result/evidence text, with no new transport fields or shared writes.
+Looper review and renewed acceptance share `ag.json`’s `looper-routes.acceptance` and `pipeline-roles.acceptance`; no separate review tier. CLI task hosts use the [ordinary-review transport](looper.md#prepare-and-route) for required separate review, including applicable [deep inspection](deep-review.md#fresh-context-inspection) in that fresh reviewer; retain host triage, remaining safe checks and handoff without nested reviewers or changed routes. Apply the same [adaptive verification](verification.md) in that reviewer; inline coordinator guidance supplies its checks/repair limits without outside-file access. Carry risk, handoff or its exact location, and lesson candidates in existing result/evidence text, with no new transport fields or shared writes.
 
 Looper task implementation follows its [CLI preference](looper.md#prepare-and-route), including Codex hosts selecting tasks run through `codex exec` by the coordinator. The counterpart-CLI pairing in result review does not restrict implementation providers; preserve ordinary task review and CLI repair/reviewer independence; selected Copilot sessions follow [Copilot counterpart rules](copilot.md#planning-and-review), while repaired-result review may fall back to the available configured provider in separate fresh sessions, retaining checks and explicit stricter restrictions.
 

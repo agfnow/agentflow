@@ -40,7 +40,14 @@ test('unborn Git bootstrap, generated-only commit, existing index and bytes, exa
 test('existing committed root retains history; Traditional Chinese records and repeat', () => {
   const root = fixture(); C.git(root, ['commit', '--allow-empty', '-m', 'owner baseline'])
   const base = C.git(root, ['rev-parse', 'HEAD'])
-  const result = initialize({ cwd: root, lang: 'zh-TW' })
+  const cli = run(root, '--lang', 'zh-TW')
+  assert.equal(cli.status, 0, cli.stderr)
+  const result = { notebook: path.join(root, '.agentflow', JSON.parse(fs.readFileSync(path.join(root, '.agentflow/ag.json'))).switches['notebook-name']) }
+  const agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
+  assert.match(agents, /At session start, the owner-facing host/)
+  assert.match(agents, /Read agentflow's `references\/project-rules.md`/)
+  assert.doesNotMatch(agents, /[\u3400-\u9fff]/u)
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, '.agentflow/ag.json'))).switches['use-lang'], 'zh-tw')
   assert.equal(C.git(root, ['rev-parse', 'HEAD^']), base)
   assert.match(fs.readFileSync(result.notebook, 'utf8'), /# → 提問 \/ A-002/)
   assert.match(fs.readFileSync(path.join(root, '.agentflow/backlog.md'), 'utf8'), /目前沒有未結事項/)
@@ -240,7 +247,7 @@ test('recorded AGENTS deletions and missing default/custom setup history refuse 
       if (state === 'removed-agents') C.git(root, ['add', '-u', '--', 'AGENTS.md'])
     } else {
       const dir = state === 'custom-records' ? 'records' : '.agentflow'
-      fs.mkdirSync(path.join(root, dir)); fs.writeFileSync(path.join(root, dir, 'ag.json'), JSON.stringify({ 'schema-version': 13, switches: { 'ag-dir': dir, 'notebook-name': 'journal.md', 'saving-mode': 'off' } }))
+      fs.mkdirSync(path.join(root, dir)); fs.writeFileSync(path.join(root, dir, 'ag.json'), JSON.stringify({ 'schema-version': require('../assets/.agentflow/ag.json')['schema-version'], switches: { 'ag-dir': dir, 'notebook-name': 'journal.md', 'save-evidence': 'off', 'saving-mode': 'off' } }))
       fs.writeFileSync(path.join(root, dir, 'journal.md'), 'Owner history\n'); C.git(root, ['add', '--', dir])
       if (state !== 'staged-config') C.git(root, ['commit', '-m', 'owner records'])
       fs.renameSync(path.join(root, dir), path.join(retained, 'records'))

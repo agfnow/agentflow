@@ -18,7 +18,7 @@ Read source, tests, configuration and accepted current requirements/contracts, i
 
 Form findings before reading prior verdicts/ledgers; then reconcile for missed/recurring issues. Keep necessary requirements/authority readable throughout. A fresh reviewer can help where project routing permits; supply requirements and raw candidate evidence without prior verdicts, finding ledgers or the desired conclusion. Disclose actual context/provider independence and its limits; self-review is never independent.
 
-Map each public promise and applicable invariant to its owning implementation, cross-boundary path and proving check or explicit gap. Ask what prevents violation and what reveals it. For prompt products, evaluate clarity, conflicts, host capability and observed behavior; prompting alone is not automatically a defect. Flag guarantees stronger than their enforcement/evidence.
+Map each public promise and applicable invariant to its owning implementation, cross-boundary path and proving check or explicit gap. Ask what prevents violation and what reveals it. For prompt products, evaluate clarity, conflicts, host capability and observed behavior; prompting alone is not automatically a defect. Flag guarantees stronger than their enforcement/evidence. Apply [adaptive verification](../verification.md) to remaining consequential gaps; distinguish completed model/proof results from implementation correspondence and sampled traces, without new stages or tool authority.
 
 ## Attack the relevant boundaries
 

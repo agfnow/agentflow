@@ -80,7 +80,7 @@ function fixture(groups, options = {}) {
   fs.writeFileSync(path.join(repo, 'owner.txt'), 'owner baseline\n')
   fs.writeFileSync(path.join(repo, 'shared.txt'), 'baseline\n')
   const { task = selection, repair, acceptance, max_workers = 2, max_repairs = 2, ...queue_options } = options
-  const config = { 'schema-version': current_schema, switches: { 'saving-mode': 'off' }, 'pipeline-roles': { implementation: 'basic', acceptance: 'better' }, 'model-family': {}, 'looper-routes': {}, 'looper-limits': { 'max-workers': max_workers, 'max-repairs': max_repairs } }
+  const config = { 'schema-version': current_schema, switches: { 'save-evidence': 'off', 'saving-mode': 'off' }, 'pipeline-roles': { implementation: 'basic', acceptance: 'better' }, 'model-family': {}, 'looper-routes': {}, 'looper-limits': { 'max-workers': max_workers, 'max-repairs': max_repairs } }
   for (const [role, value] of Object.entries({ task, repair, acceptance })) if (value) {
     config['looper-routes'][role] = { kind: value.kind, provider: value.provider, 'model-family': role }
     if (value.executable) config['looper-routes'][role].executable = value.executable
@@ -159,6 +159,8 @@ test('ordinary review relay preserves configured fresh CLI selection and task cl
       assert.equal(args.prompt.split('Changed contract inputs at workspace base').length - 1, 1)
       assert.match(args.prompt, /commands that do not require shell temporary files/)
       assert.match(args.prompt, /INV-1/)
+      assert.equal(args.prompt.split('# Adaptive verification').length - 1, 1)
+      assert.ok(args.prompt.includes(fs.readFileSync(path.join(__dirname, '../references/verification.md'), 'utf8')))
       assert.match(args.prompt, /Read only; launch no agents/)
       return { ...result(args.attempt), evidence: ['INV-1: pass; inspected a.txt.'] }
     }
@@ -848,6 +850,10 @@ test('failed combined check requires repair, fresh checks, review, then acceptan
   assert.equal(await L.run(root, { agent: async args => {
     fs.mkdirSync(args.attempt_dir, { recursive: true })
     events.push(args.role)
+    if (args.role !== 'task') {
+      assert.equal(args.prompt.split('# Adaptive verification').length - 1, 1)
+      assert.ok(args.prompt.includes(fs.readFileSync(path.join(__dirname, '../references/verification.md'), 'utf8')))
+    }
     assert.ok(args.prompt.includes(`read inherited configuration only at ${path.join(args.cwd, '.agentflow/ag.json')}`))
     assert.ok(args.prompt.includes('No configuration discovery, creation, migration writes, release checks or project adoption'))
     if (['review', 'acceptance'].includes(args.role)) assert.ok(args.prompt.includes('against original request Implement every registered task while preserving owner content.. Base '))
@@ -1419,23 +1425,26 @@ test('ag.json alone selects shared implementation/acceptance tiers and extensibl
   assert.ok(!Object.hasOwn(L.load(root), 'task_worker'))
 })
 
-test('optional save-evidence accepts missing/on/off and rejects invalid values before claims', async () => {
+test('required save-evidence accepts on/off and rejects missing/invalid values before claims', async () => {
   const { root, repo } = fixture([['a.txt']])
   const file = path.join(repo, '.agentflow/ag.json'), original = JSON.parse(fs.readFileSync(file))
   const queue = fs.readFileSync(path.join(root, 'queue.json'), 'utf8')
-  for (const value of [undefined, 'on', 'off']) {
+  for (const value of ['on', 'off']) {
     const config = structuredClone(original)
     if (value !== undefined) config.switches['save-evidence'] = value
     fs.writeFileSync(file, JSON.stringify(config))
     assert.doesNotThrow(() => L.read_settings(repo))
     assert.equal(require('./feature-common').discover(repo).settings['save-evidence'], value)
   }
-  for (const value of [true, null, '', 'ON', 'invalid']) {
+  for (const value of [undefined, true, null, '', 'ON', 'invalid']) {
     const config = structuredClone(original); config.switches['save-evidence'] = value
     fs.writeFileSync(file, JSON.stringify(config))
+    const source = fs.readFileSync(file, 'utf8')
+    assert.throws(() => require('./feature-common').discover(repo), /save-evidence|migration requires host/)
     await assert.rejects(L.run(root, { agent, checks }), /save-evidence/)
     assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
     assert.equal(fs.readFileSync(path.join(root, 'queue.json'), 'utf8'), queue)
+    assert.equal(fs.readFileSync(file, 'utf8'), source)
   }
 })
 
@@ -1656,7 +1665,7 @@ test('request mutation after a native pause blocks resume while status preserves
 test('coordinator requires host migration for old configuration schema without rewriting it', () => {
   const { repo } = fixture([['a.txt']])
   const file = path.join(repo, '.agentflow/ag.json'), config = JSON.parse(fs.readFileSync(file))
-  for (const version of ['aglite-5', 8, 9, 10, 11, 12, String(current_schema), current_schema + 1]) {
+  for (const version of ['aglite-5', 8, 9, 10, 11, 12, 13, String(current_schema), current_schema + 1]) {
     config['schema-version'] = version; fs.writeFileSync(file, JSON.stringify(config))
     const before = fs.readFileSync(file)
     assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema} via the host`))
@@ -1900,7 +1909,7 @@ test('configuration collisions and legacy locations fail before claims or writes
 test('current config requires the bundled schema and safe ag-dir, without rewriting source', () => {
   const { repo } = fixture([['a.txt']])
   const file = path.join(repo, '.agentflow/ag.json'), original = fs.readFileSync(file)
-  for (const version of [9, 10, 11, 12, 'aglite-5', String(current_schema), current_schema + 1]) {
+  for (const version of [9, 10, 11, 12, 13, 'aglite-5', String(current_schema), current_schema + 1]) {
     const config = JSON.parse(original); config['schema-version'] = version
     const bytes = JSON.stringify(config); fs.writeFileSync(file, bytes)
     assert.throws(() => L.read_settings(repo), new RegExp(`migrate to integer ${current_schema}`))

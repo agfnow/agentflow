@@ -11,7 +11,7 @@ function fixture(t, { locale = 'en-us', agDir = '.agentflow' } = {}) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf feature ')))
   C.git(root, ['init', '-b', 'main']); C.git(root, ['config', 'user.name', 'Feature test']); C.git(root, ['config', 'user.email', 'feature@example.invalid'])
   fs.mkdirSync(path.join(root, agDir), { recursive: true })
-  fs.writeFileSync(path.join(root, agDir, 'ag.json'), JSON.stringify({ 'schema-version': 13, switches: { 'ag-dir': agDir, 'saving-mode': 'off', 'use-lang': locale } }))
+  fs.writeFileSync(path.join(root, agDir, 'ag.json'), JSON.stringify({ 'schema-version': require('../assets/.agentflow/ag.json')['schema-version'], switches: { 'ag-dir': agDir, 'save-evidence': 'off', 'saving-mode': 'off', 'use-lang': locale } }))
   for (const name of ['root.devlog.md', 'root.archive.md', '.root.devlog.md.owner']) fs.writeFileSync(path.join(root, agDir, name), `private root ${name}\n`)
   fs.writeFileSync(path.join(root, 'product.txt'), 'committed\n')
   C.git(root, ['add', '.']); C.git(root, ['commit', '-m', 'baseline'])
@@ -183,7 +183,7 @@ test('unborn creation bootstraps one empty commit and preserves owner staged/unt
   t.after(() => require('node:child_process').spawnSync('/usr/bin/trash', [root]))
   C.git(root, ['init', '-b', 'main']); C.git(root, ['config', 'user.name', 'Feature test']); C.git(root, ['config', 'user.email', 'feature@example.invalid'])
   fs.mkdirSync(path.join(root, '.agentflow'))
-  fs.writeFileSync(path.join(root, '.agentflow/ag.json'), JSON.stringify({ 'schema-version': 13, switches: { 'saving-mode': 'off' } }))
+  fs.writeFileSync(path.join(root, '.agentflow/ag.json'), JSON.stringify({ 'schema-version': require('../assets/.agentflow/ag.json')['schema-version'], switches: { 'save-evidence': 'off', 'saving-mode': 'off' } }))
   fs.writeFileSync(path.join(root, 'owner.txt'), 'staged owner work\n'); C.git(root, ['add', 'owner.txt'])
   const staged = C.git(root, ['ls-files', '--stage'])
   const result = await F.create('initial', { cwd: root })
@@ -247,10 +247,12 @@ test('recognized exact A-001 preparation appends only missing Reply and next Ask
 })
 test('invalid recognized switches stop before branch/worktree mutation', async t => {
   const root = fixture(t), configPath = path.join(root, '.agentflow/ag.json')
-  for (const [key, value] of [['save-evidence', 'invalid'], ['save-evidence', true], ['auto-commit', 'invalid'], ['gate-tracker', true], ['plan-mode', 'always'], ['plan-order', 'unrecognized'], ['review-order', 'external-first']]) {
-    const config = { 'schema-version': 13, switches: { 'saving-mode': 'off', [key]: value } }
+  for (const [key, value] of [['save-evidence', undefined], ['save-evidence', 'invalid'], ['save-evidence', true], ['auto-commit', 'invalid'], ['gate-tracker', true], ['plan-mode', 'always'], ['plan-order', 'unrecognized'], ['review-order', 'external-first']]) {
+    const config = { 'schema-version': require('../assets/.agentflow/ag.json')['schema-version'], switches: { 'save-evidence': 'off', 'saving-mode': 'off', [key]: value } }
     fs.writeFileSync(configPath, JSON.stringify(config))
-    await assert.rejects(F.create('invalid', { cwd: root }), new RegExp(key))
+    const before = fs.readFileSync(configPath)
+    await assert.rejects(F.create('invalid', { cwd: root }), value === undefined ? /migration requires host/ : new RegExp(key))
+    assert.deepEqual(fs.readFileSync(configPath), before)
     assert.equal(C.exists(path.join(root, '.wts/ft-invalid')), false)
     assert.notEqual(C.git(root, ['rev-parse', '--verify', 'feature/invalid'], { allowFailure: true }).status, 0)
   }
@@ -261,7 +263,7 @@ test('saved terminal continuation quotes literal shell metacharacters without ex
   fs.mkdirSync(unusual)
   C.git(unusual, ['init', '-b', 'main']); C.git(unusual, ['config', 'user.name', 'Feature test']); C.git(unusual, ['config', 'user.email', 'feature@example.invalid'])
   fs.mkdirSync(path.join(unusual, '.agentflow'))
-  fs.writeFileSync(path.join(unusual, '.agentflow/ag.json'), JSON.stringify({ 'schema-version': 13, switches: { 'saving-mode': 'off' } }))
+  fs.writeFileSync(path.join(unusual, '.agentflow/ag.json'), JSON.stringify({ 'schema-version': require('../assets/.agentflow/ag.json')['schema-version'], switches: { 'save-evidence': 'off', 'saving-mode': 'off' } }))
   C.git(unusual, ['add', '.']); C.git(unusual, ['commit', '-m', 'configured'])
   const result = await F.create('quoted', { cwd: unusual })
   const command = result.continuation.slice('Continue: '.length)
@@ -300,8 +302,8 @@ test('primary main remains exact with unrelated registered worktrees', async t =
 test('live canonical config excluded from committed code is preserved in feature-local config', async t => {
   const root = fixture(t)
   C.git(root, ['rm', '.agentflow/ag.json']); C.git(root, ['commit', '-m', 'config managed outside committed code'])
-  const settings = { 'ag-dir': 'live records', 'saving-mode': 'off', 'auto-commit': 'off', 'auto-push': 'off', 'use-lang': 'zh-TW' }
-  const value = { 'schema-version': 13, switches: settings, 'owner-metadata': { preserve: 'exact semantic value' } }
+  const settings = { 'ag-dir': 'live records', 'save-evidence': 'off', 'saving-mode': 'off', 'auto-commit': 'off', 'auto-push': 'off', 'use-lang': 'zh-TW' }
+  const value = { 'schema-version': require('../assets/.agentflow/ag.json')['schema-version'], switches: settings, 'owner-metadata': { preserve: 'exact semantic value' } }
   fs.mkdirSync(path.join(root, 'live records'))
   const source = JSON.stringify(value, null, 2) + '\n'
   fs.writeFileSync(path.join(root, 'live records/ag.json'), source)

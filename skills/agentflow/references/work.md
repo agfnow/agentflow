@@ -28,7 +28,7 @@ Unquoted `brownfield [task]` selects eight-step [brownfield development](brownfi
 
 - Before result review or dispatch, read [review’s opening constraints](review.md) and [finished-result review](review.md#inspect-the-finished-result); before dispatch also read [Worker settings](review.md#worker-settings) through [Give one bounded assignment](review.md#give-one-bounded-assignment); load [Copilot](copilot.md) only for a Copilot host or selected Copilot route/profile. The host verifies and reviews every task. Unless fast-lane or the skip-review command applies, use configured review-order for result review after host verification for each task changing code, operational machine prompts, product artifacts, or implementation-ready plans/contracts. Ordinary Q&A, explanations and illustrative examples use host review; saving them in workflow records alone does not trigger independent review.
 
-- Apply [risk triage](review.md#risk-triage) to reviews of changed code, operational prompts, product artifacts or implementation-ready contracts, including host-only review. Omit triage for ordinary Q&A, explanations and examples. Mid/high deep review uses [fresh-context inspection](deep-review.md#fresh-context-inspection) by default, retaining host checks and handoff under either waiver; reuse proof and honor waived stages.
+- Apply [risk triage](review.md#risk-triage) to reviews of implementation results, including standalone/retrospective review of existing code and host-only review, and to implementation-ready contracts under their existing route. Omit triage for ordinary Q&A, explanations and examples. Mid/high deep review uses [fresh-context inspection](deep-review.md#fresh-context-inspection) by default, retaining host checks and handoff under either waiver; reuse proof and honor waived stages.
 
 Explicit owner review requirements remain required unless the owner replaces them; apply task-mode precedence above.
 
@@ -41,6 +41,8 @@ Outside fast-lane, prefer bounded native workers for substantial implementation 
 - Every change must trace to the Ask or repair a concrete failure preventing an accepted outcome. Keep adjacent improvements as proposals; neither they nor reviewer suggestions authorize implementation. Implement the whole accepted job, including later corrections.
 
 - When accepted work changes a fact in maintained user/contributor/maintainer guidance or authorizes documentation authoring/handover, read [documentation guidance](product-docs.md), including its scoped authoring trigger; update affected owners/dependents alongside behavior, including fast-lane/skip-review. No doc impact means no doc record; a first-time suite requires an authorized documentation/handover outcome. Preserve scope, plan-only, gates and waived stages.
+
+- Select checks and bound authorized repairs with [adaptive verification](verification.md), retaining task modes, required review and existing limits; missing proof alone grants no product-edit authority.
 
 - For executable behavior changes, first run a focused test that fails for the intended missing/wrong behavior, make the smallest passing change, then refactor while green. Reuse suitable tests; record red/green evidence and focused regression checks. Documentation-only, mechanical and test-only edits need relevant checks, not an artificial red cycle. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation; never claim TDD without observed red/green evidence.
 

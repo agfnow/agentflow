@@ -18,13 +18,21 @@ Codex 子代理：每次 `spawn_agent` 都明確設定 `fork_turns: "none"`；�
 
 若略過的舊證據含有必要復原狀態，主代理會指明受阻連結。明確授權檢視，或先重新證明復原狀態，才能執行依賴動作。核准仍只適用於同一份已檢查結果；缺少證明須重新檢查，重大變更須重新核准。
 
+實作審查（含事後審查）會檢查 **intent 與 decisions**：已接受的設計目標／驗收條件 → 程式／測試；重要機制 → 已接受的用途。評估取捨、失敗路徑和較簡單且足夠的做法，指出不符與缺少證明之處。
+
+沒有設計時，依已接受的需求檢查並揭露缺少的背景。不新增階段或重新驗證產品目標。參見[審查檢查表（review.md，第 114 行）](../references/review.md#114)。
+
+審查／檢查使用[適應式驗證（verification.md，第 1 行）](../references/verification.md#1)：找出合理且重要的違規情境，再選擇有需求依據、能揭露它且成本最低的檢查。狀態模型處理事件順序的缺口；形式方法只針對明確且後果重要的保證，說明假設／範圍，並另驗證實作與模型的對應。不要求每次都跑形式驗證或變異測試。
+
+修正須保留需求／有效斷言及既有限制；沒有既定次數限制時，同一失敗修正兩次仍未成功便停止，且事先設定有限時間／資源。缺少證明不算通過。代理同意不能保證零回歸、免除人類決定／核准，或證明未量測的人類介入率低於 5%。不自動實驗，也不新增設定。
+
 新的功能設計、tracker 與其他回合文件放在 `<ag-dir>/features/<name>/artifacts/A-NNN/`；main 工作階段使用 `<ag-dir>/artifacts/A-NNN/`。合併保留相對路徑與連結；既有紀錄維持原位置。
 
 有保留紀錄的功能名稱不可重新使用；只能接續完全相符且仍開放的功能，否則另取名稱，例如 `search-v2`。
 
 啟用 `save-evidence: on` 時，新證據依序使用**範圍 → 檢查 → 發現 → 續作**，省略空白／不適用欄位、例行輸出與重複事實。保留必要來源／操作身分、必要結果／審查處置、限制及下一個安全動作。
 
-一般工作只用幾個短項目，保留無法安全重建的事實及完成／重用所需的最低檢查與審查處置。整併當前已過時筆記，省略草稿副本、工具設定過程及重複模型／控制說明。無事實須保留時不建檔。此規則獨立於 saving-mode；生命週期／looper／遷移／發佈的必要操作紀錄仍保留，不得作為停存證據的替代位置。[精簡欄位（session.md，第 55 行）](../references/session.md#round-evidence)。
+一般工作只用幾個短項目，保留無法安全重建的事實及完成／重用所需的最低檢查與審查處置。整併當前已過時筆記，省略草稿副本、工具設定過程及重複模型／控制說明。無事實須保留時不建檔。此規則獨立於 saving-mode；生命週期／looper／遷移／發佈的必要操作紀錄仍保留，不得作為停存證據的替代位置。[精簡欄位（session.md，第 57 行）](../references/session.md#round-evidence)。
 
 啟用時，有用的新證據存入 `<ag-dir>/.tmp/A-NNN.md`，並在 Reply 前，從 Current 與產生該證據的 Ask 連結。其他筆記使用 `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md`；重用前先確認筆記與 Ask 身分。
 
@@ -40,7 +48,7 @@ Codex 子代理：每次 `spawn_agent` 都明確設定 `fork_turns: "none"`；�
 
 生命週期復原還須保留已授權的操作／清理範圍、避免重複重試所需的精確參照、最後已證實結果、待通過的核准關卡／路徑更新，以及下一個安全動作。多條未完成工作線共用一份追蹤文件；若豁免建立追蹤文件，則在 Current 放置標明用途的證據連結。
 
-復原與證據位置須遵循完整的[每輪證據規則（session.md，第 45 行）](../references/session.md#round-evidence)。
+復原與證據位置須遵循完整的[每輪證據規則（session.md，第 57 行）](../references/session.md#round-evidence)。
 
 Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每個 Codex／Claude Code 介面都必須以選定語言，依範本的三個編號步驟顯示建立成功：已建立的分支／工作樹、續作命令，以及使用實際設定之功能筆記路徑的編輯器開啟建議。
 
@@ -128,7 +136,7 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
   Looper 保留其允許的全新審查代理與路由，不增加巢狀審查代理。
 
-  沿用仍適用的證據，只針對剩餘缺口做檢查。答案呈現影響判斷的阻礙／不確定性、須注意的敏感動作及實際核准要求。例行風險／路徑／核准結語只存於已啟用的證據；off 不改存其他位置。既有核准規則仍適用。[程序（deep-review.md，第 1 行）](../references/deep-review.md)。
+  沿用仍適用的證據，只針對剩餘缺口做檢查。每次實作成果審查，包括事後審查，都會在答案中指出風險等級與簡短理由。答案也呈現影響判斷的阻礙／不確定性、須注意的敏感動作及實際核准要求。其他例行路徑／核准細節只存於已啟用的證據；off 不改存其他位置。既有核准規則仍適用。[程序（deep-review.md，第 1 行）](../references/deep-review.md)。
 
 - **`devlog`** — 啟動 agentflow；開始／續作優先使用 `godev`。
 
@@ -316,13 +324,13 @@ CLI 任務會透過協調程序要求原有的獨立審查，由協調程序在�
 
 若舊 `agf` 函式將擷取的一般輸出當成目錄或可執行內容，請明確要求升級，檢閱 `agf shell <zsh|bash|powershell>` 產生的函式後，依 [shell 設定](../references/setup.md#agf-command-setup) 安全替換。使用獨立目的地檔案的現行函式可切換目錄，應予保留。不要刪除認領或略過檢查來續作。
 
-Shell 根目錄預設為 cwd；缺少 `queue.json` 會報錯。聊天命令 `run-tasks` 則從 Current 解析。佇列 schema 2 與 `ag.json` schema 13 相互獨立。
+Shell 根目錄預設為 cwd；缺少 `queue.json` 會報錯。聊天命令 `run-tasks` 則從 Current 解析。佇列 schema 2 與 `ag.json` schema 14 相互獨立。
 
 `request` 是相對於 run-root 的檔案路徑（通常為 `request.md`）；必要的 `request_sha256` 保全準備當時精確的 UTF-8 要求內容。準備時一併 commit 該檔案。輸入缺漏／為空／不安全／遭變更時，在取得所有權宣告前就阻擋執行／續作；status 同時回報輸入錯誤與進度。Schema 1 的內嵌要求須明確轉換，不得默默採納。
 
 面向擁有者的主代理讀取 `ag.json` 頂層的 `next_update_date`（UTC `YYYY-MM-DD`；缺漏／null 代表到期）。該日期前不發出版本查詢；到期時只檢查 [Agentflow 穩定版資訊](https://github.com/agfnow/agentflow/releases)，然後將下次檢查排在兩個日曆日後，即使查詢失敗也一樣。
 
-受委派代理／隔離的 looper 工作階段，以及不留紀錄互動，兩者皆不執行。Agentflow 9 穩定版接續先前的 aglite beta；Agentflow 8.x 絕不是兩者的升級版本。替換安裝（包括轉移至 9+）仍需核准，並保留來源的未完成工作。參閱[版本檢查（configuration.md，第 29 行）](../references/configuration.md#session-release-check)。
+受委派代理／隔離的 looper 工作階段，以及不留紀錄互動，兩者皆不執行。Agentflow 9 穩定版接續先前的 aglite beta；Agentflow 8.x 絕不是兩者的升級版本。替換安裝（包括轉移至 9+）仍需核准，並保留來源的未完成工作。參閱[版本檢查（configuration.md，第 33 行）](../references/configuration.md#session-release-check)。
 
 只有佇列 JSON 管理排程／進度；只有 `ag.json` 管理可編輯設定。
 
@@ -456,7 +464,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   文件、機械式與僅測試變更只需相關檢查。若無法合理執行變更前測試，須在實作前記錄原因、替代證據與剩餘缺口。
 
-  只有實際觀察到預期測試在變更前失敗、變更後通過，才可宣稱採用 TDD。參閱[任務檢查（work.md，第 45 行）](../references/work.md#45)。
+  只有實際觀察到預期測試在變更前失敗、變更後通過，才可宣稱採用 TDD。參閱[任務檢查（work.md，第 47 行）](../references/work.md#47)。
 
 - **網頁檢查：** 預設使用 Stagehand 自動化程式碼與 Browserbase `browse` CLI Chrome 操作（[官方瀏覽器技能](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)）；擁有者／專案偏好可覆寫。
 
@@ -472,7 +480,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 設定可能包含私人值。主代理在本機檢查，只回報必要的非機密欄位或雜湊／狀態；不印出完整設定或 hook 檔案。
 
-有提供 `schema-version` 時，必須是 JSON 整數 `13`；未來修訂獨立於套件版本遞增。必填的 `saving-mode` 接受 `on|off`；設定／遷移只在缺少時補上 `off`，保留有效值，遇到無效值就停止。其他缺少欄位使用預設值；讀取完整的目前版本不寫入任何內容。 已安裝 skill 的[內附範本](../assets/.agentflow/ag.json)定義目標；較新的 schema 會停止，與遠端發佈版本無關。
+有提供 `schema-version` 時，必須是 JSON 整數 `14`；未來修訂獨立於套件版本遞增。必填的 `saving-mode` 與 `save-evidence` 接受 `on|off`；設定／遷移只在缺少時補上 `off`，保留有效值，遇到無效值就停止。其他缺少欄位使用預設值；讀取完整的目前版本不寫入任何內容。 已安裝 skill 的[內附範本](../assets/.agentflow/ag.json)定義目標；較新的 schema 會停止，與遠端發佈版本無關。
 
 面向擁有者的主代理讀取時，會遷移已知舊版，保留有效選擇與未知／註解鍵。未知／較新 schema，以及有歧義或有損的變更，都需要決定。
 
@@ -482,7 +490,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 可辨識的 Agentflow 8 設定使用獨立的[舊版遷移（legacy-migration.md，第 1 行）](../references/legacy-migration.md)；只有無損且已授權的情況自動繼續。不支援的舊核准／限制、所有權、佇列或整合決定，會暫停受影響遷移。
 
-變更安裝前，先閱讀 [Agentflow 8 與 9 比較](agv8-agv9-comparison.md)。Schema 9／10／11／12 與 `aglite-5` 遷移至 13，並補齊必填的 saving-mode；舊省略鍵保留原意。
+變更安裝前，先閱讀 [Agentflow 8 與 9 比較](agv8-agv9-comparison.md)。Schema 9／10／11／12／13 與 `aglite-5` 遷移至 14，並補齊必填的 saving-mode 與 save-evidence；舊省略鍵保留原意。
 
 舊 `skip-plan: off` 改為 `plan-mode: optional`；`on` 改為 `off`，後者允許建立需要的追蹤文件。參閱[遷移（upkeep.md，第 5 行）](../references/upkeep.md#automatic-migration)。
 
@@ -542,17 +550,17 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   - `host` — 主代理直接審查；不探測執行代理。
 
-- **`save-evidence`** — 選填 `on|off`，預設 `off`：不另寫每輪證據，一般復原也不讀取；不可改存其他位置。`on` 只存有用的最少證據。既有檔案不動；明確檢視／指定交付物要求在其範圍內優先。檢查、審查、核准、必要待辦狀態及生命週期／looper／遷移／發佈操作紀錄仍保留。缺少證明須重新檢查，不得視為通過；日後開啟只影響後續。[儲存規則](../references/session.md#evidence-storage)。
+- **`save-evidence`** — 必填 `on|off`，預設 `off`；設定／遷移補入缺少的 `off`、保留有效值，無效值則停止。終端命令遇到缺少屬性時須由主代理遷移。`off`：不另寫每輪證據，一般復原也不讀取；不可改存其他位置。`on` 只存有用的最少證據。既有檔案不動；明確檢視／指定交付物要求在其範圍內優先。檢查、審查、核准、必要待辦狀態及生命週期／looper／遷移／發佈操作紀錄仍保留。缺少證明須重新檢查，不得視為通過；日後開啟只影響後續。[儲存規則](../references/session.md#evidence-storage)。
 
 - **`saving-mode`** — `on`：載入[節省模式（saving-mode.md，第 1 行）](../references/saving-mode.md)，使用最低充分文字／紀錄、減少選用文件並重用有效證據；`off`：一般行為。必填；設定／遷移的預設值為 `off`，保留既有值。例行 100–200 詞是彈性目標；明確細節要求、理解、防護、必要紀錄／檢查／審查、核准關卡與交付物優先。不變更模型／路徑，也不追溯補回。 [與 save-evidence 的四種組合比較](AG-GUIDE.tw.md#搭配使用-save-evidence-與-saving-mode)。
 
-- **`use-lang`** — 語系標籤，例如 `en-us`、`zh-TW` → 每個新的人類可讀字串的語言，包括範本／骨架標籤、通知及回條的 `Updated`；預設為偵測到的作業系統語系，其次 `en-us`。英文提示／素材提供語意。
+- **`use-lang`** — 語系標籤，例如 `en-us`、`zh-TW` → 新增使用者可見文字的語言，包括範本／骨架標籤、通知及回條的 `Updated`；預設為偵測到的作業系統語系，其次 `en-us`。英文提示／素材提供語意。
 
   `zh-TW` 將 `STATUS` 呈現為 `狀態`、`Questions`／`None` 為 `問題`／`無`、WIP 的 `Checkpoint` 為 `進度檢查`，回條的 `Updated` 為 `已更新`；`en-us` 保持英文。
 
   STATUS 欄位標籤也依語系呈現：`Checkout` 變成 `工作目錄`，`Current` 變成 `目前工作`。英文欄位名是待翻譯範例，不是固定符記。重用語系標籤；保留機器符記、輸入／歷史及既有成品語言。
 
-  明確指定目標語言優先；只有輸入語言不會切換語系。[語系政策（configuration.md，第 5 行）](../references/configuration.md#discovery-and-validation)。
+  機器指令、儲存庫代理規範及原生／外部執行代理的提示一律使用英文，不受作業系統／設定語系影響。引用的原始輸入／來源保持不變；另外指定使用者可見交付物（含執行代理報告）的語言。混合文件依各部分的讀者套用規則。明確指定使用者可見內容的目標語言優先；只有輸入語言不會切換語系。[語系政策（configuration.md，第 5 行）](../references/configuration.md#discovery-and-validation)。
 
 規劃／審查限制與必要獨立性優先於路由。所選模型／推理強度不受支援時，需要決定。空白回答／預設值不構成核准。Git 開關不授予發布權限。
 

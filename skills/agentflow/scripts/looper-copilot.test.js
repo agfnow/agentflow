@@ -171,7 +171,7 @@ test('Copilot catalog selection preserves exact pairs, schema boundaries and leg
   const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-copilot-selection-')))
   fs.mkdirSync(path.join(repo, '.agentflow'))
   const file = path.join(repo, '.agentflow/ag.json')
-  const config = { 'schema-version': current_schema, switches: { 'saving-mode': 'off' }, 'pipeline-roles': { implementation: 'basic' },
+  const config = { 'schema-version': current_schema, switches: { 'save-evidence': 'off', 'saving-mode': 'off' }, 'pipeline-roles': { implementation: 'basic' },
     'model-family': { selected: { basic: 'exact-model/high' } },
     'native-workers': { implementation: { 'model-family': 'unused-native' } },
     'looper-routes': { task: { kind: 'cli', provider: 'copilot', 'model-family': 'selected' } } }

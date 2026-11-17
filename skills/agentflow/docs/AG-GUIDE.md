@@ -1,4 +1,4 @@
-# Agentflow 9.1.11 — everyday guide
+# Agentflow 9.1.12 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -331,6 +331,10 @@ Claim TDD only after observing the intended test fail before the change and pass
 
 The host first checks the work. Changed code, operational prompts, product artifacts and implementation-ready contracts normally also receive result review; ordinary questions and examples receive host review.
 
+Implementation reviews, including retrospective reviews, check **intent and decisions**: trace accepted design goals and acceptance criteria to code/tests, and material mechanisms back to an accepted purpose. Reviewers assess consequential tradeoffs, failure paths and simpler adequate choices, flagging mismatches, unsupported mechanisms and missing proof without inventing intent.
+
+Without a design, they use accepted requirements and disclose missing context; they do not create a design. This adds no review stage or product-goal revalidation. See the [review checklist (review.md, line 114)](../references/review.md#114).
+
 `review-order` defaults to `external`: counterpart CLI, then fresh native agent, then disclosed host fallback. Separate review prefers a different known planner family when supported, then another configured model. Repeated or unknown identity is disclosed; it is not proof of diversity.
 
 A host fallback cannot satisfy required independence. Missing checks remain unproved even when a reviewer accepts the source.
@@ -349,9 +353,17 @@ Looper uses its permitted fresh reviewer without nested reviewers or changed rou
 
 Use `deep-review [target]` to request it at any risk. For example, `deep-review the diff for the parser change` asks for inspection and safe probes. Product fixes and persistent test changes require implementation authority.
 
-Answers tell you about blockers, uncertainty that affects your decision, sensitive actions needing attention and actual approval requests. Routine review accounting stays out of the answer and is saved only when evidence storage is on. When you need to inspect a sensitive change, the host identifies the path and consequence.
+Every review of an implementation result, including a retrospective review, states its risk level and a short reason. Answers also tell you about blockers, uncertainty that affects your decision, sensitive actions needing attention and actual approval requests. Other routine review accounting stays out of the answer and is saved only when evidence storage is on. When you need to inspect a sensitive change, the host identifies the path and consequence.
 
-The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 128)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
+The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 132)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
+
+Checks are selected by the failure they can expose. For a consequential requirement that remains unproved, the agent chooses the cheapest check that distinguishes correct behavior from a plausible defect. It can use examples, properties, reference comparisons, input fuzzing, targeted mutation or integration/failure tests; these are options, not a fixed tool sequence.
+
+State models help with cancellation, ownership, retries and recovery. Formal methods are selective: a completed model check or proof covers stated properties and assumptions, and implementation correspondence needs separate evidence. A verified model alone cannot certify production code.
+
+Authorized repairs preserve requirements and assertions, rerun affected checks and required review, and honor existing limits. Otherwise the agent stops after two unsuccessful repairs of the same failure, with finite time/resource limits chosen before repair. Missing proof, new authority needs and unresolved consequential decisions stop dependent work.
+
+These changes strengthen review without guaranteeing zero regressions or removing required human decisions/approvals. No automation-rate experiment runs automatically; a less-than-5% human-involvement claim needs representative measurements and uncertainty. See [adaptive verification (verification.md, line 1)](../references/verification.md#1).
 
 ### Approval gates
 
@@ -529,7 +541,7 @@ On the next `run-tasks` or `agf looper run <run-root>`, the coordinator imports 
 
 Identical answers are idempotent; conflicting replacements are rejected. An answer alone does not fix the cause or prove a worker stopped.
 
-Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 119)](../references/looper.md#119).
+Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 113)](../references/looper.md#113).
 
 “Resume” means continue preserved work, not roll the repository back or rerun everything. Repair/review of merge conflicts is bounded (default 2 repairs). Failed tasks, provider errors and timeouts have no general automatic retry/backoff; technical corrections and another invocation may be needed. Missing identity or unknown external effects can still require human investigation.
 
@@ -543,9 +555,9 @@ Preserve evidence until failures are understood; do not clear claims or rewrite 
 
 ## Change configuration deliberately
 
-Settings live at `<checkout>/<ag-dir>/ag.json`, normally `.agentflow/ag.json`. Ask for named changes or edit deliberately; missing ordinary keys use defaults. Current configuration schema is 13, separate from package version.
+Settings live at `<checkout>/<ag-dir>/ag.json`, normally `.agentflow/ag.json`. Ask for named changes or edit deliberately; missing ordinary keys use defaults. Current configuration schema is 14, separate from package version.
 
-`use-lang` controls new human text, including template labels and receipts. Without it, the host uses OS locale then `en-us`; typing in a language does not select it. Explicit response/target-language requests override the setting.
+`use-lang` controls new user-facing text, including template labels and receipts. Machine-facing instructions, repository agent directives and native/external worker prompts stay English regardless of OS/configured locale; quoted inputs/source stay intact. Worker prompts specify user-facing deliverable language separately. Without it, the host uses OS locale then `en-us`; typing in a language does not select it. Explicit response/target-language requests override the setting.
 
 Original input, history, machine syntax and established artifact languages stay intact. Changing the setting does not translate the past.
 
@@ -553,7 +565,7 @@ Original input, history, machine syntax and established artifact languages stay 
 
 Verified task changes and owner edits are committed separately, subject to the pre-existing-content exclusion after bootstrap. Git delivery grants no deployment, publication, external-message or unrelated-change authority.
 
-`save-evidence` is optional `on|off`, default `off`; missing values require no migration or schema change (schema 13 remains current). Invalid values stop dependent work. Use `on` for minimal separate proof; `off` reduces recovery detail without removing design/tracker/devlog/Git recovery. It does not waive checks, reviews or approvals.
+`save-evidence` is required `on|off`, default `off`, in schema 14. Setup/migration adds `off` only when absent and preserves valid values; invalid values stop dependent work. Terminal feature/looper commands require host migration before using incomplete settings. Use `on` for minimal separate proof; `off` reduces recovery detail without removing design/tracker/devlog/Git recovery. It does not waive checks, reviews or approvals.
 
 `saving-mode` is required and defaults off. Migration adds a missing value as off and preserves existing on/off. Turning it on reduces optional prose/records and reuses evidence; comprehension, requested detail, required checks, gates and recovery remain. It changes no models or routes.
 
@@ -589,7 +601,7 @@ Recognized Agentflow 8 input loads a separate procedure. Safe mappings run autom
 
 Proven V8 input with no `threeways` tier retains its effective `better`; explicit tiers survive. The host updates config and current STATUS, removes only confirmed old project hooks/startup units, and keeps history, foreign settings and recoverable private originals.
 
-Earlier aglite schemas 9–12 upgrade to 13. Missing `saving-mode` becomes off; existing on/off survives. For example, `skip-wip: off` maps to `omit-wip: off`, preserving its meaning rather than using a missing-key default.
+Earlier aglite schemas 9–13 upgrade to 14. Missing `saving-mode` or `save-evidence` becomes off; existing on/off survives; invalid values stop. For example, `skip-wip: off` maps to `omit-wip: off`, preserving its meaning rather than using a missing-key default.
 
 Read the saved result and restart if old integrations were loaded. Old active queues/streams need completion or handoff before retirement; they do not become new looper queues. Exact mappings are [agent migration rules](../references/legacy-migration.md), with [later-format upkeep](../references/upkeep.md#automatic-migration).
 

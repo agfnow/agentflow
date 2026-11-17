@@ -2,12 +2,12 @@
 name: agentflow
 description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by brownfield, godev, gdd, devlog, eli5:, fast-lane, spec-out, go-hunt, simple-check, skip-review, deep-review, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.11"
+  version: "9.1.12"
 ---
 
-# Agentflow 9.1.11
+# Agentflow 9.1.12
 
-Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Infer goals as hypotheses; recommend useful directions and surface consequential next needs without expanding execution scope. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to all new human text, including template labels. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
+Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Infer goals as hypotheses; recommend useful directions and surface consequential next needs without expanding execution scope. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to new user-facing text, including template labels. Write machine-facing instructions and native/external worker prompts in English; preserve original quoted inputs/source and specify user-facing output language separately. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors.
 
 `append-tasks` is an exact alias of `append-rounds` in every linked rule; capture the spelling the owner used. Commands in quoted examples do not activate modes; owner-quoted task payload remains input.
 
@@ -40,6 +40,8 @@ Read static rules once while retained in context. For each triggered reference, 
 - [UX prototypes](references/ux-prototype.md): before authorized prototype planning, creation or revision, inside or outside `spec-out`; use the unified isolation, fidelity, UX report, tour and handoff rules. Planning alone grants no executable prototype authority.
 
 - [Spec out](references/spec-out.md): load only for an explicit, unquoted `spec-out [request]` invocation, never from task size, ordinary planning, `spec` advice, quoted examples or `eli5:` payloads. Continue the same authorized draft design with the bundled template toward an implementation-ready design and tracker; bare invocation uses an unambiguous active target or asks without creating one. Activation adds no implementation authority.
+
+- [Adaptive verification](references/verification.md): before selecting validation for consequential plan criteria, executing implementation checks/repairs or reviewing results. Share one failure-driven method; full deep review retains its triggers, routes and waivers. No idle/Q&A loading or new stage.
 
 - [Deep review](references/deep-review.md): load only for an explicit invocation with a resolved target or [automatic mid/high routing](references/review.md#risk-triage); substantial inspection prefers fresh context under its route/waiver/looper rules.
 

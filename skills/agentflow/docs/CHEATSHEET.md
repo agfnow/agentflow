@@ -18,13 +18,21 @@ Codex subagents: every `spawn_agent` explicitly sets `fork_turns: "none"`; suppl
 
 If skipped old evidence contains essential recovery state, the host names the blocked link. Explicitly authorize inspection or have recovery re-proved before dependent actions. Approval still applies only to the same checked result; missing proof must be rechecked, and material changes need renewed approval.
 
+Implementation reviews, including retrospective reviews, check **intent and decisions**: accepted design goals/criteria → code/tests; material mechanisms → accepted purpose. Assess tradeoffs, failures and simpler adequate choices; flag mismatches and missing proof.
+
+Without a design, use accepted requirements and disclose missing context. No extra stage or product-goal revalidation. [Review checklist (review.md, line 114)](../references/review.md#114).
+
+Review/checks use [adaptive verification (verification.md, line 1)](../references/verification.md#1): name a plausible consequential violation and the cheapest requirement-derived check that can expose it. Use state models for sequence gaps; formal methods only for precise consequential guarantees, with assumptions/bounds and separate implementation correspondence. No universal formal or mutation stage.
+
+Repairs retain requirements/assertions and existing limits; otherwise stop after two unsuccessful repairs of the same failure, with finite time/resource bounds chosen first. Missing proof is not a pass. Agreement cannot guarantee zero regressions, waive human decisions/approvals or establish an unmeasured <5% human-touch rate. No automatic experiment or new setting follows.
+
 New feature designs, trackers and other round artifacts use `<ag-dir>/features/<name>/artifacts/A-NNN/`; main-session artifacts use `<ag-dir>/artifacts/A-NNN/`. Merge preserves these relative paths and links.
 
 Existing records stay at their established locations. Retained feature records reserve the name; resume an exact open feature or choose a fresh name such as `search-v2`.
 
 With `save-evidence: on`, new evidence uses **Scope → Checks → Findings → Resume**, omitting empty/inapplicable fields, routine output and repeated facts. Keep necessary source/operation identities, required results/review dispositions, limits and next safe actions.
 
-Keep a few short bullets for ordinary work; retain only facts unsafe to reconstruct and the minimum check/review disposition needed for completion or reuse. Consolidate superseded active notes, omit copied drafts, setup narration and repeated model/control descriptions. No file when nothing needs retaining. This is independent of saving-mode; mandatory lifecycle/looper/migration/release operational records remain, never alternate sinks for disabled evidence. [Compact fields (session.md, line 55)](../references/session.md#round-evidence).
+Keep a few short bullets for ordinary work; retain only facts unsafe to reconstruct and the minimum check/review disposition needed for completion or reuse. Consolidate superseded active notes, omit copied drafts, setup narration and repeated model/control descriptions. No file when nothing needs retaining. This is independent of saving-mode; mandatory lifecycle/looper/migration/release operational records remain, never alternate sinks for disabled evidence. [Compact fields (session.md, line 57)](../references/session.md#round-evidence).
 
 When enabled, use `<ag-dir>/.tmp/A-NNN.md` for useful new proof, linked from Current and its producing Ask before Reply. Other notebooks use `<ag-dir>/.tmp/<notebook-basename>/A-NNN.md`; verify the notebook and Ask identity before reuse.
 
@@ -40,7 +48,7 @@ Preserve linked evidence and history. There is no automatic deletion, ignore rul
 
 Lifecycle recovery also retains the authorized operation/cleanup scope, exact retry-prevention references, last proven result, pending gates/path updates and next safe action. Multiple unfinished threads use one tracker, or labelled Current evidence links when tracker creation is waived.
 
-Follow the complete [Round evidence (session.md, line 45)](../references/session.md#round-evidence) rules for recovery and proof placement.
+Follow the complete [Round evidence (session.md, line 57)](../references/session.md#round-evidence) rules for recovery and proof placement.
 
 Codex/Claude Code handoffs use `/cd <destination>` then `godev`; every Codex/Claude Code surface must show successful creation using the exact three numbered template steps in the selected language: created branch/worktree, continuation commands and an editor-open suggestion with the actual configured feature-notebook path.
 
@@ -126,7 +134,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   Looper retains its permitted fresh reviewer and route, with no nested reviewers.
 
-  Reuse matching proof and run only checks that address remaining gaps. Answers surface decision-changing blockers/uncertainty, sensitive actions needing attention and actual approval requests. Routine risk/route/approval footers stay only in enabled evidence; off saves no substitute. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
+  Reuse matching proof and run only checks that address remaining gaps. Every implementation-result review, including a retrospective review, states risk level and a short reason. Answers also surface decision-changing blockers/uncertainty, sensitive actions needing attention and actual approval requests. Other routine route/approval accounting stays only in enabled evidence; off saves no substitute. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
 
 - **`devlog`** — Activate agentflow; prefer `godev` for start/resume.
 
@@ -312,13 +320,13 @@ Exit codes are 0 (complete), 2 (blocked or stopped), and 1 (error). When saved s
 
 If an old `agf` function treats captured ordinary output as a directory or executable input, explicitly request an upgrade and review the function generated by `agf shell <zsh|bash|powershell>` before safe replacement under [shell setup](../references/setup.md#agf-command-setup). Preserve current wrappers that use the separate destination file; they may change directory. Do not remove claims or bypass checks to resume a blocked run.
 
-Shell root defaults to cwd; missing `queue.json` errors. Chat `run-tasks` resolves Current instead. Queue schema 2 is separate from `ag.json` schema 13.
+Shell root defaults to cwd; missing `queue.json` errors. Chat `run-tasks` resolves Current instead. Queue schema 2 is separate from `ag.json` schema 14.
 
 `request` is a run-root-relative file path (normally `request.md`); required `request_sha256` preserves its exact preparation-time UTF-8 request. Commit the file with preparation. Missing/empty/unsafe/changed inputs block run/resume before claims; status reports input errors alongside progress. Schema 1 inline requests need explicit conversion, never silent adoption.
 
 The owner-facing host reads top-level `ag.json` `next_update_date` (UTC `YYYY-MM-DD`; missing/null means due). Before that date it makes no release request; when due it checks only the [Agentflow stable feed](https://github.com/agfnow/agentflow/releases), then schedules the next check two calendar days later even if lookup fails.
 
-Delegates/isolated looper sessions and off-record exchanges do neither. Agentflow 9 is the stable successor to the aglite beta; Agentflow 8.x is never an upgrade for either. Replacement, including the 9+ transition, still requires approval and preserves source WIP. See [release checks (configuration.md, line 29)](../references/configuration.md#session-release-check).
+Delegates/isolated looper sessions and off-record exchanges do neither. Agentflow 9 is the stable successor to the aglite beta; Agentflow 8.x is never an upgrade for either. Replacement, including the 9+ transition, still requires approval and preserves source WIP. See [release checks (configuration.md, line 33)](../references/configuration.md#session-release-check).
 
 Queue JSON alone owns scheduling/progress; `ag.json` alone owns editable settings.
 
@@ -452,7 +460,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Documentation, mechanical and test-only edits need relevant checks. If a meaningful pre-change test is infeasible, record the reason, alternative proof and remaining gap before implementation.
 
-  Claim TDD only after observing the intended test fail before the change and pass afterward. See [task checks (work.md, line 45)](../references/work.md#45).
+  Claim TDD only after observing the intended test fail before the change and pass afterward. See [task checks (work.md, line 47)](../references/work.md#47).
 
 - **Web checks:** Default to Stagehand automation code and Browserbase `browse` CLI Chrome operations ([official browser skill](https://github.com/browserbase/skills/blob/main/skills/browser/SKILL.md)); owner/project preferences override.
 
@@ -466,7 +474,7 @@ Below: **values → effect; missing-key default**. Edit named keys explicitly. C
 
 Settings can contain private values. The host inspects them locally and reports needed nonsecret fields or hashes/status; it does not print whole configuration or hook files.
 
-Supplied `schema-version` must be JSON integer `13`; future revisions increment it independently of the package version. Required `saving-mode` accepts `on|off`; setup/migration adds `off` only when missing, preserves valid values and stops on invalid values. Other missing fields use defaults; complete current reads write nothing. The installed [bundled template](../assets/.agentflow/ag.json) defines the target; higher schemas stop, independently of remote releases.
+Supplied `schema-version` must be JSON integer `14`; future revisions increment it independently of the package version. Required `saving-mode` and `save-evidence` accept `on|off`; setup/migration adds `off` only when missing, preserves valid values and stops on invalid values. Other missing fields use defaults; complete current reads write nothing. The installed [bundled template](../assets/.agentflow/ag.json) defines the target; higher schemas stop, independently of remote releases.
 
 Known predecessors migrate on owner-facing host reads, preserving valid choices and unknown/comment keys. Unknown/newer schemas and ambiguous or lossy changes require a decision.
 
@@ -476,7 +484,7 @@ Legacy fields also require mapping/reconciliation under supported current stamps
 
 Recognized Agentflow 8 configurations use the separate [legacy migration (legacy-migration.md, line 1)](../references/legacy-migration.md); only lossless, authorized cases proceed automatically. Unsupported old approval/restriction, ownership, queue or integration decisions pause the affected migration.
 
-Compare [Agentflow 8 and 9](agv8-agv9-comparison.md) before changing installations. Schemas 9/10/11/12 and `aglite-5` migrate to 13 with required saving-mode; old omission keys retain their meaning.
+Compare [Agentflow 8 and 9](agv8-agv9-comparison.md) before changing installations. Schemas 9/10/11/12/13 and `aglite-5` migrate to 14 with required saving-mode and save-evidence; old omission keys retain their meaning.
 
 Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which permits needed trackers. See [migration (upkeep.md, line 5)](../references/upkeep.md#automatic-migration).
 
@@ -536,17 +544,17 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   - `host` — Host directly; no worker probes.
 
-- **`save-evidence`** — Optional `on|off`, default `off`: no separate round-evidence writes or ordinary recovery reads; no alternate proof sink. `on` saves only useful minimal evidence. Existing files stay untouched; explicit inspection/deliverable requests prevail for their scope. Checks, review, approvals, essential pending state and required lifecycle/looper/migration/release records remain. Missing proof requires rechecking, never assumed success. Enabling is prospective. [Storage policy](../references/session.md#evidence-storage).
+- **`save-evidence`** — Required `on|off`, default `off`; setup/migration adds missing `off`, preserving valid values; invalid values stop. Terminal commands require host migration for missing keys. `off`: no separate round-evidence writes or ordinary recovery reads; no alternate proof sink. `on` saves only useful minimal evidence. Existing files stay untouched; explicit inspection/deliverable requests prevail for their scope. Checks, review, approvals, essential pending state and required lifecycle/looper/migration/release records remain. Missing proof requires rechecking, never assumed success. Enabling is prospective. [Storage policy](../references/session.md#evidence-storage).
 
 - **`saving-mode`** — `on`: load [saving mode (saving-mode.md, line 1)](../references/saving-mode.md) for minimum sufficient prose/records, fewer optional documents and valid-proof reuse; `off`: normal behavior. Required; setup/migration default `off`, existing values preserved. Routine 100–200 words is a soft target; explicit detail, comprehension, safeguards, required records/checks/review, gates and deliverables prevail. No model/route changes or retroactive restoration. [Compare the four combinations with save-evidence](AG-GUIDE.md#save-evidence-and-saving-mode-together).
 
-- **`use-lang`** — Locale tag, e.g. `en-us`, `zh-TW` → language for every new human string, including template/scaffold labels, notices and receipt `Updated`; default detected OS locale, then `en-us`. English prompts/assets supply meaning.
+- **`use-lang`** — Locale tag, e.g. `en-us`, `zh-TW` → language for new user-facing text, including template/scaffold labels, notices and receipt `Updated`; default detected OS locale, then `en-us`. English prompts/assets supply meaning.
 
   For `zh-TW`, render `STATUS` as `狀態`, `Questions`/`None` as `問題`/`無`, WIP `Checkpoint` as `進度檢查`, and receipt `Updated` as `已更新`; `en-us` stays English.
 
   STATUS field labels also follow the locale: `Checkout` becomes `工作目錄`, `Current` becomes `目前工作`. English field names are examples to translate, not fixed tokens. Reuse locale labels; preserve machine tokens, input/history and established artifact languages.
 
-  Explicit target language prevails; input language alone does not switch it. [Locale policy (configuration.md, line 5)](../references/configuration.md#discovery-and-validation).
+  Machine-facing instructions, repository agent directives and native/external worker prompts stay English regardless of OS/configured locale. Preserve quoted inputs/source; specify user-facing deliverable language separately, including worker reports. Mixed documents follow each reader’s rule. Explicit user-facing target language prevails; input language alone does not switch it. [Locale policy (configuration.md, line 5)](../references/configuration.md#discovery-and-validation).
 
 Planning/review constraints and required independence prevail over routing. Unsupported selected model/effort needs a decision. Empty answers/defaults grant no approval. Git switches grant no publication authority.
 

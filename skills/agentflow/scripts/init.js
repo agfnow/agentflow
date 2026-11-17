@@ -47,16 +47,14 @@ function adopt(file, old, next, stat) {
   fs.renameSync(temporary, file)
 }
 
-function instructions(old, dir, zh) {
+function instructions(old, dir) {
   if (old && /(?:agentflow|aglite)/i.test(old)) {
     insist(!/(?:\.\.?\/|\/Users\/|[A-Z]:\\).*?(?:SKILL\.md|agentflow)/i.test(old), 'Existing AGENTS skill path requires host adoption review')
     insist(/owner-facing host|host-only|session host/i.test(old) && /project-rules\.md/.test(old) && old.includes(`${dir}/rules.md`), 'Existing Agentflow instructions require host adoption review; preserved unchanged')
     return old
   }
   insist(!old || !/(?:backlog|sys[- ]invariants?|shared[- ](?:rules|records)|project[- ]rules|(?:`|\/)rules\.md)/i.test(old), 'Existing shared-authority directives require host adoption review')
-  const lines = zh
-    ? ['擁有者的主代理須在工作階段開始時，透過支援的技能探索載入並遵循 agentflow，尊重明確的停用指示。若無法取得技能，請回報；不得假設路徑或自行安裝。受委派代理只執行指派工作，不啟動 agentflow。', `所有專案代理與審查者在工作或審查前，須讀取已解析 agentflow 技能的 \`references/project-rules.md\` 或主代理提供的完整原文，再讀取 \`${dir}/rules.md\`（若存在）。無法取得共用基準時，回報缺漏並延後共用紀錄寫入與不變條件／審查驗收；可繼續獨立且已授權的工作。讀取規則不會啟動 agentflow。`]
-    : [activation, baseline(dir)]
+  const lines = [activation, baseline(dir)]
   const newline = old?.includes('\r\n') ? '\r\n' : '\n'
   const addition = lines.join(newline + newline) + newline + newline
   if (!old) return addition
@@ -162,7 +160,7 @@ function initialize({ cwd = process.cwd(), lang, invocation = ['agf', 'init', ..
   }
   const selected = locale(lang), zh = selected.startsWith('zh')
   scan(root)
-  const agents = safePath(root, 'AGENTS.md'), oldAgents = readOptional(agents), nextAgents = instructions(oldAgents, '.agentflow', zh)
+  const agents = safePath(root, 'AGENTS.md'), oldAgents = readOptional(agents), nextAgents = instructions(oldAgents, '.agentflow')
   const agentsStat = oldAgents === null ? null : S.checked_file(agents)
   if (agentsStat) {
     insist(agentsStat.nlink === 1 && (!process.getuid || agentsStat.uid === process.getuid()), 'AGENTS must be singly linked and owned by the current user; host adoption required')
