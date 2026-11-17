@@ -475,7 +475,7 @@ Switching branches, rewriting history, uncertain integration results or conflict
 
 An active Git operation or lock can pause landing. Resume the same queue after it ends; successful tasks stay preserved.
 
-Defaults are 3 working groups and 2 repairs per group, set in `looper-limits`. Active attempts retain their selections; new attempts use the settings read for that run. Each CLI attempt has a 20-minute timeout that preserves and blocks unfinished work on expiry.
+Defaults are 3 working groups and 2 repairs per group, set in `looper-limits`. Active attempts retain their selections; new attempts use the settings read for that run. Each CLI attempt has a timeout (`looper-limits.worker-timeout-minutes`, default 20) that preserves and blocks unfinished work on expiry.
 
 Native dispatch needs the live host and its result mailbox. Closing the host does not authorize switching to CLI or another provider.
 

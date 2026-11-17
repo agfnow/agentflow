@@ -1461,7 +1461,11 @@ test('invalid selected settings fail before claims; status remains read-only wit
     [c => { c['looper-routes'].task.model = 'duplicate' }, /belongs in model-family/],
     [c => { c['looper-limits']['max-workers'] = 0 }, /looper-limits.max-workers/],
     [c => { c['looper-limits']['max-repairs'] = -1 }, /looper-limits.max-repairs/],
-    [c => { c['looper-limits']['max-workers'] = null }, /looper-limits.max-workers/]
+    [c => { c['looper-limits']['max-workers'] = null }, /looper-limits.max-workers/],
+    [c => { c['looper-limits']['worker-timeout-minutes'] = 0 }, /worker-timeout-minutes/],
+    [c => { c['looper-limits']['worker-timeout-minutes'] = 1441 }, /worker-timeout-minutes/],
+    [c => { c['looper-limits']['worker-timeout-minutes'] = 1.5 }, /worker-timeout-minutes/],
+    [c => { c['looper-limits']['worker-timeout-minutes'] = '60' }, /worker-timeout-minutes/]
   ]
   for (const [mutate, error] of cases) {
     const config = JSON.parse(original); mutate(config)
@@ -1479,6 +1483,10 @@ test('invalid selected settings fail before claims; status remains read-only wit
   fs.writeFileSync(file, JSON.stringify(config))
   assert.equal(L.read_settings(repo).max_workers, 3)
   assert.equal(L.read_settings(repo).max_repairs, 2)
+  assert.equal(L.read_settings(repo).worker_timeout_minutes, 20)
+  config['looper-limits'] = { 'worker-timeout-minutes': 60 }
+  fs.writeFileSync(file, JSON.stringify(config))
+  assert.equal(L.read_settings(repo).worker_timeout_minutes, 60)
 })
 
 test('queue refuses editable worker and limit overrides', () => {
