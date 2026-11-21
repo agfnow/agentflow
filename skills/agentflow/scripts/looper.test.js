@@ -7,7 +7,7 @@ const current_schema = require('../assets/.agentflow/ag.json')['schema-version']
 const crypto = require('node:crypto')
 const os = require('node:os')
 const path = require('node:path')
-const { execFileSync } = require('node:child_process')
+const { execFileSync, spawnSync } = require('node:child_process')
 const L = require('./looper')
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 const read = root => JSON.parse(fs.readFileSync(path.join(root, 'queue.json')))
@@ -603,12 +603,36 @@ test('ordinary review missing native handoff imports only exact truthful never-d
 test('ordinary review cancelled CLI saved result renews only with saved process settlement and host correction', { timeout: 30000 }, async t => {
   for (const outcome of ['pass', 'blocked']) await t.test(outcome, async () => {
     const A = require('./looper-agent'), S = require('./looper-state')
-    const { root } = fixture([['a.txt']], { acceptance: { ...selection, effort: 'high' } })
+    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-catalog-test-')))
+    const executable = path.join(home, 'catalog.js')
+    fs.writeFileSync(executable, `
+      require('node:readline').createInterface({input:process.stdin}).on('line', line => {
+        const {id, method} = JSON.parse(line)
+        if (method === 'initialize') console.log(JSON.stringify({id,result:{}}))
+        if (method === 'config/read') console.log(JSON.stringify({id,result:{config:{model_provider:'openai'}}}))
+        if (method === 'model/list') console.log(JSON.stringify({id,result:{nextCursor:null,data:[{
+          model:'gpt-6.2-sol', hidden:false,
+          supportedReasoningEfforts:[{reasoningEffort:'low'},{reasoningEffort:'high'}]
+        }]}}))
+      })
+    `)
+    const { root, repo } = fixture([['a.txt']], {
+      task: { ...selection, model: 'gpt-latest-sol', executable },
+      acceptance: { ...selection, model: 'gpt-latest-sol', effort: 'high', executable }
+    })
+    const config_file = path.join(repo, '.agentflow', 'ag.json')
+    const config_bytes = fs.readFileSync(config_file)
     const launched = deferred()
+    const catalog_processes = new Set()
     let original, reviewer, marker, saved_result, calls = 0
-    assert.equal(await L.run(root, { checks, agent: async args => {
+    assert.equal(await L.run(root, { checks, on_save: queue => {
+      for (const proc of queue.processes)
+        if (proc.kind === 'catalog') catalog_processes.add(proc.pid)
+    }, agent: async args => {
       fs.mkdirSync(args.attempt_dir, { recursive: true })
       if (args.role === 'review') {
+        assert.equal(args.selection.model, 'gpt-6.2-sol')
+        assert.equal(args.selection.effort, 'high')
         reviewer = args.attempt.id
         const observation = await A.execute({ command: [process.execPath, '-e', 'setInterval(() => {}, 1000)'],
           cwd: args.cwd, signal: args.signal, log: path.join(args.attempt_dir, 'transcript.log'),
@@ -622,6 +646,8 @@ test('ordinary review cancelled CLI saved result renews only with saved process 
         throw Error('Reviewer stopped after its task returned early')
       }
       calls++; original = args.attempt.id
+      assert.equal(args.selection.model, 'gpt-6.2-sol')
+      assert.equal(args.selection.selector, 'gpt-latest-sol')
       marker = path.join(args.cwd, '.aglite-records/.devlog.md.owner')
       fs.writeFileSync(marker, JSON.stringify({ session: original }))
       fs.writeFileSync(path.join(args.cwd, 'a.txt'), 'preserved CLI product\n')
@@ -634,6 +660,10 @@ test('ordinary review cancelled CLI saved result renews only with saved process 
       return result(args.attempt, outcome)
     } }), 2)
     let blocked = read(root)
+    assert.equal(catalog_processes.size, 2)
+    assert.equal(blocked.processes.some(proc => proc.kind === 'catalog'), false)
+    assert.equal(blocked.groups[0].attempt.selection.model, 'gpt-6.2-sol')
+    fs.writeFileSync(executable, 'process.exit(1)') // The same saved attempt must survive lost discovery.
     assert.equal(blocked.groups[0].attempt.ordinary_reviews[0].state, 'cancelled')
     assert.ok(blocked.groups[0].attempt.ordinary_reviews[0].attempt.stopped_at)
     assert.equal(fs.existsSync(marker), true)
@@ -653,6 +683,8 @@ test('ordinary review cancelled CLI saved result renews only with saved process 
     assert.equal(await L.run(root, { checks, agent: async args => {
       calls++
       assert.notEqual(args.attempt.id, original)
+      assert.equal(args.selection.model, 'gpt-6.2-sol')
+      assert.equal(args.selection.effort, 'low')
       assert.equal(fs.existsSync(marker), false)
       assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'attempts', original, 'notebook-owner.released.json'))).session, original)
       assert.equal(fs.readFileSync(path.join(args.cwd, 'a.txt'), 'utf8'), 'preserved CLI product\n')
@@ -661,9 +693,55 @@ test('ordinary review cancelled CLI saved result renews only with saved process 
       return result(args.attempt)
     } }), 0, L.status(root))
     assert.equal(calls, 2)
+    assert.deepEqual(fs.readFileSync(config_file), config_bytes)
     assert.equal(fs.readFileSync(path.join(root, 'attempts', original, 'result.json'), 'utf8'), saved_result)
     assert.deepEqual(fs.readFileSync(exit_file), exit_bytes)
   })
+})
+
+test('looper CLI blocks a new selector when discovery fails and leaves configuration intact', { timeout: 30000 }, async () => {
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-no-catalog-test-')))
+  const executable = path.join(home, 'catalog.js')
+  const calls = path.join(home, 'calls')
+  fs.writeFileSync(executable, `
+    require('node:fs').appendFileSync(${JSON.stringify(calls)}, JSON.stringify(process.argv.slice(2)) + '\\n')
+    process.exit(1)
+  `)
+  const { root, repo } = fixture([['a.txt']], { task: { ...selection, model: 'gpt-latest-sol', executable } })
+  const file = path.join(repo, '.agentflow', 'ag.json')
+  const config = fs.readFileSync(file)
+  const command = (subcommand) => spawnSync(process.execPath,
+    [path.join(__dirname, 'agf.js'), 'looper', subcommand, root], { cwd: repo, encoding: 'utf8', timeout: 20000 })
+  assert.equal(command('status').status, 0)
+  assert.equal(fs.existsSync(calls), false)
+  const run = command('run')
+  assert.equal(run.status, 2, run.stderr)
+  assert.match(run.stderr + run.stdout, /model-family\.task\.basic.*catalog unavailable/)
+  const invocations = fs.readFileSync(calls, 'utf8').trim().split('\n').map(JSON.parse)
+  assert.equal(invocations.length, 1)
+  assert.ok(invocations[0].includes('app-server'))
+  const blocked = read(root)
+  assert.equal(blocked.groups[0].attempt ?? null, null)
+  assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
+  assert.equal(fs.readdirSync(path.join(repo, '.git')).some(file => /^aglite-target-.*\.owner$/.test(file)), false)
+  assert.deepEqual(fs.readFileSync(file), config)
+  fs.writeFileSync(executable, `
+    require('node:readline').createInterface({input:process.stdin}).on('line', line => {
+      const {id, method} = JSON.parse(line)
+      if (method === 'initialize') console.log(JSON.stringify({id,result:{}}))
+      if (method === 'config/read') console.log(JSON.stringify({id,result:{config:{}}}))
+      if (method === 'model/list') console.log(JSON.stringify({id,result:{nextCursor:null,data:[{
+        model:'gpt-6.2-sol', hidden:false, supportedReasoningEfforts:[{reasoningEffort:'low'}]
+      }]}}))
+    })
+  `)
+  answer(root, blocked.questions.find(item => !item.answer), 'host')
+  assert.equal(await L.run(root, { checks, agent: async args => {
+    assert.equal(args.cwd, blocked.groups[0].workspace.worktree)
+    assert.equal(args.selection.model, 'gpt-6.2-sol')
+    return agent(args)
+  } }), 0, L.status(root))
+  assert.deepEqual(fs.readFileSync(file), config)
 })
 
 test('real Git integration preserves disjoint owner edits, sequential fresh tasks, and ancestry', { timeout: 30000 }, async () => {
@@ -1677,6 +1755,40 @@ test('coordinator requires host migration for old configuration schema without r
   assert.doesNotThrow(() => L.read_settings(repo))
 })
 
+test('terminal readers reject legacy fields even at the current schema', () => {
+  const { root, repo } = fixture([['a.txt']], { task: { ...selection, executable: 'agentflow-test-no-worker-executable' } })
+  const file = path.join(repo, '.agentflow/ag.json')
+  const config = JSON.parse(fs.readFileSync(file))
+  const C = require('./feature-common')
+  for (const legacy of [
+    { switches: { 'skip-plan': 'on' } },
+    { switches: { 'review-order': 'external-first' } },
+    { switches: { 'review-order': 'native-first' } },
+    { switches: { 'review-order': 'host-only' } },
+    { switches: { 'workspace-dir': '.agentflow' } },
+    { 'pipeline-roles': { 'cross-check': 'good' } },
+    { 'external-workers': [{ family: 'claude' }] },
+    { 'external-workers': [{ tiers: {} }] }
+  ]) {
+    fs.writeFileSync(file, JSON.stringify({ ...config, ...legacy, switches: { ...config.switches, ...legacy.switches } }))
+    const before = fs.readFileSync(file)
+    const queue = fs.readFileSync(path.join(root, 'queue.json'))
+    assert.throws(() => C.discover(repo), /migration/i)
+    assert.throws(() => L.read_settings(repo), /migration/i)
+    const key = Object.keys(legacy.switches || {})[0]
+    if (key === 'skip-plan' || legacy.switches?.[key] === 'external-first') {
+      const result = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'looper', 'run', root], { cwd: repo, encoding: 'utf8', timeout: 15000 })
+      assert.equal(result.status, 1, result.stderr || result.stdout)
+      assert.match(result.stdout, new RegExp('migration.*' + key))
+    }
+    assert.doesNotThrow(() => L.status(root))
+    assert.deepEqual(fs.readFileSync(file), before)
+    assert.deepEqual(fs.readFileSync(path.join(root, 'queue.json')), queue)
+    assert.equal(fs.existsSync(path.join(root, '.queue.owner')), false)
+    assert.equal(fs.existsSync(path.join(repo, '.wts')), false)
+  }
+})
+
 test('dependency graphs start from checked integrated files and ancestry', { timeout: 30000 }, async () => {
   for (const edges of [[[], [], [], ['G1', 'G2', 'G3']], [[], ['G1'], ['G1'], ['G1'], ['G2', 'G3', 'G4']]]) {
     const { root, repo, q } = fixture(edges.map((_, i) => [`output-${i}.txt`]), { max_workers: 3 })
@@ -2520,6 +2632,28 @@ test('adoption refuses branch mismatch, rewrite and foreign operations; status s
   assert.match(output, /Target actual:.*main/)
   assert.equal(output.split('one specific lane blocker').length - 1, 1)
   assert.deepEqual(fs.readFileSync(path.join(root, 'queue.json')), before)
+})
+
+test('looper refuses Git bisect and sequencer before task dispatch or landing', () => {
+  const { root, repo, q } = fixture([['a.txt']], { task: { ...selection, executable: 'agentflow-test-no-worker-executable' } })
+  const launcher = path.join(__dirname, 'agf.js')
+  git(repo, 'bisect', 'start')
+  try {
+    for (const marker of ['BISECT_LOG', 'sequencer']) {
+      if (marker === 'sequencer') {
+        git(repo, 'bisect', 'reset')
+        fs.mkdirSync(path.join(repo, '.git', marker))
+      }
+      const result = spawnSync(process.execPath, [launcher, 'looper', 'run', root], { cwd: repo, encoding: 'utf8', timeout: 15000 })
+      assert.equal(result.status, 2, result.stderr || result.stdout)
+      assert.match(result.stdout + result.stderr, new RegExp('Foreign Git operation: ' + marker))
+      assert.equal(git(repo, 'rev-parse', 'HEAD'), q.base_commit)
+      assert.equal(read(root).groups[0].workspace ?? null, null)
+      assert.doesNotThrow(() => L.status(root))
+    }
+  } finally {
+    if (fs.existsSync(path.join(repo, '.git', 'BISECT_LOG'))) git(repo, 'bisect', 'reset')
+  }
 })
 
 test('adopted conflicting owner commit uses bounded repair review acceptance', { timeout: 30000 }, async () => {

@@ -1,4 +1,4 @@
-# Agentflow 9.1.12 — everyday guide
+# Agentflow 9.1.13 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -110,7 +110,7 @@ New questions put `Suggested default:` in its own indented paragraph, with a bla
   - ans:
 ```
 
-Missing or mismatched records are reported rather than accepted as proof. With no unfinished work, the host asks for your next request; idle activation does not schedule backlog work or add records.
+Missing or mismatched records are reported rather than accepted as proof. You can add a note next to the text you want the host to revisit. Put your initials before it, as in `+jx:`, to make the note easy to identify. On ordinary on-record activation, the host checks the latest delivered round and addresses unresolved notes in the next Reply within the scope you authorized. With no unfinished work, the host asks for your next request; idle activation does not schedule backlog work or add records.
 
 Notebook ownership prevents cooperating sessions from writing the same notebook together. Another session's claim requires a handoff; age or silence does not authorize taking it over.
 
@@ -139,7 +139,7 @@ A design explains intended behavior, preserved guarantees and acceptance. A trac
 
 Task states are `TODO`, `DOING`, `BLOCKED` and `DONE`. Work awaiting checks, review or delivery remains `DOING`; `DONE` needs completion evidence.
 
-`save-evidence` defaults off. The host still checks and reviews the work, but does not save separate round-proof files or read old ones during ordinary recovery. Existing evidence stays intact; you can explicitly ask to inspect it.
+`save-evidence` defaults off. The host still checks and reviews the work. It skips optional round-proof files and their ordinary recovery reads. Every file produced to do the work stays available, including each draft or revision written for 3ways or any review, regardless of who ran it. Every workflow saves its already-needed original and revised drafts verbatim, including drafts that exist only in the session. For example, a Claude draft sent to Codex as text is available in the round artifacts for later reference. Agentflow prefers writing the draft once or capturing the existing output locally, so the host can save it without generating the whole text again. Explicit cleanup still follows its own rules. You can explicitly ask to inspect other saved evidence.
 
 Current or an existing tracker keeps what is needed to continue: pending work, authority, blockers, uncertain operations and the next action. It does not become a substitute proof log. Missing proof may mean rerunning a check; it never counts as success.
 
@@ -179,7 +179,7 @@ For work that should wait, send a separate message:
 append-rounds Update the installation examples.
 ```
 
-One message creates one later batch, even with several tasks. `append-tasks` is an exact alias; neither command adds a looper job.
+One message creates one later batch, even with several tasks. `append-tasks` is an exact alias; neither command adds a looper job. The host keeps pending input in a tracker linked from Current, even when it saves no review evidence.
 
 The host finishes the current answer, approval gates and authorized delivery, then handles each batch in its own Ask/Reply round. `godev` resumes pending batches after interruption; queued work does not wake a stopped host. Name the batch when canceling it.
 
@@ -229,7 +229,7 @@ Sending or publishing the file needs separate authority.
 
 Ordinary work needs no mode. The host chooses enough investigation, planning and checking for the request.
 
-Use `fast-lane <task>` for direct host execution. It skips ordinary delegation, advisors, new design/tracker creation, separate review and routine progress entries. Input capture, recovery, checks, host review and authorized delivery remain.
+Use `fast-lane <task>` for direct host execution. It skips ordinary delegation, advisors, new design/tracker creation, separate review and routine progress entries. Pending-batch storage still applies. Input capture, recovery, checks, host review and authorized delivery remain.
 
 Use `skip-review <task>` to retain ordinary planning and execution while replacing ordinary separate review with host review, including the usual risk-boundary review requirement.
 
@@ -271,11 +271,25 @@ An existing repository alone does not activate it. No separate installation or e
 
 Use `advisors: requirements, explore` for focused advice. The host can also choose advisors for a named investigation gap; advice authorizes no proposed changes and requires no separate worker per role.
 
+Use `slide-guides [request]` to apply the bundled workflow to a slide outline or deck you ask for. [Slide guides](../references/slide-guides.md)
+
+### Advisors and references
+
+Think of `references/` as the handbook and `references/advisors/` as the assignment briefs inside it. The handbook explains how to do recurring work. The host opens a brief when it selects that advisor for a specific question.
+
+The brief explains what the role investigates and points back to the shared methods. The host sets the scope and depth for the task, then does the work directly or delegates under the usual planning and review rules.
+
+- **`acceptance`** asks whether the finished change meets the agreed outcome and whether the checks would catch a meaningful failure. Ordinary result review already uses the same [finished-result checklist](../references/review.md#inspect-the-finished-result), so it can proceed without selecting this advisor. An advisor review can count as the required review when it covers the exact final result and meets the same scope, evidence, routing and independence requirements.
+
+- **`final-audit`** asks whether an identified release candidate is ready to ship. Request it with `advisors: final-audit`. A full audit takes place after ordinary checks and assembly, before release. It checks how the shipped pieces work together and rehearses installing and using the exact package in a clean environment. [Audit brief](../references/advisors/final-audit.md).
+
+  A focused audit can surface gaps. A readiness verdict requires the full audit. To count as the required result review, the audit must also meet the same review checklist and requirements as `acceptance`. Publication requires its own authorization even after a GO verdict.
+
 ### Codewalk or product-docs?
 
 Both inspect the product, but serve different readers: `codewalk` helps an implementer understand affected code; `product-docs` helps users or maintainers understand the product through its documentation.
 
-- **Choose `codewalk` when you need to find or trace implementation.** It maps entry points, data flow, dependencies, interfaces, likely edit locations and checks, with inspected scope and remaining gaps. It stays read-only and stops once the affected paths are sufficiently understood.
+- **Choose `codewalk` when you need to find or trace implementation.** It maps entry points, data flow, dependencies, interfaces, likely edit locations and checks, with inspected scope and remaining gaps. In affected UI paths it flags verified local reimplementations of shared designs and points to a reusable component or the gap preventing reuse. It stays read-only and stops once the affected paths are sufficiently understood.
 
   Example: `advisors: codewalk` with “Trace feature creation and identify the affected files and checks.”
 
@@ -289,7 +303,7 @@ The host may select either role when a concrete gap warrants it; selection is co
 
 Neither role requires a separate worker or standalone report. Useful findings normally go into existing records; a separate report needs an explicit request or substantial reusable findings. Selecting advice grants no authority to edit, reorganize or publish; those actions need accepted task scope.
 
-For a defined pre-release candidate, `advisors: final-audit` assesses readiness after checks and assembly. A GO verdict still grants no publication authority. Find all roles in the [cheatsheet](CHEATSHEET.md#commands--alphabetical); exact selection mechanics are [agent rules](../references/ag.md).
+Find all roles in the [cheatsheet](CHEATSHEET.md#commands--alphabetical) and the exact selection mechanics in the [advisor rules](../references/ag.md).
 
 ## Plan, check, review and approve
 
@@ -309,13 +323,13 @@ These choices decide who plans. They do not remove required designs, trackers, r
 
 Use `3ways <request>` for separate blind Claude and Codex plans, followed by comparison and reciprocal debate. Neither sees the other’s current-task draft or hints until both finish; shared original evidence and accepted prior contracts are allowed.
 
-Codex writes the final synthesis and makes reasoned technical decisions. A participating host must draft before reading the other output or use a fresh clean participant; otherwise its work stays provisional and cannot count as blind 3ways.
+Codex writes the final synthesis and makes reasoned technical decisions. A participating host must save its draft before reading the other output or use a fresh clean participant; otherwise its work stays provisional and cannot count as blind 3ways.
 
 `plan-order: 3ways` selects that identical procedure for already-needed planning, including recommendation reports. No fixed round cap or minimum applies.
 
 Technical dissent is recorded with Codex’s final reasons; consensus means both explicitly accepted identical final content.
 
-Missing required participants or valid blind drafts leaves provisional work. Owner-only choices, required proof and approval gates remain binding; this grants no implementation approval. See [review.md, line 76](../references/review.md#3ways-compare-before-implementation).
+Missing required participants or valid blind drafts leaves provisional work. Owner-only choices, required proof and approval gates remain binding; this grants no implementation approval. See [review.md, line 78](../references/review.md#3ways-compare-before-implementation).
 
 External planning prefers Claude CLI drafting followed by Codex challenge/synthesis; a Codex host can do the latter directly. Native prefers the same roles within supported native/direct-host controls.
 
@@ -333,7 +347,7 @@ The host first checks the work. Changed code, operational prompts, product artif
 
 Implementation reviews, including retrospective reviews, check **intent and decisions**: trace accepted design goals and acceptance criteria to code/tests, and material mechanisms back to an accepted purpose. Reviewers assess consequential tradeoffs, failure paths and simpler adequate choices, flagging mismatches, unsupported mechanisms and missing proof without inventing intent.
 
-Without a design, they use accepted requirements and disclose missing context; they do not create a design. This adds no review stage or product-goal revalidation. See the [review checklist (review.md, line 114)](../references/review.md#114).
+Without a design, they use accepted requirements and disclose missing context; they do not create a design. This adds no review stage or product-goal revalidation. See the [review checklist (review.md, line 116)](../references/review.md#116).
 
 `review-order` defaults to `external`: counterpart CLI, then fresh native agent, then disclosed host fallback. Separate review prefers a different known planner family when supported, then another configured model. Repeated or unknown identity is disclosed; it is not proof of diversity.
 
@@ -355,7 +369,7 @@ Use `deep-review [target]` to request it at any risk. For example, `deep-review 
 
 Every review of an implementation result, including a retrospective review, states its risk level and a short reason. Answers also tell you about blockers, uncertainty that affects your decision, sensitive actions needing attention and actual approval requests. Other routine review accounting stays out of the answer and is saved only when evidence storage is on. When you need to inspect a sensitive change, the host identifies the path and consequence.
 
-The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 132)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
+The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 134)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
 
 Checks are selected by the failure they can expose. For a consequential requirement that remains unproved, the agent chooses the cheapest check that distinguishes correct behavior from a plausible defect. It can use examples, properties, reference comparisons, input fuzzing, targeted mutation or integration/failure tests; these are options, not a fixed tool sequence.
 
@@ -367,7 +381,7 @@ These changes strengthen review without guaranteeing zero regressions or removin
 
 ### Approval gates
 
-`gate-design: on` requires design approval before implementation and conflicts with `plan-mode: off`. `gate-tracker: on` requires approval of checked results before final delivery when a tracker exists.
+`gate-design: on` requires design approval before implementation and conflicts with `plan-mode: off`. `gate-tracker: on` requires approval of checked results before final delivery when a task tracker exists. A tracker created only to store pending batches does not trigger this gate.
 
 Both gates default off. An empty answer never approves; an unchanged result already approved needs no repeated permission. See the [settings reference](CHEATSHEET.md#agjson--switches--alphabetical) and [agent planning](../references/planning.md#planning-modes-and-gates) / [review rules](../references/review.md).
 
@@ -541,7 +555,7 @@ On the next `run-tasks` or `agf looper run <run-root>`, the coordinator imports 
 
 Identical answers are idempotent; conflicting replacements are rejected. An answer alone does not fix the cause or prove a worker stopped.
 
-Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 113)](../references/looper.md#113).
+Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 115)](../references/looper.md#115).
 
 “Resume” means continue preserved work, not roll the repository back or rerun everything. Repair/review of merge conflicts is bounded (default 2 repairs). Failed tasks, provider errors and timeouts have no general automatic retry/backoff; technical corrections and another invocation may be needed. Missing identity or unknown external effects can still require human investigation.
 
@@ -571,21 +585,25 @@ Verified task changes and owner edits are committed separately, subject to the p
 
 ### Save-evidence and saving-mode together
 
-`save-evidence` controls whether separate proof is retained; `saving-mode` reduces optional writing overall. They are independent: a single on/off switch would lose useful choices.
+`save-evidence` controls whether optional proof is written; `saving-mode` reduces optional writing overall. They are independent: a single on/off switch would lose useful choices.
 
 Read each combination below as `save-evidence` / `saving-mode`:
 
-- **`off` / `off` (defaults):** ordinary answer detail, without separate round evidence. This does not mean “save everything”; ordinary minimality rules still apply.
+- **`off` / `off` (defaults):** ordinary answer detail, without optional round evidence. Keep the work files already produced.
 
-- **`off` / `on`:** less optional prose and fewer optional documents, without separate round evidence. Choose this to write and retain as little as necessary.
+- **`off` / `on`:** less optional prose and fewer optional documents, without optional round evidence. Work files and already-needed drafts are still retained.
 
 - **`on` / `off`:** ordinary answer detail, retaining only useful minimal separate evidence.
 
 - **`on` / `on`:** less optional writing, while retaining useful minimal separate evidence. Saving mode never enables evidence storage that is off.
 
-All four preserve requested deliverables, required checks/review, approvals and essential recovery. Dedicated lifecycle, looper, migration and release operational records remain required where applicable. Neither switch changes models or review routes; turning evidence storage on applies prospectively, without recreating past proof.
+All four preserve files produced to do the work, requested deliverables, required checks and review, approvals, and essential recovery. Dedicated lifecycle, looper, migration and release operational records remain required where applicable. Neither switch changes models or review routes; turning evidence storage on applies prospectively, without recreating past proof.
 
 `pipeline-roles` and `model-family` select models/effort for work already chosen, and launch nothing alone. Unsupported selected settings block rather than change silently.
+
+New configurations use family selectors such as `gpt-latest-sol/high` and `claude-latest-sonnet/medium`. At dispatch, Agentflow selects the newest stable concrete model the route can verify for that family and effort. Use a literal such as `gpt-6.2-sol/high` to pin the pair. Existing configurations retain their entries, and retries retain the selected pair. If discovery cannot verify a match, resolve the blocker before trying again. [Worker settings (review.md, line 11)](../references/review.md#worker-settings).
+
+The standalone looper resolves selectors through the chosen Codex or Claude executable. Looper routes using Copilot or a native host require a verified literal pair. A catalog may be cached. [Looper settings (looper.md, line 5)](../references/looper.md#looper-settings).
 
 For Copilot, start with the [selection reference](CHEATSHEET.md#copilot-selection). The linked [Copilot agent rules](../references/copilot.md) explain transport controls; CLI success does not prove native editor support.
 

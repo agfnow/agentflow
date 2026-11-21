@@ -6,7 +6,7 @@ That change has concrete consequences. An assistant can still violate the same w
 
 Treat this as a migration to a redesigned product. Agentflow 8 configuration and queues are not supported as drop-in inputs; configuration has a guarded conversion path, while old queues require separate recovery and new preparation. Start with the [guarded legacy migration rules](../references/legacy-migration.md); retain v8 for active work that cannot yet be safely handed off.
 
-This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.12**, configuration schema **14**. Current source references below belong to this package.
+This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.13**, configuration schema **14**. Current source references below belong to this package.
 
 Version 8 is preserved at [`agfnow/agentflow-v8`](https://github.com/agfnow/agentflow-v8); stable v9 uses [`agfnow/agentflow`](https://github.com/agfnow/agentflow). Use the matching repository’s installation instructions. Existing installations must be rebound deliberately; the repository rename alone does not migrate them.
 
@@ -88,7 +88,7 @@ This is a source-backed comparison, not proof of a migrated real project, provid
 
 **Before:** consequential work used Design Go/Result Go boundaries. `away-gates` could supply those gates after evidence; `auto-reply` and temporary `keep-going` could resolve safe routine defaults. Owner-only choices still required the owner. v8 templates differed: Codex setup used `away-gates: on`, while the general missing-key default was off, so inspect the actual old project rather than assume it paused.
 
-**Now:** `gate-design` and `gate-tracker` default off. The former pauses before implementation; the latter pauses before final delivery when a tracker exists. During feature merge, its integration-specific timing must be respected. Empty answers and suggested defaults supply no approval. [configuration.md, line 1](../references/configuration.md)
+**Now:** `gate-design` and `gate-tracker` default off. The former pauses before implementation; the latter pauses before final delivery when a task tracker exists, excluding trackers used only to store pending batches. During feature merge, its integration-specific timing must be respected. Empty answers and suggested defaults supply no approval. [configuration.md, line 1](../references/configuration.md)
 
 **Concrete impact:** old consequential-work approval expectations can disappear if the new defaults are accepted without discussion. Conversely, carrying an old safe-default automation assumption can cause an inappropriate unattended continuation.
 

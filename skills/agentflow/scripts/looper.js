@@ -6,6 +6,7 @@ const crypto = require('node:crypto')
 const S = require('./looper-state')
 const G = require('./looper-integration')
 const A = require('./looper-agent')
+const { legacySetting } = require('./feature-common')
 const skill = path.resolve(__dirname, '..')
 const current_schema = require('../assets/.agentflow/ag.json')['schema-version']
 const now = () => new Date().toISOString()
@@ -79,6 +80,8 @@ function read_settings(repo) {
   insist(canonical.length === 1, `No canonical <ag-dir>/ag.json; resolve configuration routing${other.length || uncertain.length ? ': ' + [...other, ...uncertain].join(', ') : ''}`)
   const { config, source, file } = canonical[0]
   insist(config['schema-version'] === undefined || config['schema-version'] === current_schema, `ag.json schema-version: migrate to integer ${current_schema} via the host`)
+  const legacy_key = legacySetting(config)
+  insist(!legacy_key, `Configuration migration requires host continuation: ${file} (${legacy_key})`)
   const saving = config.switches?.['saving-mode']
   insist(saving !== undefined, 'ag.json switches.saving-mode missing: migrate via the owner-facing host')
   insist(saving === 'on' || saving === 'off', 'ag.json switches.saving-mode must be on or off')
@@ -435,7 +438,7 @@ async function run(root = process.cwd(), options = {}) {
   const original_request = request_text(q, root)
   const settings = read_settings(q.repo)
   if (q.groups.some(group => group.tasks.some(task => task.state !== 'done') && !group.attempt))
-    select(settings, 'task') // Validate new task dispatch before creating claims or worktrees.
+    select(settings, 'task') // Validate configuration before creating claims or worktrees.
   const common = path.resolve(q.repo, G.git(q.repo, ['rev-parse', '--git-common-dir']))
   const target_claim = path.join(common, `aglite-target-${crypto.createHash('sha256').update(q.target_branch).digest('hex').slice(0, 20)}.owner`)
   const own_claim = path.join(root, '.queue.owner')
@@ -482,6 +485,27 @@ async function run(root = process.cwd(), options = {}) {
     }
     save()
   }
+  const resolve_worker = async (role, cwd, signal) => {
+    const selection = select(settings, role)
+    if (!A.latest_selector.test(selection.model)) return selection
+    const list = []
+    const observe = async proc => { list.push(...(Array.isArray(proc) ? proc : [proc])); await track(proc) }
+    try {
+      const resolved = await A.resolve_latest(selection, cwd, signal, { on_launch: observe, on_descendant: observe })
+      settled(list)
+      return resolved
+    } catch (error) {
+      if (error.unsettled) {
+        uncertain = true
+        throw error
+      }
+      settled(list)
+      signal?.throwIfAborted()
+      const { route, tier } = selection.source
+      const catalog = settings.config['looper-routes'][route]['model-family']
+      throw Error(`${settings.file} model-family.${catalog}.${tier} (${selection.model}/${selection.effort}): ${error.message}`)
+    }
+  }
   const checks = async (cwd, ids, label) => {
     const dir = path.join(root, 'evidence', `${label}-${crypto.randomUUID()}`)
     const list = []
@@ -495,7 +519,7 @@ async function run(root = process.cwd(), options = {}) {
       return result
     } catch (error) { if (error.unsettled) uncertain = true; else settled(list); throw error }
   }
-  const invoke = async (role, cwd, prompt, holder, invocation_signal = abort.signal) => {
+  const invoke = async (role, cwd, prompt, holder, invocation_signal = abort.signal, retry_selection) => {
     const original_prompt = prompt
     if (holder.group_id && !holder.request_id && ['repair', 'review', 'acceptance'].includes(role))
       prompt += `\nResolved answers/corrections (answer_source identifies owner/host; host technical corrections grant no new scope): ${JSON.stringify(q.questions.filter(item => item.answer))}`
@@ -506,24 +530,27 @@ async function run(root = process.cwd(), options = {}) {
       prompt += `\n${fs.readFileSync(path.join(skill, 'references/verification.md'), 'utf8')}`
     const parent_prompt = prompt
     if (['review', 'acceptance'].includes(role)) prompt += '\nFor optional discovery inputs, test existence quietly before reading; required missing inputs block. Prefer read-only commands that do not require shell temporary files; git diff exit 1 denotes differences, not automatically validation failure.'
-    const fresh_attempt = !holder.attempt
-    if (!holder.attempt) {
-      const selected = select(settings, role)
+    const fresh_attempt = retry_selection !== undefined || !holder.attempt
+    if (fresh_attempt) {
       if (role === 'repair') {
         const group = q.groups.find(item => item.id === holder.group_id)
         insist(group && (group.repairs || 0) < settings.max_repairs, 'Repair budget exhausted')
-        select(settings, 'review') // Validate the persisted fresh reviewer before editing.
+        select(settings, 'review') // Validate configuration before editing, discover at review dispatch.
       }
-      holder.attempt = { id: crypto.randomUUID(), role, selection: selected, expected_head: G.head(cwd), started_at: now() }
+      const selected = retry_selection ?? await resolve_worker(role, cwd, invocation_signal)
+      const next_attempt = { id: crypto.randomUUID(), role, selection: selected, expected_head: G.head(cwd), started_at: now() }
       if (role === 'task') {
         const file = notebook(cwd, holder)
-        holder.attempt.previous_round = fs.existsSync(file) ? notebook_rounds(fs.readFileSync(file, 'utf8')).completed : 0
+        next_attempt.previous_round = fs.existsSync(file) ? notebook_rounds(fs.readFileSync(file, 'utf8')).completed : 0
       }
+      if (retry_selection !== undefined) delete holder.retry_attempt
+      holder.attempt = next_attempt
       save()
     }
     const attempt = holder.attempt
     insist(attempt.role === role && attempt.selection, 'Saved attempt role/selection required')
     const selection = attempt.selection
+    insist(!A.latest_selector.test(selection.model), 'Saved attempt requires a concrete model; inspect and recover before dispatch')
     if (role === 'task') { notebook(cwd, holder); save() } // Persist observed creation, including pending native work.
     worker(selection)
     prompt = `Isolated looper ${role} session: read inherited configuration only at ${path.join(cwd, settings.file)}; missing/unsafe config blocks dependent work, never substitute defaults. No configuration discovery, creation, migration writes, release checks or project adoption; these belong to the owner-facing host. Interpret documented mappings in memory only; unknown/conflicting mappings require owner decisions. Root notebooks, registry and backlog are read-only constraints.\n${prompt}`
@@ -613,10 +640,7 @@ async function run(root = process.cwd(), options = {}) {
         release_task_claim(cwd, attempt)
         retain_ordinary_reviews(holder.tasks.find(item => item.state !== 'done'), attempt)
       }
-      delete holder.retry_attempt
-      holder.attempt = null
-      save()
-      return invoke(role, cwd, original_prompt, holder, invocation_signal)
+      return invoke(role, cwd, original_prompt, holder, invocation_signal, selection)
     }
     const list = []
     const observe = async proc => { list.push(...(Array.isArray(proc) ? proc : [proc])); await track(proc) }

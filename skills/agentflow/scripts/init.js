@@ -72,7 +72,7 @@ function complete(root, config) {
   for (const sub of ['artifacts', 'features', '.tmp']) insist(fs.statSync(safePath(root, `${dir}/${sub}`)).isDirectory(), `Missing setup directory: ${dir}/${sub}`)
   const text = readOptional(safePath(root, `${dir}/${name}`))
   const headings = C.roundHeadings(text), tail = headings.slice(-3)
-  insist(/^# STATUS\r?$/m.test(text) && tail.length === 3 && tail[0].ask === tail[1].ask && tail[0].label !== tail[1].label && tail[0].label === tail[2].label && Number(tail[2].ask.slice(2)) === Number(tail[1].ask.slice(2)) + 1, 'Incomplete notebook; host reconciliation required')
+  insist(/^# (?:STATUS|狀態)\r?\n/.test(text) && tail.length === 3 && tail[0].ask === tail[1].ask && tail[0].label !== tail[1].label && tail[0].label === tail[2].label && Number(tail[2].ask.slice(2)) === Number(tail[1].ask.slice(2)) + 1, 'Incomplete notebook; host reconciliation required')
   const agents = readOptional(safePath(root, 'AGENTS.md'))
   insist(/agentflow/i.test(agents) && agents.includes('references/project-rules.md') && agents.includes(`${dir}/rules.md`), 'Incomplete AGENTS adoption; continue with host')
 }
@@ -199,7 +199,7 @@ function initialize({ cwd = process.cwd(), lang, invocation = ['agf', 'init', ..
     verify(); repository(root)
     insist(git(root, ['symbolic-ref', '--short', 'HEAD']) === branch && git(root, ['rev-parse', 'HEAD']) === expectedHead, 'Git branch or HEAD changed; retain initialization state for host reconciliation')
   }
-  const status = zh ? `# STATUS\n\n專案: ${path.basename(root)}\n\n筆記本: ${notebook} — 根目錄\n\n工作目錄: ${root}\n\n分支: ${branch}\n\n目前工作: A-002 等待下一個請求。\n\n已驗證: 已建立初始檔案；僅在 .agentflow/.init-pending.owner 仍存在時須核對復原。\n\n下一步: 等待請求。\n\n封存紀錄: 無。` : `# STATUS\n\nProject: ${path.basename(root)}\n\nNotebook: ${notebook} — root\n\nCheckout: ${root}\n\nBranch: ${branch}\n\nCurrent: A-002 awaiting the next request.\n\nProven: setup files created; reconcile only if .agentflow/.init-pending.owner remains.\n\nNext: awaiting request.\n\nArchived eras: none.`
+  const status = zh ? `# 狀態\n\n專案: ${path.basename(root)}\n\n筆記本: ${notebook} — 根目錄\n\n工作目錄: ${root}\n\n分支: ${branch}\n\n目前工作: A-002 等待下一個請求。\n\n已驗證: 已建立初始檔案；僅在 .agentflow/.init-pending.owner 仍存在時須核對復原。\n\n下一步: 等待請求。\n\n封存紀錄: 無。` : `# STATUS\n\nProject: ${path.basename(root)}\n\nNotebook: ${notebook} — root\n\nCheckout: ${root}\n\nBranch: ${branch}\n\nCurrent: A-002 awaiting the next request.\n\nProven: setup files created; reconcile only if .agentflow/.init-pending.owner remains.\n\nNext: awaiting request.\n\nArchived eras: none.`
   const command = invocation.join(' ')
   const invocationText = '+ ' + command
   const excerpt = Array.from(command).slice(0, 100).join('') + (Array.from(command).length > 100 ? '...' : '')

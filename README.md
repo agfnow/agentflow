@@ -1,4 +1,4 @@
-# Agentflow v9.1.12
+# Agentflow v9.1.13
 
 **English** · [繁體中文](README.zh-tw.md)
 
@@ -211,7 +211,7 @@ Both v8 and v9 also use the skill name `agentflow` and project directory `.agent
 
 ## Configuration and limits
 
-Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 14 is separate from package version 9.1.12.
+Project settings live at `<checkout>/<ag-dir>/ag.json`; `.agentflow` is the default directory. Configuration schema 14 is separate from package version 9.1.13.
 
 Use `use-lang` for new human-facing text and `plan-mode` for when to create planning documents. Simple, understood, low-risk plans stay with the host. Complex planning uses `plan-order`; worker routes prefer a Claude draft followed by Codex review, correction and the final plan. An explicit route or configured `3ways` takes precedence; `plan-order: host` keeps planning with the host.
 

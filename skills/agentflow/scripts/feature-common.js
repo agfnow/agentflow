@@ -34,6 +34,16 @@ function writeChanged(file, old, next) {
   fs.renameSync(tmp, file)
   insist(readOptional(file) === next, `Write verification failed: ${file}`)
 }
+function legacySetting(config) {
+  const settings = config.switches || {}
+  const legacy = ['skip-asker', 'skip-run', 'skip-wip', 'skip-plan', 'target-doc', 'workspace-dir', 'lang', 'ask-names', 'log-verbosity', 'allowed-worker', 'review-policy', 'cli-provider', 'allow-ag', 'away-gates', 'streams', 'auto-reply', 'notebook-ownership', 'large-work-minutes', 'git-timeout-ms', 'completion-cleanup', 'completion-cleanup-interval-days', 'metrics']
+  const key = legacy.find(name => Object.hasOwn(settings, name))
+  if (key) return `switches.${key}`
+  if (['external-first', 'native-first', 'host-only'].includes(settings['review-order'])) return 'switches.review-order'
+  if (Object.hasOwn(config['pipeline-roles'] || {}, 'cross-check')) return 'pipeline-roles.cross-check'
+  if (Object.values(config['external-workers'] || {}).some(value =>
+    value && typeof value === 'object' && (Object.hasOwn(value, 'tiers') || Object.hasOwn(value, 'family')))) return 'external-workers'
+}
 function discover(root, { allowAbsent = false, diagnosticLocale = 'en' } = {}) {
   const candidates = [], unresolved = [], unknownLinks = []
   function walk(dir) {
@@ -84,8 +94,9 @@ function discover(root, { allowAbsent = false, diagnosticLocale = 'en' } = {}) {
     throw Error(lines.join('\n'))
   }
   const c = candidates[0], targetSchema = require('../assets/.agentflow/ag.json')['schema-version']
-  const legacy = ['skip-asker', 'skip-run', 'skip-wip', 'skip-plan', 'target-doc', 'workspace-dir', 'lang', 'ask-names', 'log-verbosity', 'allowed-worker', 'review-policy', 'cli-provider', 'allow-ag', 'away-gates', 'streams', 'auto-reply', 'notebook-ownership', 'large-work-minutes', 'git-timeout-ms', 'completion-cleanup', 'completion-cleanup-interval-days', 'metrics']
-  insist(c.canonical && (c.value['schema-version'] === undefined || c.value['schema-version'] === targetSchema) && !legacy.some(k => k in c.settings) && !('cross-check' in (c.value['pipeline-roles'] || {})) && !Object.values(c.value['external-workers'] || {}).some(v => v && typeof v === 'object' && ('tiers' in v || 'family' in v)) && ['on', 'off'].includes(c.settings['saving-mode']) && c.settings['save-evidence'] !== undefined, `Configuration migration requires host continuation: ${c.file}`)
+  const legacy = legacySetting(c.value)
+  insist(!legacy, `Configuration migration requires host continuation: ${c.file} (${legacy})`)
+  insist(c.canonical && (c.value['schema-version'] === undefined || c.value['schema-version'] === targetSchema) && c.settings['saving-mode'] !== undefined && c.settings['save-evidence'] !== undefined, `Configuration migration requires host continuation: ${c.file}`)
   for (const key of ['inline-reply', 'omit-asker', 'omit-run', 'omit-wip', 'gate-design', 'gate-tracker', 'auto-commit', 'auto-push', 'save-evidence', 'saving-mode']) {
     insist(c.settings[key] === undefined || ['on', 'off'].includes(c.settings[key]), `Invalid ${key}: ${c.file}; expected on|off`)
   }
@@ -308,19 +319,25 @@ function retire(c, { abandon = false, expectedTip = c.featureTip, allowedPaths =
     supportedRecordLocale(c.settings)
     const old = readOptional(c.notebook)
     if (old) {
-      const ask = roundHeadings(old).at(-1)?.ask
+      const headings = roundHeadings(old)
+      const ask = headings.at(-1)?.ask
       insist(ask, 'Feature round identity missing; ask host to reconcile before cleanup')
       const own = claim(c.notebook, ask)
       own.verify()
-      let next = old.replace(/^(Stream|功能):.*$/m, '$1: dropped').replace(/^(Session|工作階段):.*$/m, '$1: retired').replace(/^(Cleanup|清理):.*$/m, '$1: pending')
+      const divider = /\r?\n---\r?\n/.exec(old.slice(0, headings[0].index))
+      const statusEnd = divider?.index ?? headings[0].index
+      const status = old.slice(0, statusEnd)
+      let next = status.replace(/^(Stream|功能):.*$/m, '$1: dropped').replace(/^(Session|工作階段):.*$/m, '$1: retired').replace(/^(Cleanup|清理):.*$/m, '$1: pending')
       // Merge callers already saved merged/retired status and its recovery identity.
-      if (/^(Stream|功能): merged$/m.test(old)) next = old.replace(/^(Cleanup|清理):.*$/m, '$1: pending')
-      const zh = /^(?:功能|工作階段|清理):/m.test(old)
+      if (/^(Stream|功能): merged$/m.test(status)) next = status.replace(/^(Cleanup|清理):.*$/m, '$1: pending')
+      const zh = /^# 狀態\r?\n/.test(status) || /^(?:功能|工作階段|清理):/m.test(status)
       const fields = [[zh ? '功能' : 'Stream', /^(Stream|功能):/m.test(next) ? null : 'dropped'], [zh ? '工作階段' : 'Session', /^(Session|工作階段):/m.test(next) ? null : 'retired'], [zh ? '清理' : 'Cleanup', /^(Cleanup|清理):/m.test(next) ? null : 'pending']].filter(([, value]) => value)
       if (fields.length) {
-        insist(/^# STATUS\r?\n/.test(next) && /\n---\r?\n/.test(next), 'Cannot safely initialize missing feature STATUS fields; request host reconciliation')
-        next = next.replace(/\n---\r?\n/, `\n${fields.map(([key, value]) => `${key}: ${value}\n`).join('\n')}\n---\n`)
+        insist(divider && /^# (?:STATUS|狀態)\r?\n/.test(next), 'Cannot safely initialize missing feature STATUS fields; request host reconciliation')
+        const newline = divider[0].startsWith('\r\n') ? '\r\n' : '\n'
+        next += newline + fields.map(([key, value]) => `${key}: ${value}`).join(newline) + newline
       }
+      next += old.slice(statusEnd)
       own.verify(); writeChanged(c.notebook, old, next)
       own.release()
     }
@@ -350,4 +367,4 @@ function retire(c, { abandon = false, expectedTip = c.featureTip, allowedPaths =
   return { destination: c.main, message: zh ? `已移除 ${c.target}\n\n已取消工作目錄登錄並刪除 ${c.branch}（${expectedTip}）。${recovered ? `\n\n可復原的工作目錄：${recovered}` : process.platform === 'win32' ? '\n\nWindows 功能工作目錄已永久刪除。' : '\n\n工作目錄原已不存在；本次明確要求已完成剩餘 Git 清理。'}` : `Removed ${c.target}\n\nUnregistered worktree and deleted ${c.branch} at ${expectedTip}.${recovered ? `\n\nRecoverable checkout: ${recovered}` : process.platform === 'win32' ? '\n\nWindows permanent feature cleanup.' : '\n\nCheckout was already absent; renewed command completed remaining Git cleanup.'}` }
 }
 
-module.exports = { insist, exists, safePath, readOptional, git, writeChanged, discover, registrations, noOperation, context, assertIdentity, localExclude, claim, retire, cleanFeature, treeDigest, roundHeadings, supportedRecordLocale, preflightClaimDisposal, preflightTrash, localLifecycleConfig }
+module.exports = { insist, exists, safePath, readOptional, git, writeChanged, discover, legacySetting, registrations, noOperation, context, assertIdentity, localExclude, claim, retire, cleanFeature, treeDigest, roundHeadings, supportedRecordLocale, preflightClaimDisposal, preflightTrash, localLifecycleConfig }

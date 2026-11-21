@@ -37,6 +37,8 @@ const no_operation = (cwd) => {
     'REVERT_HEAD',
     'rebase-merge',
     'rebase-apply',
+    'sequencer',
+    'BISECT_LOG',
     'index.lock',
     'HEAD.lock'
   ]) {

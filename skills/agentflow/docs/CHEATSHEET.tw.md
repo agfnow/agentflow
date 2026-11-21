@@ -2,7 +2,7 @@
 
 [English](CHEATSHEET.md) · 繁體中文
 
-啟動時只讀取所選路徑需要的指示。閒置啟動檢查設定與目前工作，不認領筆記或新增紀錄；未完成工作則依原有程序接續。主代理重用仍在背景中的靜態規則，讀取適用章節與前置規則，並保留必要的完整安全檢查。[載入規則（SKILL.md，第 30 行）](../SKILL.md#load-only-the-applicable-procedure)。
+啟動時只讀取所選路徑需要的指示。一般有留紀錄的啟動會檢查最近一次已回覆的輪次有無未回覆的附註。沒有待處理的附註或工作時，啟動不會認領筆記或新增紀錄。主代理會先認領筆記，再復原或執行工作。主代理重用仍在背景中的靜態規則，讀取適用章節與前置規則，並保留必要的完整安全檢查。[載入規則（SKILL.md，第 30 行）](../SKILL.md#load-only-the-applicable-procedure)。
 
 一般 agentflow 會把推測的目標視為不能凌駕明確要求的假設，提出建議方向，並簡短指出影響結果的後續需求。低影響的模糊處可採用並說明假設；重大決定仍需你的意見。
 
@@ -12,15 +12,15 @@
 
 擷取擁有者輸入：每個文字段落前加上 `+ `；相關段落可共用第一個前綴。保留程式碼內文、既有前綴與歷史；各組之間以空白行分隔，不放獨立的 `--`。[擷取規則（session.md，第 5 行）](../references/session.md#activate-and-recover)。
 
-Codex 子代理：每次 `spawn_agent` 都明確設定 `fork_turns: "none"`；在任務訊息中提供所有必要背景。[委派（review.md，第 32 行）](../references/review.md#give-one-bounded-assignment)。
+Codex 子代理：每次 `spawn_agent` 都明確設定 `fork_turns: "none"`；在任務訊息中提供所有必要背景。[委派（review.md，第 34 行）](../references/review.md#give-one-bounded-assignment)。
 
-`save-evidence` 預設 `off`：仍執行檢查／審查，但不另存每輪證據，也不在一般復原時讀取。不可改存 devlog、tracker 或其他路徑；Current／既有 tracker 只保留必要待辦狀態、授權、阻礙、操作身分及下一步。明確檢視或指定交付物要求在其範圍內優先。既有證據／歷史維持原樣；日後開啟不補寫過去。
+`save-evidence` 預設 `off`：仍執行檢查與審查。省略選用的每輪證據，一般復原也略過這些證據。不論由主代理、原生代理或外部代理執行，工作中已產生的檔案全部保留，包括 3ways 或任何審查的各版草稿，所有流程原本就需要產生的草稿與修訂稿都會逐字存檔，包括只存在工作階段中的草稿，交接或復原時可按需使用。不可將選用證據改存 devlog、tracker 或其他路徑；Current／既有 tracker 只保留必要待辦狀態、授權、阻礙、操作身分及下一步。明確檢視或指定交付物要求在其範圍內優先。既有證據／歷史維持原樣；日後開啟不補寫過去。
 
 若略過的舊證據含有必要復原狀態，主代理會指明受阻連結。明確授權檢視，或先重新證明復原狀態，才能執行依賴動作。核准仍只適用於同一份已檢查結果；缺少證明須重新檢查，重大變更須重新核准。
 
 實作審查（含事後審查）會檢查 **intent 與 decisions**：已接受的設計目標／驗收條件 → 程式／測試；重要機制 → 已接受的用途。評估取捨、失敗路徑和較簡單且足夠的做法，指出不符與缺少證明之處。
 
-沒有設計時，依已接受的需求檢查並揭露缺少的背景。不新增階段或重新驗證產品目標。參見[審查檢查表（review.md，第 114 行）](../references/review.md#114)。
+沒有設計時，依已接受的需求檢查並揭露缺少的背景。不新增階段或重新驗證產品目標。參見[審查檢查表（review.md，第 116 行）](../references/review.md#116)。
 
 審查／檢查使用[適應式驗證（verification.md，第 1 行）](../references/verification.md#1)：找出合理且重要的違規情境，再選擇有需求依據、能揭露它且成本最低的檢查。狀態模型處理事件順序的缺口；形式方法只針對明確且後果重要的保證，說明假設／範圍，並另驗證實作與模型的對應。不要求每次都跑形式驗證或變異測試。
 
@@ -82,13 +82,13 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
   Codex 可附理由裁定技術異議，並保留雙方立場。只有雙方接受相同最終內容才算共識；改版須重新確認。
 
-  缺少必要參與／有效盲寫草稿、權限／存取／預算，或須由擁有者決定時，成果仍屬暫定。不受 review-order 影響，不代表實作核准，也不能繞過關卡／必要證據。[規劃路徑（review.md，第 54 行）](../references/review.md#planning-routes)。
+  缺少必要參與／有效盲寫草稿、權限／存取／預算，或須由擁有者決定時，成果仍屬暫定。不受 review-order 影響，不代表實作核准，也不能繞過關卡／必要證據。[規劃路徑（review.md，第 56 行）](../references/review.md#planning-routes)。
 
-- **`advisors: <names>`** — 對於已指出、需要有系統調查的重大問題，主代理會在相依工作前選擇顧問；此命令可明確指定，例如 `advisors: requirements, explore`。可用角色：
+- **`advisors: <names>`** — 對於已指出、需要有系統調查的重大問題，主代理會在相依工作前選擇顧問；此命令可明確指定，例如 `advisors: requirements, explore`。參見[顧問派工單如何沿用共通參考文件](AG-GUIDE.tw.md#advisors-and-references)。可用角色：
 
   - `acceptance` — 套用標準最終審查清單；重用符合需求的必要審查。
 
-  - `codewalk` — 唯讀梳理不熟悉的受影響程式碼、流程、可能修改位置與檢查方式。[與 product-docs 比較及範例](AG-GUIDE.tw.md#何時選-codewalk-或-product-docs)。
+  - `codewalk` — 唯讀梳理不熟悉的受影響程式碼、流程、可能修改位置與檢查方式。若受影響的 UI 確有重寫共用設計，指出可重用的元件或差異並附來源。[與 product-docs 比較及範例](AG-GUIDE.tw.md#何時選-codewalk-或-product-docs)。
 
   - `explore` — 比較替代方案／風險。
 
@@ -112,7 +112,7 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 - **`agf`** — 聊天中的 `godev` 啟用別名；終端機的 `agf` 則執行獨立 CLI。
 
-- **`append-rounds <work>`** — 以此命令開頭的訊息，排入一批稍後工作；多個任務仍算同一批。將輸入與順序保留在追蹤文件的 Pending batches，位於目前 Ask 之外；沒有追蹤文件時，放在 Current 連結的證據中。
+- **`append-rounds <work>`** — 以此命令開頭的訊息，排入一批稍後工作；多個任務仍算同一批。將排入的輸入與順序保留在 Current 連結的追蹤文件 Pending batches 區段，位於目前 Ask 之外。需要時建立目前 Ask 的追蹤文件，即使已關閉證據儲存。已存於證據檔的批次會在原處處理完畢。
 
   目前 Reply、核准關卡與交付完成後，每批各以自己的 Ask／Reply 執行；一般訊息則調整目前工作。只有命令而沒有內容時，要求重新傳送工作；引號中的範例不會執行。
 
@@ -138,6 +138,8 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
   沿用仍適用的證據，只針對剩餘缺口做檢查。每次實作成果審查，包括事後審查，都會在答案中指出風險等級與簡短理由。答案也呈現影響判斷的阻礙／不確定性、須注意的敏感動作及實際核准要求。其他例行路徑／核准細節只存於已啟用的證據；off 不改存其他位置。既有核准規則仍適用。[程序（deep-review.md，第 1 行）](../references/deep-review.md)。
 
+- **`design-sync [範圍]`** — 以唯讀方式盤點共用設計資產，列出具體變更，逐項取得核准後才同步。若變更共用設計或其使用方式時發現明確落差，Agentflow 也可以在結案時提出同步建議。[設計同步](../references/design-sync.md)
+
 - **`devlog`** — 啟動 agentflow；開始／續作優先使用 `godev`。
 
 - **`drop-feature <name>`** — 放棄功能；檢查本機工作，將工作目錄移至已驗證的 Trash／資源回收筒，刪除分支。在目標工作樹內執行（此時名稱可省略）；先移除工作樹，再用 `/cd <absolute-main-checkout>` 與 `godev` 交接。
@@ -160,7 +162,7 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
   既有語言、隱私、紀錄與收據規則仍適用。
 
-- **`fast-lane [task]`** — 單一任務由主代理直接執行；略過顧問、一般委派／獨立審查、新設計／追蹤文件與例行 RUN／WIP。
+- **`fast-lane [task]`** — 單一任務由主代理直接執行；略過顧問、一般委派／獨立審查、新設計／追蹤文件與例行 RUN／WIP。待處理批次仍依原規則儲存。
 
 - **`gdd`** — 啟動別名；優先使用 `godev`。
 
@@ -174,7 +176,7 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 
 - **`godev [request]`** — 開始／續作；初始化符合條件的新資料夾，非 Git 專案設定前先詢問是否建立 Git 儲存庫；閒置時詢問工作內容。
 
-- **`handle-tasks <request>`** — 準備群組，可選擇依賴較早群組，再執行其佇列；結合 `prepare-tasks` 與 `run-tasks`。[契約（looper.md，第 23 行）](../references/looper.md#prepare-and-route)。
+- **`handle-tasks <request>`** — 準備群組，可選擇依賴較早群組，再執行其佇列；結合 `prepare-tasks` 與 `run-tasks`。[契約（looper.md，第 25 行）](../references/looper.md#prepare-and-route)。
 
 - **`merge-feature <name>`** — 只使用功能專屬紀錄／所有權宣告來驗證並合併；排除 main 根筆記／封存檔／所有權宣告的變更。保留工作目錄／分支；加上 `and cleanup` 才在必要核准關卡通過後將兩者退役。main 的筆記／所有權宣告不構成阻礙；Git 衝突／鎖定仍適用。
 
@@ -203,6 +205,8 @@ Codex／Claude Code 交接使用 `/cd <destination>`，再執行 `godev`；每�
 - **`skip-review [task]`** — 單一任務只由主代理審查；保留規劃與檢查，豁免一般獨立審查及其風險邊界規則。
 
 - **`skip: <request>`** — 同 `nolog:`。
+
+- **`slide-guides [需求]`** — 依內建簡報流程製作指定的大綱或投影片。[簡報指南](../references/slide-guides.md)
 
 - **`spec-out [request]`** — 明確要求使用[內建流程](../references/spec-out.md)與[範本](../references/spec-out-template.md)，在既有 design 中建立或修訂一份 Product／Tech／Art 契約。未帶內容時使用明確的目前目標，否則先釐清。
 
@@ -342,7 +346,7 @@ Shell 根目錄預設為 cwd；缺少 `queue.json` 會報錯。聊天命令 `run
 
 修復結果可由可用的已設定提供者審查，包括修復者本身的提供者，但須以全新、分開的審查／驗收嘗試執行；保留檢查與明確的更嚴格限制。
 
-協調程序持有認領時，會採納並記錄 main 相容的向前變更；保留原始 `base_commit`、需求、已啟動基底與完成工作，不必手動更新基底。過時的已檢查合併會帶入最新 main 並重新檢查；分支／歷史／不明效果或授權衝突仍須釐清。詳見[啟動契約](../references/looper.md#prepare-and-route)。
+協調程序持有認領時，會採納並記錄 main 相容的向前變更；保留原始 `base_commit`、需求、已啟動基底與完成工作，不必手動更新基底。過時的已檢查合併會帶入最新 main 並重新檢查；分支或歷史衝突、外部 Git 操作（例如 bisect 或執行中的 sequencer），以及不明效果或授權問題仍須釐清。詳見[啟動契約](../references/looper.md#prepare-and-route)。
 
 執行前先設定缺少的路徑；為 `handle-tasks`／`run-tasks` 選擇任務路徑時，優先使用 `cli`，包括在 Codex 主代理上，由協調器透過 `codex exec` 啟動的 Codex CLI 任務；保留明確的原生選擇，不得默默改用備援。
 
@@ -366,9 +370,9 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 ## 常用做法
 
-諮詢、建立設計／追蹤文件、委派與模型選擇，是同一工作流程中的不同決定。已確定需要的規劃依下述原則選擇主代理或複雜工作路徑，包含 prepare-tasks 分組；這不會新增計畫或顧問階段。必要契約仍見[主代理規則（planning.md，第 1 行）](../references/planning.md)，最終審查檢查見 [review.md（review.md，第 98 行）](../references/review.md#inspect-the-finished-result)；選用顧問提供聚焦推理。
+諮詢、建立設計／追蹤文件、委派與模型選擇，是同一工作流程中的不同決定。已確定需要的規劃依下述原則選擇主代理或複雜工作路徑，包含 prepare-tasks 分組；這不會新增計畫或顧問階段。必要契約仍見[主代理規則（planning.md，第 1 行）](../references/planning.md)，最終審查檢查見 [review.md（review.md，第 100 行）](../references/review.md#inspect-the-finished-result)；選用顧問提供聚焦推理。
 
-規劃順序：足以達成成果 → 已接受範圍 → 最精簡方案。閱讀並套用[共用檢查表](../references/simple-check.md#check)：保留必要成果／防護、排除未授權範圍，並嘗試具體、較簡單的替代方案。審查會比較整體負擔，包含操作、主代理／人員注意力與復原成本。[主代理規則（planning.md，第 1 行）](../references/planning.md) 涵蓋架構檢查、各別職責決策與選用技術資訊蒐集；[審查（review.md，第 98 行）](../references/review.md#inspect-the-finished-result) 使用原始輸入及明確差異。執行已授權檢查；只詢問尚未解決的權限／成果／限制選擇。
+規劃順序：足以達成成果 → 已接受範圍 → 最精簡方案。閱讀並套用[共用檢查表](../references/simple-check.md#check)：保留必要成果／防護、排除未授權範圍，並嘗試具體、較簡單的替代方案。審查會比較整體負擔，包含操作、主代理／人員注意力與復原成本。[主代理規則（planning.md，第 1 行）](../references/planning.md) 涵蓋架構檢查、各別職責決策與選用技術資訊蒐集；[審查（review.md，第 100 行）](../references/review.md#inspect-the-finished-result) 使用原始輸入及明確差異。執行已授權檢查；只詢問尚未解決的權限／成果／限制選擇。
 
 這些檢查不新增文件、必要替代方案或審查階段；若無新的衝突證據，不重新開啟已定決策。
 
@@ -378,9 +382,13 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 - **先規劃，再暫停：**「先規劃並等待。」
 
+- **實作 PR：** 沿用專案範本，沒有範本時用四點交代變更與原因、重要決定與假設、審查重點、驗收條件與保證及其檢查結果和待審項目。[PR 規則](../references/delivery.md#git-delivery)。
+
 - **續作／回答：** `godev`；在聊天或已存問題的 `ans:` 欄位回答。
 
   新問題直接寫入 devlog。工作繼續時，關卡／訪談／核准問題可先集中於 Reply 前唯一的「待答問題」區段；交還控制等待回答時，保存續作資訊，以 Reply 加下一個 Ask 結束該輪並釋放已收妥的認領。
+
+  `spec-out` 採跨角色協作時，在 devlog 的重要問題上標示決策人或負責角色。只有獲准通知時才使用實際的提及功能。[跨角色規則](../references/spec-out.md)。
 
   Current 直接或透過既有 tracker 連到問題 ID、受阻關卡與接續動作。Tracker／設計／報告不新增問題或回答欄位。
 
@@ -492,7 +500,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 變更安裝前，先閱讀 [Agentflow 8 與 9 比較](agv8-agv9-comparison.md)。Schema 9／10／11／12／13 與 `aglite-5` 遷移至 14，並補齊必填的 saving-mode 與 save-evidence；舊省略鍵保留原意。
 
-舊 `skip-plan: off` 改為 `plan-mode: optional`；`on` 改為 `off`，後者允許建立需要的追蹤文件。參閱[遷移（upkeep.md，第 5 行）](../references/upkeep.md#automatic-migration)。
+舊 `skip-plan: off` 改為 `plan-mode: optional`；`on` 改為 `off`，後者允許建立需要的追蹤文件。即使 schema 版本是最新的，初始化、終端功能命令與 looper 執行仍會要求主代理處理可辨識的舊設定。參閱[遷移（upkeep.md，第 5 行）](../references/upkeep.md#automatic-migration)。
 
 - **`ag-dir`** — 安全的工作目錄相對路徑 → 設定與紀錄位置；預設 `.agentflow`。不得透過 `..`／符號連結越界。明確編輯可安全搬移設定；搬移紀錄須另有授權。
 
@@ -504,7 +512,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 - **`gate-design`** — `on`：實作前等待設計核准；`off`：不新增核准關卡。預設 `off`；在 optional／must 下要求有設計；與 `plan-mode: off` 衝突，並停止相依工作等待選擇。
 
-- **`gate-tracker`** — `on`：最終交付前等待已檢查結果獲核准；`off`：不新增核准關卡。預設 `off`；沒有追蹤文件 → 沒有此關卡。功能整合前提仍適用。
+- **`gate-tracker`** — `on`：最終交付前等待已檢查結果獲核准；`off`：不新增核准關卡。預設 `off`；此關卡適用於任務追蹤文件，僅用來儲存待處理批次的追蹤文件除外。功能整合前提仍適用。
 
 - **`inline-reply`** — `on`：在聊天顯示完整已存回答；`off`：簡短回條。預設 `off`；準備完成後的執行選項仍會在使用者可見的最後回覆中、收據之前顯示。其他回答須明確要求在聊天／終端顯示。「Show me」、輸出範例與未來輸出方式變更都不算。
 
@@ -542,7 +550,7 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   - `host` — 目前主代理直接處理，不探測；揭露主代理撰寫與缺少的偏好角色。
 
-- **`review-order`** — 一般順序；對於已要求的獨立審查，[規劃者多樣性（review.md，第 98 行）](../references/review.md#inspect-the-finished-result) 優先選用與已知主要規劃者不同的模型家族，其次選另一個已設定且支援的模型。主代理可揭露後重新選擇一般預設；任務層級硬性限制優先，同家族／模型仍可使用，但須揭露限制。
+- **`review-order`** — 一般順序；對於已要求的獨立審查，[規劃者多樣性（review.md，第 100 行）](../references/review.md#inspect-the-finished-result) 優先選用與已知主要規劃者不同的模型家族，其次選另一個已設定且支援的模型。主代理可揭露後重新選擇一般預設；任務層級硬性限制優先，同家族／模型仍可使用，但須揭露限制。
 
   - `external` — 對應方 CLI → 全新脈絡原生代理 → 標明的主代理備援；預設。
 
@@ -550,13 +558,13 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
   - `host` — 主代理直接審查；不探測執行代理。
 
-- **`save-evidence`** — 必填 `on|off`，預設 `off`；設定／遷移補入缺少的 `off`、保留有效值，無效值則停止。終端命令遇到缺少屬性時須由主代理遷移。`off`：不另寫每輪證據，一般復原也不讀取；不可改存其他位置。`on` 只存有用的最少證據。既有檔案不動；明確檢視／指定交付物要求在其範圍內優先。檢查、審查、核准、必要待辦狀態及生命週期／looper／遷移／發佈操作紀錄仍保留。缺少證明須重新檢查，不得視為通過；日後開啟只影響後續。[儲存規則](../references/session.md#evidence-storage)。
+- **`save-evidence`** — 必填 `on|off`，預設 `off`；設定／遷移補入缺少的 `off`、保留有效值，無效值則停止。終端命令遇到缺少屬性時須由主代理遷移。`off`：省略選用的每輪證據及其一般復原讀取。工作中已產生的檔案全部保留，所有操作與路徑原本就需要產生的草稿都會逐字留存，包括只存在工作階段中的草稿。不可將選用證據改存其他位置。`on` 只存有用的最少證據。既有檔案不動；明確檢視／指定交付物要求在其範圍內優先。檢查、審查、核准、必要待辦狀態及生命週期／looper／遷移／發佈操作紀錄仍保留。缺少證明須重新檢查，不得視為通過；日後開啟只影響後續。[儲存規則](../references/session.md#evidence-storage)。
 
 - **`saving-mode`** — `on`：載入[節省模式（saving-mode.md，第 1 行）](../references/saving-mode.md)，使用最低充分文字／紀錄、減少選用文件並重用有效證據；`off`：一般行為。必填；設定／遷移的預設值為 `off`，保留既有值。例行 100–200 詞是彈性目標；明確細節要求、理解、防護、必要紀錄／檢查／審查、核准關卡與交付物優先。不變更模型／路徑，也不追溯補回。 [與 save-evidence 的四種組合比較](AG-GUIDE.tw.md#搭配使用-save-evidence-與-saving-mode)。
 
 - **`use-lang`** — 語系標籤，例如 `en-us`、`zh-TW` → 新增使用者可見文字的語言，包括範本／骨架標籤、通知及回條的 `Updated`；預設為偵測到的作業系統語系，其次 `en-us`。英文提示／素材提供語意。
 
-  `zh-TW` 將 `STATUS` 呈現為 `狀態`、`Questions`／`None` 為 `問題`／`無`、WIP 的 `Checkpoint` 為 `進度檢查`，回條的 `Updated` 為 `已更新`；`en-us` 保持英文。
+  `zh-TW` 將 `STATUS` 呈現為 `狀態`、`Questions`／`None` 為 `問題`／`無`、WIP 的 `Checkpoint` 為 `進度檢查`，回條的 `Updated` 為 `已更新`；`en-us` 保持英文。初始化命令可以重新開啟兩種標題的筆記本，並保留原文。
 
   STATUS 欄位標籤也依語系呈現：`Checkout` 變成 `工作目錄`，`Current` 變成 `目前工作`。英文欄位名是待翻譯範例，不是固定符記。重用語系標籤；保留機器符記、輸入／歷史及既有成品語言。
 
@@ -576,7 +584,9 @@ Codex task／repair 命令保留 workspace-write 限制及已允許的對外網�
 
 明確的任務供應者／模型／推理強度、隱私、唯讀與獨立性要求優先。可用的獨立路徑先於主代理備援；主代理審查不能證明獨立性，在 host 順序下仍要求獨立審查時，使用全新原生脈絡。
 
-Looper 路徑與已存嘗試選擇保留其明確設定。參閱[審查選擇（review.md，第 98 行）](../references/review.md#inspect-the-finished-result)。
+Looper 路徑與已存嘗試選擇保留其明確設定。參閱[審查選擇（review.md，第 100 行）](../references/review.md#inspect-the-finished-result)。
+
+新設定使用 `gpt-latest-<family>/<effort>` 或 `claude-latest-<family>/<effort>`。例如，`gpt-latest-sol/high` 會選用查得到且支援高推理強度的最新穩定 Sol 模型。填入實際配對即可鎖定兩個值。派工時才查詢，保留設定值，無法驗證符合條件的配對就暫停派工。重試沿用已儲存的配對。獨立執行的 looper 透過 Codex 與 Claude CLI 支援選擇器。其他 looper 路徑請填入實際配對。[執行代理設定（review.md，第 11 行）](../references/review.md#worker-settings)。
 
 ## Copilot 選擇
 

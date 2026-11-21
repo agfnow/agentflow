@@ -416,3 +416,23 @@ test('feature artifact ignore preflight uses feature namespace rather than main 
     }
   }
 })
+
+test('Traditional Chinese feature creation and drop accept a localized heading with missing lifecycle fields', { skip: process.platform !== 'darwin' }, async t => {
+  const root = fixture(t, { locale: 'zh-tw' })
+  await F.create('localized', { cwd: root })
+  const c = C.context(root, 'localized')
+  const original = fs.readFileSync(c.notebook, 'utf8')
+  assert.match(original, /^# 狀態\r?\n/)
+  const edited = original.replaceAll(/^(?:功能|清理|工作階段):[^\n]*\n/gm, '') +
+    '\n```text\n功能: example\n工作階段: example\n清理: example\n```\n'
+  const history = edited.slice(edited.indexOf('\n---\n'))
+  fs.writeFileSync(c.notebook, edited)
+  const result = await F.drop('localized', { cwd: root, abandon: true })
+  const recovered = result.message.split('可復原的工作目錄：')[1]
+  const retired = fs.readFileSync(path.join(recovered, c.relativeNotebook), 'utf8')
+  const separator = retired.indexOf('\n---\n')
+  assert.match(retired.slice(0, separator), /^功能: dropped$/m)
+  assert.match(retired.slice(0, separator), /^工作階段: retired$/m)
+  assert.match(retired.slice(0, separator), /^清理: pending$/m)
+  assert.equal(retired.slice(separator), history)
+})

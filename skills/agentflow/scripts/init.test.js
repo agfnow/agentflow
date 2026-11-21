@@ -42,16 +42,35 @@ test('existing committed root retains history; Traditional Chinese records and r
   const base = C.git(root, ['rev-parse', 'HEAD'])
   const cli = run(root, '--lang', 'zh-TW')
   assert.equal(cli.status, 0, cli.stderr)
-  const result = { notebook: path.join(root, '.agentflow', JSON.parse(fs.readFileSync(path.join(root, '.agentflow/ag.json'))).switches['notebook-name']) }
+  const config = JSON.parse(fs.readFileSync(path.join(root, '.agentflow/ag.json')))
+  const result = { notebook: path.join(root, '.agentflow', config.switches['notebook-name']) }
+  assert.equal(config['model-family'].openai.basic, 'gpt-latest-sol/low')
+  assert.equal(config['model-family'].claude.basic, 'claude-latest-sonnet/medium')
   const agents = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')
   assert.match(agents, /At session start, the owner-facing host/)
   assert.match(agents, /Read agentflow's `references\/project-rules.md`/)
   assert.doesNotMatch(agents, /[\u3400-\u9fff]/u)
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, '.agentflow/ag.json'))).switches['use-lang'], 'zh-tw')
   assert.equal(C.git(root, ['rev-parse', 'HEAD^']), base)
+  const localized = fs.readFileSync(result.notebook, 'utf8')
+  assert.match(localized, /^# 狀態\r?\n/)
   assert.match(fs.readFileSync(result.notebook, 'utf8'), /# → 提問 \/ A-002/)
   assert.match(fs.readFileSync(path.join(root, '.agentflow/backlog.md'), 'utf8'), /目前沒有未結事項/)
   const old = snapshot(root); assert.equal(initialize({ cwd: root }).skipped, true); assert.deepEqual(snapshot(root), old)
+  for (const heading of ['# STATUS', '# 狀態']) {
+    fs.writeFileSync(result.notebook, localized.replace(/^# 狀態/, heading))
+    const before = snapshot(root)
+    const repeat = run(root, '--lang', 'zh-TW')
+    assert.equal(repeat.status, 0, repeat.stderr)
+    assert.deepEqual(snapshot(root), before)
+  }
+  fs.writeFileSync(result.notebook, localized.replace(/^# 狀態/, '# Notes') +
+    '\n```text\n# 狀態\n```\n')
+  const malformed = snapshot(root)
+  const refused = run(root, '--lang', 'zh-TW')
+  assert.equal(refused.status, 1)
+  assert.match(refused.stderr, /Incomplete notebook/)
+  assert.deepEqual(snapshot(root), malformed)
 })
 test('complete custom canonical setup remains byte/index/HEAD no-op', () => {
   const root = fixture(); initialize({ cwd: root, lang: 'en' })

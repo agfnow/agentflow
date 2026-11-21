@@ -56,7 +56,7 @@ Read [worker settings](review.md#worker-settings) before selected worker validat
 
 - omit-wip on omits `[WIP]`; off uses [work's checkpoint format](work.md#execute-and-checkpoint). At ten-minute, interruption and context-reset boundaries, retain recovery in tracker/STATUS: finished/remaining work, actual handles, checks and next action. Recover from the latest applicable record. Log switches never suppress input, Reply, questions, ownership or checks.
 
-- save-evidence accepts on|off, default off. Apply [evidence storage](session.md#evidence-storage) before recovery or evidence authoring; it changes storage, not checks/review, required operational records or approvals. Required at schema 14; setup/migration adds off only when absent; deferred migration uses missing off in memory. Enabling applies prospectively.
+- save-evidence accepts on|off, default off. Apply [evidence storage](session.md#evidence-storage) before recovery or evidence authoring; off skips optional evidence. Retain produced work files and save already-needed drafts verbatim, including in-session drafts, for every operation and route. Checks, review, required operational records and approvals still apply. Required at schema 14; setup/migration adds off only when absent; deferred migration uses missing off in memory. Enabling applies prospectively.
 
 - saving-mode on loads [saving mode](saving-mode.md) for minimum sufficient prose/records and reuse; off preserves normal behavior; absent follows migration (effective off only while writes defer). It changes no authority, safeguards, required deliverables/checks/review, model/effort or routes.
 
@@ -70,7 +70,7 @@ Read [worker settings](review.md#worker-settings) before selected worker validat
 
 - gate-design on requires a saved concrete design and owner approval before implementation; off adds no checkpoint. Apply [planning modes and gates](planning.md#planning-modes-and-gates) before implementation for prior approval, material changes, independent work and the plan-mode off conflict; empty/default answers never approve.
 
-- gate-tracker on, when a tracker exists, requires all execution/checks/review passed and owner approval of the concrete checked result before task-completion Reply, delivery commit or push; off adds no checkpoint. Apply [planning modes and gates](planning.md#planning-modes-and-gates) before this pause for question closeout/settled claim release, saved approval requests, merge-feature integration exceptions and post-approval continuation.
+- gate-tracker on, when a task tracker exists beyond [pending-batch storage](batches.md#append-rounds), requires all execution/checks/review passed and owner approval of the concrete checked result before task-completion Reply, delivery commit or push; off adds no checkpoint. Apply [planning modes and gates](planning.md#planning-modes-and-gates) before this pause for question closeout/settled claim release, saved approval requests, merge-feature integration exceptions and post-approval continuation.
 
 ## Git delivery
 

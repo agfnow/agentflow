@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { spawn, execFileSync } = require('node:child_process')
 const { randomUUID } = require('node:crypto')
+const { createInterface } = require('node:readline')
 const { process_identity, process_alive, powershell, powershell_options, write_json } = require('./looper-state')
 
 // cmd-shim's standard Node template only. npm.cmd's prefix discovery and all
@@ -218,13 +219,14 @@ async function execute({
   on_descendant,
   kind = 'agent',
   stdin = '',
+  interact,
   env = process.env,
   observe = observe_descendants
 }) {
   if (signal?.aborted) throw Error('Aborted before launch')
   const configured_command = [...command]
   command = resolve_command(command, { env, cwd })
-  const fd = fs.openSync(log, 'wx', 0o600)
+  const fd = interact ? null : fs.openSync(log, 'wx', 0o600)
   let child
   let timer
   let aborted = false
@@ -277,7 +279,7 @@ async function execute({
       shell: false,
       windowsHide: true,
       detached: process.platform !== 'win32',
-      stdio: ['pipe', fd, fd],
+      stdio: interact ? ['pipe', 'pipe', 'ignore'] : ['pipe', fd, fd],
       env
     })
     child.stdin.on('error', () => {})
@@ -314,7 +316,11 @@ async function execute({
         timed_out = true
         kill()
       }, timeout_ms)
-    child.stdin.end(stdin)
+    const interaction = interact?.(child).catch(error => {
+      launch_error ??= error
+      kill()
+    })
+    if (!interact) child.stdin.end(stdin)
     // Escalation is independent of close: descendants can keep inherited pipes open.
     const escalation = setInterval(() => {
       if (aborted && child.pid) {
@@ -333,6 +339,7 @@ async function execute({
     if (child.pid) scan()
     clearInterval(tracking)
     await pending_descendants
+    await interaction
     signal_descendants(descendants, 'SIGKILL')
     if (
       child.pid &&
@@ -369,13 +376,14 @@ async function execute({
       // waiting for an unidentifiable process or signal an unverified generation.
       child.unref()
       child.stdin.destroy()
+      child.stdout?.destroy()
     }
     throw error
   } finally {
     clearInterval(tracking)
     clearTimeout(timer)
     signal?.removeEventListener('abort', kill)
-    fs.closeSync(fd)
+    if (fd !== null) fs.closeSync(fd)
   }
 }
 
@@ -614,6 +622,138 @@ function parse_claude_result(source) {
   return finals[0].structured_output
 }
 Object.assign(module.exports, { launch_agent, validate_result, result_schema, parse_claude_result, provider_error, diagnostic_text })
+
+const latest_selector = /^(gpt|claude)-latest-([a-z][a-z0-9]*)$/
+
+async function catalog_rows(selection, cwd, read_catalog, signal, tracking) {
+  signal?.throwIfAborted()
+  const codex = selection.provider === 'codex'
+  const flags = codex
+    ? ['--disable', 'hooks', '--disable', 'plugins', '--disable', 'apps', 'app-server']
+    : ['--print', '--safe-mode', '--restricted', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+      '--setting-sources', '', '--disable-slash-commands', '--no-session-persistence', '--tools', '',
+      '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose']
+  let rows
+  let bytes = 0
+  const result = await execute({
+    command: [selection.executable || selection.provider, ...flags],
+    cwd, signal, timeout_ms: 15000, kind: 'catalog', ...tracking,
+    interact: async child => {
+      const lines = createInterface({ input: child.stdout, crlfDelay: Infinity })
+      const count = chunk => {
+        bytes += chunk.length
+        if (bytes > 2 * 1024 * 1024) lines.close()
+      }
+      child.stdout.on('data', count)
+      try {
+        const send = value => child.stdin.write(JSON.stringify(value) + '\n')
+        rows = await read_catalog(lines, send, () => child.stdin.end(), cwd)
+      } finally {
+        child.stdin.end()
+        lines.close()
+      }
+      if (bytes > 2 * 1024 * 1024) throw Error('catalog response too large')
+    }
+  })
+  if (result.exit_code !== 0 || result.aborted || !rows || bytes > 2 * 1024 * 1024)
+    throw Error('catalog process failed')
+  return rows
+}
+
+async function codex_catalog(lines, send, _end, cwd) {
+  let request = 1
+  send({ id: request, method: 'initialize', params: { clientInfo: { name: 'agentflow', version: '1' } } })
+  const rows = []
+  const cursors = new Set()
+  for await (const line of lines) {
+    const message = JSON.parse(line)
+    if (message.id !== request) continue
+    if (message.error || !message.result) throw Error('invalid catalog response')
+    if (request === 1) {
+      send({ method: 'initialized' })
+      send({ id: ++request, method: 'config/read', params: { includeLayers: false, cwd } })
+      continue
+    }
+    if (request === 2) {
+      // The looper's exec route ignores user configuration. Refuse a
+      // catalog or endpoint override visible only to the app-server.
+      const { config } = message.result
+      if (!config || typeof config !== 'object' || Array.isArray(config) ||
+          (config.model_provider != null && config.model_provider !== 'openai') ||
+          config.model_catalog_json != null || config.openai_base_url != null ||
+          config.model_providers?.openai != null)
+        throw Error('unverified model catalog configuration')
+      send({ id: ++request, method: 'model/list', params: { includeHidden: false, limit: 100 } })
+      continue
+    }
+    const { data, nextCursor: cursor } = message.result
+    if (!Array.isArray(data)) throw Error('invalid model list')
+    rows.push(...data)
+    if (cursor === null) return rows
+    if (typeof cursor !== 'string' || !cursor || cursors.has(cursor)) throw Error('incomplete model list')
+    cursors.add(cursor)
+    send({ id: ++request, method: 'model/list', params: { includeHidden: false, limit: 100, cursor } })
+  }
+  throw Error('missing catalog response')
+}
+
+async function claude_catalog(lines, send, end) {
+  const request_id = randomUUID()
+  send({ type: 'control_request', request_id, request: { subtype: 'initialize' } })
+  end()
+  for await (const line of lines) {
+    const { type, response } = JSON.parse(line)
+    if (type !== 'control_response' || response?.request_id !== request_id) continue
+    if (response.subtype !== 'success' || !Array.isArray(response.response?.models)) throw Error('invalid model list')
+    return response.response.models
+  }
+  throw Error('missing catalog response')
+}
+
+async function resolve_latest(selection, cwd, signal, tracking) {
+  const match = latest_selector.exec(selection.model)
+  if (!match) return selection
+  const [, vendor, family] = match
+  const codex = selection.kind === 'cli' && selection.provider === 'codex' && vendor === 'gpt'
+  const claude = selection.kind === 'cli' && selection.provider === 'claude' && vendor === 'claude'
+  if (!codex && !claude) throw Error('catalog unavailable for selected transport and family; use a verified literal pair')
+  let rows
+  try {
+    rows = await catalog_rows(selection, cwd, codex ? codex_catalog : claude_catalog, signal, tracking)
+  } catch (cause) {
+    if (cause.unsettled) throw cause
+    signal?.throwIfAborted()
+    // Provider diagnostics can include private configuration or account data.
+    throw Error('catalog unavailable from selected executable')
+  }
+  const version_pattern = codex
+    ? new RegExp(`^gpt-([0-9]+(?:\\.[0-9]+)*)-${family}$`)
+    : new RegExp(`^claude-${family}-([0-9]+)(?:-([0-9]{1,2}))?(?:-([0-9]{8}))?$`)
+  const candidates = []
+  for (const row of rows) {
+    const model = codex ? row?.model : row?.resolvedModel ?? row?.value
+    const version = typeof model === 'string' && version_pattern.exec(model)
+    if (!version || (codex ? row.hidden !== false : row.supportsEffort === false)) continue
+    const levels = codex ? row.supportedReasoningEfforts : row.supportedEffortLevels
+    if (!Array.isArray(levels) || !levels.some(level => (codex ? level?.reasoningEffort : level) === selection.effort)) continue
+    const components = (codex ? version[1].split('.') : [version[1], version[2] ?? '0', version[3] ?? '0']).map(BigInt)
+    candidates.push({ model, components })
+  }
+  const newest_first = (a, b) => {
+    for (let i = 0; i < Math.max(a.components.length, b.components.length); i++) {
+      const left = a.components[i] ?? 0n, right = b.components[i] ?? 0n
+      if (left !== right) return left > right ? -1 : 1
+    }
+    return 0
+  }
+  candidates.sort(newest_first)
+  if (!candidates.length) throw Error('no eligible stable model with the requested effort')
+  if (candidates.some(candidate => candidate.model !== candidates[0].model && newest_first(candidate, candidates[0]) === 0))
+    throw Error('catalog contains equally ranked concrete models')
+  return { ...selection, model: candidates[0].model, selector: selection.model }
+}
+
+Object.assign(module.exports, { latest_selector, resolve_latest })
 
 function copilot_tools(editing, platform = process.platform) {
   return ['view', 'glob', 'grep', ...(editing

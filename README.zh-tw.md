@@ -1,4 +1,4 @@
-# Agentflow v9.1.12
+# Agentflow v9.1.13
 
 [English](README.md) · **繁體中文**
 
@@ -211,7 +211,7 @@ v8 與 v9 也共用 `agentflow` 技能名稱及 `.agentflow/` 專案目錄。同
 
 ## 設定與限制
 
-專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 14，與套件版本 9.1.12 分開。
+專案設定放在 `<checkout>/<ag-dir>/ag.json`，預設目錄是 `.agentflow`。設定使用 schema 14，與套件版本 9.1.13 分開。
 
 `use-lang` 決定新增文字的語言，`plan-mode` 決定何時建立規劃文件。需求與做法清楚、風險低時，主代理直接規劃。複雜規劃採用 `plan-order`；需要其他代理時，優先由 Claude 起草，再由 Codex 質疑、修正並產出最終計畫。明確指定的路徑或設定的 `3ways` 優先；`plan-order: host` 則由主代理規劃。
 

@@ -1,6 +1,6 @@
 # Task work
 
-Apply [evidence storage](session.md#evidence-storage) to all evidence callers below, including fast-lane and checkpoint accounting; off changes persistence only. Read for task selection, execution/checkpoints or diff presentation, not ordinary Q&A. Before task edits apply [planning criteria/gates](planning.md), retaining mode exceptions.
+Apply [evidence storage](session.md#evidence-storage) to all evidence callers below, including fast-lane and checkpoint accounting; off skips optional evidence and still saves already-needed drafts. Read for task selection, execution/checkpoints or diff presentation, not ordinary Q&A. Before task edits apply [planning criteria/gates](planning.md), retaining mode exceptions.
 
 ## Optional brownfield path
 
@@ -14,7 +14,7 @@ Unquoted `brownfield [task]` selects eight-step [brownfield development](brownfi
 
 - Unquoted `fast-lane [task]` selects direct host execution for one task; mentions/examples do not trigger. Bare invocation uses current unfinished work, asks if ambiguous, otherwise waits without inventing work/closing the Ask. Record boundary/mode once in Current/existing tracker; retain through follow-ups/resume, expire at completion, change no settings. Mode switches do not stop workers: settle them under existing authority before host edits.
 
-- Fast-lane skips advisors, ordinary delegation, new design/tracker, ordinary separate review and routine RUN/WIP, even when normal creation/review criteria apply. Keep existing records minimally current and save recovery in Current/tracker at interruption or unfinished handoff. Keep identity/ownership, input capture, Reply, scope, system invariants, necessary checks, host review and authorized delivery. Explicit owner plans, reviews, executor choices, checkpoints, configured gates and feature lifecycle requirements prevail; resolve incompatible choices before dependent work. Record host review once under [Round evidence](session.md#round-evidence) with inspected scope, findings and unresolved limits.
+- Fast-lane skips advisors, ordinary delegation, new design/tracker (except [pending-batch storage](batches.md#append-rounds)), ordinary separate review and routine RUN/WIP, even when normal creation/review criteria apply. Keep existing records minimally current and save recovery in Current/tracker at interruption or unfinished handoff. Keep identity/ownership, input capture, Reply, scope, system invariants, necessary checks, host review and authorized delivery. Explicit owner plans, reviews, executor choices, checkpoints, configured gates and feature lifecycle requirements prevail; resolve incompatible choices before dependent work. Record host review once under [Round evidence](session.md#round-evidence) with inspected scope, findings and unresolved limits.
 
 - Unquoted invocation `deep-review [target]` selects an identified change/diff/result, or an unambiguous active or just-finished result. Ask when the target cannot be resolved; off-record resolution never reads the notebook. Mentions/examples do not activate it. Apply [deep review](deep-review.md) at any risk; reuse matching ordinary review or assess once. The command grants inspection and safe verification, no implementation, provider selection or separate-review requirement. Distinct same-message/later explicit review requirements retain precedence.
 

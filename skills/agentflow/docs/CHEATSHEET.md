@@ -2,7 +2,7 @@
 
 English · [繁體中文](CHEATSHEET.tw.md)
 
-Startup reads only the instructions for the selected route. Idle activation checks configuration and current work without claiming or creating records; unfinished work resumes normally. The host reuses retained static rules, reads applicable sections with their prerequisites, and keeps mandatory full safety scans. [Loading rules (SKILL.md, line 30)](../SKILL.md#load-only-the-applicable-procedure).
+Startup reads only the instructions for the selected route. Ordinary on-record activation checks the latest delivered round for unanswered inline comments. With no pending notes or work, activation creates no claim or records. The host claims the notebook before recovery or task work. The host reuses retained static rules, reads applicable sections with their prerequisites, and keeps mandatory full safety scans. [Loading rules (SKILL.md, line 30)](../SKILL.md#load-only-the-applicable-procedure).
 
 Ordinary agentflow infers your likely goal as a hypothesis subordinate to explicit requirements, recommends a direction and briefly surfaces consequential next needs. Low-impact ambiguity can use a stated assumption; material decisions still need your input.
 
@@ -12,15 +12,15 @@ The alphabetical chat commands below are owner instructions, not shell commands.
 
 Owner-input capture: prefix each prose paragraph with `+ `; related paragraphs may share one first prefix. Preserve code interiors, existing prefixes and history; blank lines separate groups, with no standalone `--`. [Capture rule (session.md, line 5)](../references/session.md#activate-and-recover).
 
-Codex subagents: every `spawn_agent` explicitly sets `fork_turns: "none"`; supply all necessary context in the task message. [Delegation (review.md, line 32)](../references/review.md#give-one-bounded-assignment).
+Codex subagents: every `spawn_agent` explicitly sets `fork_turns: "none"`; supply all necessary context in the task message. [Delegation (review.md, line 34)](../references/review.md#give-one-bounded-assignment).
 
-`save-evidence` defaults `off`: checks/review still run, but no separate round evidence is saved or read during ordinary recovery. Do not redirect proof into the devlog, tracker or another path; retain only essential pending state, authority, blockers, operation identities and next action in Current/existing tracker. Explicit inspection or named deliverable requests prevail for their scope. Existing evidence/history remains unchanged; enabling later does not backfill it.
+`save-evidence` defaults `off`: checks and reviews still run. Skip optional round evidence and its ordinary recovery reads. Keep every file produced to do the work, including drafts and revisions from 3ways or any review, on host, native and external routes. Save already-needed drafts and revisions verbatim, including session-only ones, and reuse retained files for handoff or recovery. Do not redirect proof into the devlog, tracker or another path; retain only essential pending state, authority, blockers, operation identities and next action in Current/existing tracker. Explicit inspection or named deliverable requests prevail for their scope. Existing evidence/history remains unchanged; enabling later does not backfill it.
 
 If skipped old evidence contains essential recovery state, the host names the blocked link. Explicitly authorize inspection or have recovery re-proved before dependent actions. Approval still applies only to the same checked result; missing proof must be rechecked, and material changes need renewed approval.
 
 Implementation reviews, including retrospective reviews, check **intent and decisions**: accepted design goals/criteria → code/tests; material mechanisms → accepted purpose. Assess tradeoffs, failures and simpler adequate choices; flag mismatches and missing proof.
 
-Without a design, use accepted requirements and disclose missing context. No extra stage or product-goal revalidation. [Review checklist (review.md, line 114)](../references/review.md#114).
+Without a design, use accepted requirements and disclose missing context. No extra stage or product-goal revalidation. [Review checklist (review.md, line 116)](../references/review.md#116).
 
 Review/checks use [adaptive verification (verification.md, line 1)](../references/verification.md#1): name a plausible consequential violation and the cheapest requirement-derived check that can expose it. Use state models for sequence gaps; formal methods only for precise consequential guarantees, with assumptions/bounds and separate implementation correspondence. No universal formal or mutation stage.
 
@@ -80,13 +80,13 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   Codex may resolve technical dissent with reasons; retain both positions. Consensus requires both accepting identical final content; changed content needs reconfirmation.
 
-  Missing required participation/valid blind drafts, authority/access/budget or owner-only choices leaves provisional work. Independent of review-order; no implementation approval or gate/proof bypass. [Planning routes (review.md, line 54)](../references/review.md#planning-routes).
+  Missing required participation/valid blind drafts, authority/access/budget or owner-only choices leaves provisional work. Independent of review-order; no implementation approval or gate/proof bypass. [Planning routes (review.md, line 56)](../references/review.md#planning-routes).
 
-- **`advisors: <names>`** — The host selects advice for named material questions needing structured investigation before dependent work; this command selects explicitly, e.g. `advisors: requirements, explore`. Available roles:
+- **`advisors: <names>`** — The host selects advice for named material questions needing structured investigation before dependent work; this command selects explicitly, e.g. `advisors: requirements, explore`. See [how advisor briefs use shared references](AG-GUIDE.md#advisors-and-references). Available roles:
 
   - `acceptance` — Apply the canonical final-review checklist; reuse a matching required review.
 
-  - `codewalk` — Map unfamiliar affected code, flows, likely edit locations and checks; read-only. [Compare with product-docs and see examples](AG-GUIDE.md#codewalk-or-product-docs).
+  - `codewalk` — Map unfamiliar affected code, flows, likely edit locations and checks; read-only. Flag verified local reimplementations of shared designs in the affected UI and cite replacements or gaps. [Compare with product-docs and see examples](AG-GUIDE.md#codewalk-or-product-docs).
 
   - `explore` — Compare alternatives/risks.
 
@@ -110,7 +110,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
 - **`agf`** — Chat activation alias of `godev`; terminal `agf` invokes the separate CLI.
 
-- **`append-rounds <work>`** — Start a message with this command to stage one later batch; multiple tasks stay one batch. Preserve input/order in tracker Pending batches (Current-linked evidence without a tracker), outside active Ask.
+- **`append-rounds <work>`** — Start a message with this command to stage one later batch; multiple tasks stay one batch. Keep queued input and order in a Current-linked tracker under Pending batches, outside the active Ask. Create the current Ask’s tracker if needed, even with evidence saving off. Existing evidence-hosted queues finish in place.
 
   After current Reply, gates and delivery settle, execute each batch in its own Ask/Reply; ordinary messages steer current work. Bare command asks to resend with work; quoted examples do nothing.
 
@@ -136,6 +136,8 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   Reuse matching proof and run only checks that address remaining gaps. Every implementation-result review, including a retrospective review, states risk level and a short reason. Answers also surface decision-changing blockers/uncertainty, sensitive actions needing attention and actual approval requests. Other routine route/approval accounting stays only in enabled evidence; off saves no substitute. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
 
+- **`design-sync [scope]`** — Inventory shared design assets read-only and list concrete changes to approve individually. Agentflow may also suggest synchronization at closeout when a change to a shared asset or its usage exposed a concrete discrepancy. [Design synchronization](../references/design-sync.md)
+
 - **`devlog`** — Activate agentflow; prefer `godev` for start/resume.
 
 - **`drop-feature <name>`** — Abandon feature; inspect local work, move checkout to verified Trash/Recycle Bin, delete branch. Run inside the target worktree (name optional there); remove it before handing off with `/cd <absolute-main-checkout>` then `godev`.
@@ -158,7 +160,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   Normal language, privacy, records and receipts still apply.
 
-- **`fast-lane [task]`** — One task, direct host execution; skip advisors, ordinary delegation/separate review, new design/tracker and routine RUN/WIP.
+- **`fast-lane [task]`** — One task, direct host execution; skip advisors, ordinary delegation/separate review, new design/tracker and routine RUN/WIP. Pending-batch storage still applies.
 
 - **`gdd`** — Activation alias; prefer `godev`.
 
@@ -172,7 +174,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
 - **`godev [request]`** — Start/resume; initialize eligible fresh folders, asking before non-Git setup whether to create a Git repository; ask for work when idle.
 
-- **`handle-tasks <request>`** — Prepare groups with optional earlier-group dependencies, then execute their queue; combines `prepare-tasks` and `run-tasks`. [Contract (looper.md, line 23)](../references/looper.md#prepare-and-route).
+- **`handle-tasks <request>`** — Prepare groups with optional earlier-group dependencies, then execute their queue; combines `prepare-tasks` and `run-tasks`. [Contract (looper.md, line 25)](../references/looper.md#prepare-and-route).
 
 - **`merge-feature <name>`** — Verify/merge with feature-specific records/claims only; exclude main root-notebook/archive/claim changes. Retain checkout/branch; `and cleanup` retires both after required gates. Main’s notebook/claim never blocks it; Git conflicts/locks still apply.
 
@@ -201,6 +203,8 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 - **`skip-review [task]`** — Host review only for one task; keep planning and checks, waive ordinary separate review including its risk-boundary rule.
 
 - **`skip: <request>`** — Same as `nolog:`.
+
+- **`slide-guides [request]`** — Apply the bundled slide workflow to the requested outline or deck. [Slide guides](../references/slide-guides.md)
 
 - **`spec-out [request]`** — Explicitly create/revise one Product/Tech/Art contract in the existing design using the [bundled procedure](../references/spec-out.md) and [template](../references/spec-out-template.md). Bare invocation uses a clear active target or asks.
 
@@ -338,7 +342,7 @@ New configuration detects supported Codex/Claude CLIs (lookup/help only), prefer
 
 Repaired results may use the available configured provider, including the repairer’s, through fresh separate review/acceptance attempts; preserve checks and explicit stricter restrictions.
 
-The coordinator adopts and records compatible forward main changes under held claims; preserve original `base_commit`, request, started bases and completed work. No manual base refresh. A stale checked merge carries forward onto latest main and reruns checks; branch/history/unknown-effect or authority conflicts require reconciliation. [Launch contract](../references/looper.md#prepare-and-route).
+The coordinator adopts and records compatible forward main changes under held claims; preserve original `base_commit`, request, started bases and completed work. No manual base refresh. A stale checked merge carries forward onto latest main and reruns checks; branch or history conflicts, foreign Git operations such as bisect or an active sequencer, and uncertain effects or authority require reconciliation. [Launch contract](../references/looper.md#prepare-and-route).
 
 Configure missing routes before running; When selecting task routes for `handle-tasks`/`run-tasks`, prefer `cli`, including Codex CLI tasks launched by the coordinator through `codex exec` on a Codex host; preserve explicit native choices without silent fallback.
 
@@ -362,9 +366,9 @@ Resume preserves unfinished work and first proves old writers stopped; unresolve
 
 ## Quick recipes
 
-Advice, design/tracker creation, delegation and model choice are separate decisions in one workflow. Already-needed planning uses the proportionate host/complex-route decision below, including prepare-tasks grouping; this creates no extra plan or advisor stage. Mandatory contracts stay in [host rules (planning.md, line 1)](../references/planning.md), final-review checks in [review.md (review.md, line 98)](../references/review.md#inspect-the-finished-result); optional advisors add focused reasoning.
+Advice, design/tracker creation, delegation and model choice are separate decisions in one workflow. Already-needed planning uses the proportionate host/complex-route decision below, including prepare-tasks grouping; this creates no extra plan or advisor stage. Mandatory contracts stay in [host rules (planning.md, line 1)](../references/planning.md), final-review checks in [review.md (review.md, line 100)](../references/review.md#inspect-the-finished-result); optional advisors add focused reasoning.
 
-Planning: adequacy → accepted scope → minimality. Read and apply the [shared Check](../references/simple-check.md#check): preserve required outcomes/safeguards, reject unsupported scope and try concrete simpler replacements. Review compares total burden, including operation, host/human attention and recovery. [Host rules (planning.md, line 1)](../references/planning.md) cover architecture checks, separate responsibility decisions and optional technical intake; [review (review.md, line 98)](../references/review.md#inspect-the-finished-result) uses original inputs and explicit deltas. Run authorized checks; ask only unresolved authority/outcome/constraint choices.
+Planning: adequacy → accepted scope → minimality. Read and apply the [shared Check](../references/simple-check.md#check): preserve required outcomes/safeguards, reject unsupported scope and try concrete simpler replacements. Review compares total burden, including operation, host/human attention and recovery. [Host rules (planning.md, line 1)](../references/planning.md) cover architecture checks, separate responsibility decisions and optional technical intake; [review (review.md, line 100)](../references/review.md#inspect-the-finished-result) uses original inputs and explicit deltas. Run authorized checks; ask only unresolved authority/outcome/constraint choices.
 
 These checks add no document, mandatory alternative or review stage and do not reopen settled decisions without new conflicting evidence.
 
@@ -374,9 +378,13 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Plan, then pause:** “Plan first and wait.”
 
+- **Implementation PR:** In the project template or four bullets, cover what changed and why, consequential decisions and assumptions, reviewer focus, and acceptance criteria, guarantees, check results and remaining review. [PR guidance](../references/delivery.md#git-delivery).
+
 - **Resume/answer:** `godev`; reply in chat or the saved question's `ans:` field.
 
   New questions go directly in the devlog. While work continues, gates/interviews/approvals may use one pre-Reply **Open questions** section; when yielding for answers, save recovery, close with Reply plus next Ask and release the settled claim.
+
+  In cross-role `spec-out` work, label material devlog questions with the decision owner or responsible role. Actual mentions require notification authority. [Cross-role guidance](../references/spec-out.md).
 
   Current links the question ID, blocked gate and resume action, directly or through an existing tracker. Trackers/designs/reports have no new questions or answer fields.
 
@@ -486,7 +494,7 @@ Recognized Agentflow 8 configurations use the separate [legacy migration (legacy
 
 Compare [Agentflow 8 and 9](agv8-agv9-comparison.md) before changing installations. Schemas 9/10/11/12/13 and `aglite-5` migrate to 14 with required saving-mode and save-evidence; old omission keys retain their meaning.
 
-Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which permits needed trackers. See [migration (upkeep.md, line 5)](../references/upkeep.md#automatic-migration).
+Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which permits needed trackers. Init, terminal feature commands and looper run require the host to handle recognized legacy settings even when the schema number is current. See [migration (upkeep.md, line 5)](../references/upkeep.md#automatic-migration).
 
 - **`ag-dir`** — Safe checkout-relative directory → configuration and record location; default `.agentflow`. No `..`/symlink escape. Explicit edits relocate config safely; records need separate move authority.
 
@@ -498,7 +506,7 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
 - **`gate-design`** — `on`: await design approval before implementation; `off`: no added gate. Default `off`; requires a design under optional/must; conflicts with `plan-mode: off` and stops dependent work for a choice.
 
-- **`gate-tracker`** — `on`: await checked-result approval before final delivery; `off`: no added gate. Default `off`; no tracker → no gate. Feature integration prerequisites remain.
+- **`gate-tracker`** — `on`: await checked-result approval before final delivery; `off`: no added gate. Default `off`; the gate applies to task trackers, with an exception for trackers used only to store pending batches. Feature integration prerequisites remain.
 
 - **`inline-reply`** — `on`: full saved answer in chat; `off`: short receipt. Default `off`; preparation execution choices still appear in the final visible reply before the receipt. Other answers require explicit chat/terminal display requests. “Show me”, output examples and future-output changes do not.
 
@@ -536,7 +544,7 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   - `host` — Direct active host, no probes; disclose host authorship and missing preferred roles.
 
-- **`review-order`** — Ordinary order; [planner diversity (review.md, line 98)](../references/review.md#inspect-the-finished-result) prefers a different family from the known principal planner, then another supported configured model, for already-required separate review. The host may reselect ordinary defaults with disclosure; task-level hard constraints prevail, and repeated family/model remains allowed with a disclosed limit.
+- **`review-order`** — Ordinary order; [planner diversity (review.md, line 100)](../references/review.md#inspect-the-finished-result) prefers a different family from the known principal planner, then another supported configured model, for already-required separate review. The host may reselect ordinary defaults with disclosure; task-level hard constraints prevail, and repeated family/model remains allowed with a disclosed limit.
 
   - `external` — Counterpart CLI → fresh-context native → labelled host fallback; default.
 
@@ -544,13 +552,13 @@ Old `skip-plan: off` becomes `plan-mode: optional`; `on` becomes `off`, which pe
 
   - `host` — Host directly; no worker probes.
 
-- **`save-evidence`** — Required `on|off`, default `off`; setup/migration adds missing `off`, preserving valid values; invalid values stop. Terminal commands require host migration for missing keys. `off`: no separate round-evidence writes or ordinary recovery reads; no alternate proof sink. `on` saves only useful minimal evidence. Existing files stay untouched; explicit inspection/deliverable requests prevail for their scope. Checks, review, approvals, essential pending state and required lifecycle/looper/migration/release records remain. Missing proof requires rechecking, never assumed success. Enabling is prospective. [Storage policy](../references/session.md#evidence-storage).
+- **`save-evidence`** — Required `on|off`, default `off`; setup/migration adds missing `off`, preserving valid values; invalid values stop. Terminal commands require host migration for missing keys. `off`: skip optional round-evidence writes and recovery reads. Keep files produced to do the work, and save already-needed drafts verbatim across all operations and routes, including drafts produced only in-session. Avoid alternate proof sinks. `on` saves only useful minimal evidence. Existing files stay untouched; explicit inspection/deliverable requests prevail for their scope. Checks, review, approvals, essential pending state and required lifecycle/looper/migration/release records remain. Missing proof requires rechecking, never assumed success. Enabling is prospective. [Storage policy](../references/session.md#evidence-storage).
 
 - **`saving-mode`** — `on`: load [saving mode (saving-mode.md, line 1)](../references/saving-mode.md) for minimum sufficient prose/records, fewer optional documents and valid-proof reuse; `off`: normal behavior. Required; setup/migration default `off`, existing values preserved. Routine 100–200 words is a soft target; explicit detail, comprehension, safeguards, required records/checks/review, gates and deliverables prevail. No model/route changes or retroactive restoration. [Compare the four combinations with save-evidence](AG-GUIDE.md#save-evidence-and-saving-mode-together).
 
 - **`use-lang`** — Locale tag, e.g. `en-us`, `zh-TW` → language for new user-facing text, including template/scaffold labels, notices and receipt `Updated`; default detected OS locale, then `en-us`. English prompts/assets supply meaning.
 
-  For `zh-TW`, render `STATUS` as `狀態`, `Questions`/`None` as `問題`/`無`, WIP `Checkpoint` as `進度檢查`, and receipt `Updated` as `已更新`; `en-us` stays English.
+  For `zh-TW`, render `STATUS` as `狀態`, `Questions`/`None` as `問題`/`無`, WIP `Checkpoint` as `進度檢查`, and receipt `Updated` as `已更新`; `en-us` stays English. The initializer can reopen either heading without rewriting the notebook.
 
   STATUS field labels also follow the locale: `Checkout` becomes `工作目錄`, `Current` becomes `目前工作`. English field names are examples to translate, not fixed tokens. Reuse locale labels; preserve machine tokens, input/history and established artifact languages.
 
@@ -570,7 +578,9 @@ Another alias or effort value does not establish a different family/model; unkno
 
 Explicit task provider/model/effort, privacy, read-only and independence requirements prevail. Usable separate routes precede host fallback; host review does not prove independence, and required independent review under host order uses a fresh native context.
 
-Looper routes and saved attempt selections keep their explicit settings. See [review selection (review.md, line 98)](../references/review.md#inspect-the-finished-result).
+Looper routes and saved attempt selections keep their explicit settings. See [review selection (review.md, line 100)](../references/review.md#inspect-the-finished-result).
+
+New configurations use `gpt-latest-<family>/<effort>` or `claude-latest-<family>/<effort>`. Example: `gpt-latest-sol/high` selects the newest discoverable stable Sol model supporting high effort. A literal pair pins both values. Lookup happens at dispatch, preserves settings and blocks if no match can be verified. Retries use the saved pair. Standalone looper supports selectors on Codex and Claude CLI routes. Use literal pairs for other looper routes. [Worker settings (review.md, line 11)](../references/review.md#worker-settings).
 
 ## Copilot selection
 

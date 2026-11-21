@@ -1,5 +1,15 @@
 # Changelog
 
+## 9.1.13 — 2026-11-22
+
+- Pick up unresolved inline owner comments when resuming a notebook and recheck them before delivery.
+
+- Retain work files and save drafts already needed for the task, including drafts exchanged in-session, even when optional evidence storage is off.
+
+- Resolve opt-in `latest` model selectors at dispatch against the selected provider and exact effort. Keep resolved selections for retries and validate CLI resume and recovery boundaries.
+
+- Add approval-based `design-sync` for shared design assets and shared UI design checks. Add opt-in `slide-guides` for slide outlines and decks. Update both guides and cheatsheets.
+
 ## 9.1.12 — 2026-11-17
 
 - Require explicit `save-evidence: on|off` in configuration schema 14; migrate only missing values to `off`, preserve valid choices and reject invalid values in host, initializer, feature and looper paths.

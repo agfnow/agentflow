@@ -35,16 +35,16 @@
   },
   "model-family": {
     "openai": {
-      "best": "gpt-6-astra/medium",
-      "better": "gpt-6.1-sol/high",
-      "basic": "gpt-6.1-sol/low",
-      "cheap": "gpt-6-luna/high"
+      "best": "gpt-latest-astra/medium",
+      "better": "gpt-latest-sol/high",
+      "basic": "gpt-latest-sol/low",
+      "cheap": "gpt-latest-luna/high"
     },
     "claude": {
-      "best": "claude-opus-5-5/high",
-      "better": "claude-opus-5-5/medium",
-      "basic": "claude-sonnet-5-5/medium",
-      "cheap": "claude-haiku-5-5/medium"
+      "best": "claude-latest-opus/high",
+      "better": "claude-latest-opus/medium",
+      "basic": "claude-latest-sonnet/medium",
+      "cheap": "claude-latest-haiku/medium"
     }
   },
   "external-workers": [

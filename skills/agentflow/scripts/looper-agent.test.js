@@ -72,3 +72,67 @@ test('missing provider executable retains the failed launch rather than implying
   assert.equal(failure.observation.spawned, false)
   assert.equal(fs.existsSync(path.join(args.attempt_dir, 'result.json')), false)
 })
+
+test('latest Codex model uses the selected executable and ranks eligible versions', async () => {
+  const { cwd, selection } = fixture(`
+    const readline = require('node:readline');
+    const row = (model, effort='high', hidden=false) => ({
+      model, hidden, supportedReasoningEfforts:[{reasoningEffort:effort}]
+    });
+    require('node:assert/strict').ok(process.argv.includes('app-server'));
+    readline.createInterface({ input: process.stdin }).on('line', line => {
+      const {id, method, params} = JSON.parse(line);
+      if (method === 'initialize') console.log(JSON.stringify({id, result:{}}));
+      if (method === 'config/read') console.log(JSON.stringify({id, result:{config:{
+        model_provider:require('node:fs').existsSync('custom-provider') ? 'custom' : 'openai',
+        model_catalog_json:require('node:fs').existsSync('overridden') ? 'private-catalog.json' : null
+      }}}));
+      if (method !== 'model/list') return;
+      const data = params.cursor ? [row('gpt-6.10-sol'), row('gpt-7-sol', 'low')] :
+        [row('gpt-6.2-sol'), row('gpt-9-sol', 'high', true), row('gpt-9-astra'),
+         row('gpt-9-sol-preview'), row('gpt-6-sol')];
+      console.log(JSON.stringify({id, result:{data, nextCursor:params.cursor ? null : 'next'}}));
+    });
+  `)
+  const latest = { ...selection, model: 'gpt-latest-sol', effort: 'high' }
+  assert.equal((await A.resolve_latest(latest, cwd)).model, 'gpt-6.10-sol')
+  await assert.rejects(A.resolve_latest({ ...latest, effort: 'medium' }, cwd), /no eligible/)
+  const abort = new AbortController()
+  const reason = new Error('Selection stopped')
+  let launched
+  const resolving = A.resolve_latest(latest, cwd, abort.signal, {
+    on_launch: identity => {
+      launched = identity
+      abort.abort(reason)
+    }
+  })
+  await assert.rejects(resolving, error => error === reason)
+  assert.equal(launched.kind, 'catalog')
+  assert.throws(() => process.kill(launched.pid, 0), { code: 'ESRCH' })
+  fs.writeFileSync(path.join(cwd, 'custom-provider'), '')
+  await assert.rejects(A.resolve_latest(latest, cwd), /catalog unavailable/)
+  fs.renameSync(path.join(cwd, 'custom-provider'), path.join(cwd, 'was-custom-provider'))
+  fs.writeFileSync(path.join(cwd, 'overridden'), '')
+  await assert.rejects(A.resolve_latest(latest, cwd), /catalog unavailable/)
+  const pin = { ...selection, executable: 'should-not-launch' }
+  assert.equal(await A.resolve_latest(pin, cwd), pin)
+})
+
+test('latest Claude model requires a concrete ID and effort from initialization', async () => {
+  const { cwd, selection } = fixture(`
+    const request = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+    console.log(JSON.stringify({type:'control_response', response:{
+      request_id:request.request_id, subtype:'success', response:{models:[
+        {value:'opus',resolvedModel:'claude-opus-5-5',supportedEffortLevels:['high']},
+        {value:'claude-opus-4-20250514',supportedEffortLevels:['medium']},
+        {value:'claude-opus-4-8',supportedEffortLevels:['high','medium']},
+        {value:'sonnet',supportedEffortLevels:['high']}
+      ]}
+    }}));
+  `)
+  const latest = { ...selection, provider: 'claude', model: 'claude-latest-opus', effort: 'high' }
+  assert.equal((await A.resolve_latest(latest, cwd)).model, 'claude-opus-5-5')
+  assert.equal((await A.resolve_latest({ ...latest, effort: 'medium' }, cwd)).model, 'claude-opus-4-8')
+  await assert.rejects(A.resolve_latest({ ...latest, model: 'claude-latest-sonnet' }, cwd), /no eligible/)
+  await assert.rejects(A.resolve_latest({ ...latest, executable: 'missing-catalog-executable' }, cwd), /catalog unavailable/)
+})
