@@ -145,8 +145,13 @@ async function relay_response(directory, request_id) {
 test('ordinary review relay preserves configured fresh CLI selection and task closeout', { timeout: 30000 }, async () => {
   const acceptance = { ...selection, effort: 'high' }
   const { root, repo } = fixture([['a.txt']], { acceptance })
+  const file = path.join(repo, '.agentflow/ag.json')
+  const config = JSON.parse(fs.readFileSync(file, 'utf8'))
+  config['looper-limits']['worker-timeout-minutes'] = 45
+  fs.writeFileSync(file, JSON.stringify(config))
   let reviews = 0, task_id, response
   assert.equal(await L.run(root, { checks, agent: async args => {
+    assert.equal(args.timeout_ms, 2_700_000)
     fs.mkdirSync(args.attempt_dir, { recursive: true })
     if (args.role === 'review') {
       reviews++
@@ -1539,7 +1544,11 @@ test('invalid selected settings fail before claims; status remains read-only wit
     [c => { c['looper-routes'].task.model = 'duplicate' }, /belongs in model-family/],
     [c => { c['looper-limits']['max-workers'] = 0 }, /looper-limits.max-workers/],
     [c => { c['looper-limits']['max-repairs'] = -1 }, /looper-limits.max-repairs/],
-    [c => { c['looper-limits']['max-workers'] = null }, /looper-limits.max-workers/]
+    [c => { c['looper-limits']['max-workers'] = null }, /looper-limits.max-workers/],
+    ...[0, 1441, 1.5, '60', null].map(value => [
+      c => { c['looper-limits']['worker-timeout-minutes'] = value },
+      /looper-limits.worker-timeout-minutes/
+    ])
   ]
   for (const [mutate, error] of cases) {
     const config = JSON.parse(original); mutate(config)
@@ -1557,6 +1566,29 @@ test('invalid selected settings fail before claims; status remains read-only wit
   fs.writeFileSync(file, JSON.stringify(config))
   assert.equal(L.read_settings(repo).max_workers, 3)
   assert.equal(L.read_settings(repo).max_repairs, 2)
+  assert.equal(L.read_settings(repo).worker_timeout_ms, 1_200_000)
+})
+
+test('looper CLI records the configured duration for a new worker', () => {
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agf-worker-timeout-')))
+  const executable = path.join(home, 'worker.js')
+  fs.writeFileSync(executable, 'process.exitCode = 1\n')
+  const { root, repo } = fixture([['a.txt']], { task: { ...selection, executable } })
+  const file = path.join(repo, '.agentflow/ag.json')
+  const config = JSON.parse(fs.readFileSync(file, 'utf8'))
+  config['looper-limits']['worker-timeout-minutes'] = 1440
+  fs.writeFileSync(file, JSON.stringify(config))
+  const run = spawnSync(process.execPath, [path.join(__dirname, 'agf.js'), 'looper', 'run', root],
+    { cwd: repo, encoding: 'utf8', timeout: 20000 })
+  assert.equal(run.status, 2, run.error?.message || run.stderr)
+  const attempts = path.join(root, 'attempts')
+  const [id, extra] = fs.readdirSync(attempts)
+  assert.ok(id)
+  assert.equal(extra, undefined)
+  const launch = JSON.parse(fs.readFileSync(path.join(attempts, id, 'launch.json')))
+  assert.equal(launch.role, 'task')
+  assert.equal(launch.timeout_ms, 86_400_000)
+  assert.equal(read(root).groups[0].state, 'blocked')
 })
 
 test('queue refuses editable worker and limit overrides', () => {

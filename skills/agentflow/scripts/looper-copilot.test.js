@@ -68,16 +68,22 @@ test('Copilot rejects ambiguous, stale, malformed or unverified outcomes', () =>
 test('curated environment preserves HOME and explicit credentials, excludes executable config and telemetry', () => {
   const source = { HOME: '/owner', PATH: '/bin', PATHEXT: '.EXE;.CMD', ComSpec: 'C:\\Windows\\System32\\cmd.exe', COPILOT_PROVIDER_API_KEY: 'secret',
     COPILOT_HOME: '/foreign', COPILOT_ALLOW_ALL: 'true', COPILOT_PROVIDER_API_KEY_COMMAND: 'untrusted',
-    BASH_ENV: '/hook', NODE_OPTIONS: '--require hook', OTEL_EXPORTER_OTLP_HEADERS: 'secret' }
+    BASH_ENV: '/hook', NODE_OPTIONS: '--require hook', OTEL_EXPORTER_OTLP_HEADERS: 'secret',
+    HTTP_PROXY: 'http://upper-http.example', http_proxy: 'http://lower-http.example',
+    HTTPS_PROXY: 'http://upper-https.example', https_proxy: 'http://lower-https.example',
+    NO_PROXY: 'upper-bypass.example', no_proxy: 'lower-bypass.example', ALL_PROXY: 'http://unlisted.example' }
   const env = copilot_environment('/owned', source)
   assert.equal(env.HOME, '/owner')
   assert.equal(env.PATHEXT, source.PATHEXT)
   assert.equal(env.ComSpec, source.ComSpec)
   assert.equal(env.COPILOT_HOME, '/owned')
   assert.equal(env.COPILOT_PROVIDER_API_KEY, 'secret')
+  for (const name of ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'NO_PROXY', 'no_proxy'])
+    assert.equal(env[name], source[name])
   for (const name of ['BASH_ENV', 'NODE_OPTIONS', 'OTEL_EXPORTER_OTLP_HEADERS', 'COPILOT_ALLOW_ALL', 'COPILOT_PROVIDER_API_KEY_COMMAND'])
     assert.equal(env[name], undefined)
   assert.equal(source.COPILOT_HOME, '/foreign')
+  assert.equal(env.ALL_PROXY, undefined)
 })
 test('Copilot editing exposes the platform shell and model editing tools; read-only exposes neither', () => {
   for (const platform of ['win32', 'darwin', 'linux']) {
@@ -125,17 +131,36 @@ test('launch arguments preserve Codex and Claude branches and scope Copilot tool
         assert.equal(args.includes('--add-dir'), role === 'task')
         assert.ok(args.includes('--no-custom-instructions'))
         assert.ok(args.includes('--no-remote-export'))
+        const secret_names = args.find(arg => arg.startsWith('--secret-env-vars=')).split('=')[1].split(',')
+        assert.ok(secret_names.includes('COPILOT_GITHUB_TOKEN'))
+        assert.ok(!secret_names.some(name => name.toUpperCase() === 'NO_PROXY'))
         assert.ok(fs.statSync(launch.home).isDirectory())
         assert.equal(fs.existsSync(path.join(launch.home, 'providers.json')), false)
       }
     }
   }
 })
-test('Copilot launch accepts only owned persisted session evidence and saves nonsecret identity', async () => {
+test('Copilot launch accepts only owned persisted session evidence and saves nonsecret identity', async t => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'aglite-copilot-result-')))
   const executable = path.join(root, 'fake-copilot.js')
+  const proxy = 'http://fixture-user:fixture-password@proxy.example:8080'
+  const fake_env = { HTTPS_PROXY: proxy, https_proxy: proxy,
+    HTTP_PROXY: 'http://proxy.example', http_proxy: 'http://proxy.example', NO_PROXY: '*', no_proxy: '*' }
+  const original_env = Object.fromEntries(Object.keys(fake_env).map(name => [name, process.env[name]]))
+  Object.assign(process.env, fake_env)
+  t.after(() => {
+    for (const [name, value] of Object.entries(original_env)) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+  })
   fs.writeFileSync(executable, '#!' + process.execPath + '\n' + `
 const fs = require('node:fs'), path = require('node:path')
+require('node:assert/strict').ok(process.env.HTTPS_PROXY === ${JSON.stringify(proxy)}, 'Proxy environment missing or changed')
+if (fs.existsSync('proxy-failure')) {
+  console.log(JSON.stringify({ type: 'error', message: 'Could not reach ' + process.env.HTTP_PROXY }))
+  process.exit(1)
+}
 const args = process.argv.slice(2)
 const get = flag => args[args.indexOf(flag) + 1]
 const prompt = fs.readFileSync(0, 'utf8')
@@ -157,12 +182,27 @@ console.log(JSON.stringify({ type: 'result', sessionId, exitCode: 0, usage: {} }
   assert.equal(proof.copilot_version, 'fixture')
   const launch = JSON.parse(fs.readFileSync(path.join(attempt_dir, 'launch.json')))
   assert.equal(launch.session_id, proof.session_id)
+  assert.ok(launch.environment_names.includes('HTTPS_PROXY'))
+  assert.equal(JSON.stringify(launch).includes(proxy), false)
+  const secret_names = launch.command.find(arg => arg.startsWith('--secret-env-vars=')).split('=')[1].split(',')
+  assert.ok(secret_names.includes('HTTPS_PROXY'))
+  assert.ok(!secret_names.some(name => ['HTTP_PROXY', 'NO_PROXY'].includes(name.toUpperCase())))
   assert.equal(launch.command.includes('-p'), false)
   assert.deepEqual(launch.resolved_command.slice(0, 2), [process.execPath, executable])
   const saved = fs.readFileSync(path.join(launch.home, 'session-state', launch.session_id, 'events.jsonl'), 'utf8')
   const root_message = saved.split('\n').map(JSON.parse).find(event => event.type === 'user.message').data.content
   assert.ok(root_message.length > 32767)
   assert.equal(root_message, fs.readFileSync(path.join(attempt_dir, 'prompt.txt'), 'utf8'))
+
+  const proxy_without_scheme = 'fixture-user:fixture-password@proxy.example:8080'
+  process.env.HTTP_PROXY = process.env.http_proxy = proxy_without_scheme
+  fs.writeFileSync(path.join(root, 'proxy-failure'), '')
+  const failed_dir = path.join(root, 'failed')
+  await assert.rejects(launch_agent({ selection: { ...selection, executable }, role: 'review',
+    cwd: root, prompt: 'Check the assigned outcome.', attempt, attempt_dir: failed_dir }), /Could not reach \[redacted proxy\]/)
+  const failed_launch = JSON.parse(fs.readFileSync(path.join(failed_dir, 'launch.json')))
+  assert.ok(failed_launch.command.find(arg => arg.startsWith('--secret-env-vars=')).includes('HTTP_PROXY'))
+  assert.ok(!JSON.stringify(failed_launch).includes(proxy_without_scheme))
 })
 
 

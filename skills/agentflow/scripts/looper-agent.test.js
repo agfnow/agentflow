@@ -52,6 +52,16 @@ test('exit zero without a valid result remains a result failure with saved ident
   }
 })
 
+test('worker timeout stops the process and records the applied duration', async () => {
+  const args = fixture('setInterval(() => {}, 1000)')
+  const signal = AbortSignal.timeout(5000)
+  await assert.rejects(A.launch_agent({ ...args, timeout_ms: 300, signal }), /Worker timed out/)
+  const launch = JSON.parse(fs.readFileSync(path.join(args.attempt_dir, 'launch.json')))
+  assert.equal(launch.timeout_ms, 300)
+  const exit = JSON.parse(fs.readFileSync(path.join(args.attempt_dir, 'exit.json')))
+  assert.equal(exit.timed_out, true)
+})
+
 test('sandbox startup diagnostic is distinct from a harmless PATH alias warning', () => {
   const source = 'WARNING: proceeding, even though we could not create PATH aliases: Operation not permitted (os error 1)\n' +
     'Error: failed to initialize in-process app-server client: Operation not permitted (os error 1)\n'
@@ -61,6 +71,11 @@ test('sandbox startup diagnostic is distinct from a harmless PATH alias warning'
   assert.equal(A.provider_error(capacity + '\n' + capacity), 'Selected model is at capacity.')
   assert.ok(A.diagnostic_text('x'.repeat(5000)).length <= 800)
   assert.doesNotMatch(A.diagnostic_text('Bearer abcdef\napi_key=abcdef; sk-abcdefgh1234'), /abcdef/)
+  assert.equal(A.diagnostic_text('Proxy http://owner:fake-password@proxy.example:8080'),
+    'Proxy http://[redacted]@proxy.example:8080')
+  assert.equal(A.diagnostic_text('Proxy socks5h://owner:fake-password@proxy.example'),
+    'Proxy socks5h://[redacted]@proxy.example')
+  assert.doesNotMatch(A.diagnostic_text('Proxy-Authorization: Basic fake-credential'), /fake-credential/)
 })
 
 test('missing provider executable retains the failed launch rather than implying a task verdict', async () => {

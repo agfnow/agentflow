@@ -94,7 +94,12 @@ function read_settings(repo) {
   const max_repairs = limits['max-repairs'] === undefined ? 2 : limits['max-repairs']
   insist(Number.isSafeInteger(max_workers) && max_workers > 0, 'ag.json looper-limits.max-workers must be positive integer')
   insist(Number.isSafeInteger(max_repairs) && max_repairs >= 0, 'ag.json looper-limits.max-repairs must be nonnegative integer')
-  return { config, file, digest: crypto.createHash('sha256').update(source).digest('hex'), max_workers, max_repairs }
+  const minutes = Object.hasOwn(limits, 'worker-timeout-minutes') ? limits['worker-timeout-minutes'] : A.default_worker_timeout_minutes
+  insist(Number.isSafeInteger(minutes) && minutes >= 1 && minutes <= 1440,
+    'ag.json looper-limits.worker-timeout-minutes must be an integer from 1 to 1440')
+  const worker_timeout_ms = minutes * 60_000
+  return { config, file, digest: crypto.createHash('sha256').update(source).digest('hex'),
+    max_workers, max_repairs, worker_timeout_ms }
 }
 function select(settings, role) {
   insist(['task', 'repair', 'review', 'acceptance'].includes(role), 'Unknown looper role')
@@ -718,7 +723,8 @@ async function run(root = process.cwd(), options = {}) {
       let result
       try {
         result = await (options.agent || A.launch_agent)({ selection, role, cwd, prompt,
-          attempt, attempt_dir: dir, signal: session_abort.signal, on_launch: observe, on_descendant: observe })
+          attempt, attempt_dir: dir, signal: session_abort.signal, timeout_ms: settings.worker_timeout_ms,
+          on_launch: observe, on_descendant: observe })
       } finally {
         if (relay) relay.stopping = true
         session_abort.abort()

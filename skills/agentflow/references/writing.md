@@ -10,22 +10,37 @@ Apply to human-facing chat, questions, updates, Replies, reports and user docume
 
 - **Guide reading:** Near the top, explain what readers will learn and why it matters. After the opening overview and any key answer, before detail, long or multi-audience documents add a compact linked contents list and purpose-based reading paths: where to start, which parts matter and what can be skipped. Explain how the main parts help readers, rather than merely repeat headings. Short, single-audience documents need only a clear opening and headings, not a contents section.
 
-- **Make scanning useful:** After any required overview, order decisions/results, reasons, evidence, then optional procedure. Prefer short Markdown lists for separable findings, requirements, comparisons, options and steps; use prose when connected explanation benefits from it. Give each paragraph/item one concept, usually 1–3 short sentences; split at topic changes, never turn a dense paragraph into a long bullet. Lead each block with its main point and separate blocks with blank lines. Use headings for longer reports without ceremony. Multiple document references (e.g. Sources) use a label with nested `-` items, one source per blank-separated line.
+- **Make scanning useful:** After any required overview, order decisions/results, reasons, evidence, then optional procedure. Put each distinct item in a long series on its own line as a short Markdown bullet in every language. For items sharing a label, put the label in a parent bullet and indent one child bullet per item. Follow the [grouped list example](#grouped-list-example). Use prose for connected explanation. Give each paragraph/item one concept, usually 1–3 short sentences; split at topic changes, never turn a dense paragraph into a long bullet. Lead each block with its main point and separate blocks with blank lines. Use headings for longer reports without ceremony. Multiple document references (e.g. Sources) use a label with nested `-` items, one source per blank-separated line.
 
 - **Speak plainly:** Address educated decision-makers unfamiliar with the domain; respect their reasoning ability. Name concrete actions, benefits, causes and consequences rather than internal labels alone. Explain necessary jargon at first use in each independently read answer/report; remove unexplained abbreviations, vague qualifiers and compressed clause strings. Concision must remain understandable.
 
 - **CJK spacing:** In new CJK prose, separate adjacent CJK characters and English words or numbers with one space: `檔內 Signoff 均不能 123 項比對`. Preserve quotations, code, exact identifiers, paths and fixed syntax; do not rewrite historical content.
 
-- **Editor links:** Saved Markdown line links use `path#<line-number>`, never `path:<line-number>`; e.g. from `.agentflow/`: `Implemented [features.md](../skills/agentflow/references/features.md#31)`. Resolve paths relative to the document; retain named section anchors. Chat follows host link requirements; otherwise use `#<line-number>` with verified checkout-root-relative paths, or absolute paths if the host cannot resolve them. Never use report-relative `../` in chat. Wrap targets containing spaces in `<...>`.
+- **Editor links:** Saved Markdown line links use `path#<line-number>`, never `path:<line-number>`. Example source from `.agentflow/` uses `../skills/agentflow/references/features.md#31` as the link target. Resolve paths relative to the document; retain named section anchors. Chat follows host link requirements; otherwise use `#<line-number>` with verified checkout-root-relative paths, or absolute paths if the host cannot resolve them. Never use report-relative `../` in chat. Wrap targets containing spaces in `<...>`.
 
 - **Keep only useful detail:** Retain requirements, exceptions, safeguards and evidence needed to assess the answer. Link exact supporting records instead of repeating them. Keep workflow proof under [Round evidence](session.md#round-evidence), outside Reply unless explicitly requested; retain decision-changing limits in the answer. Put requested reproducible commands and specialist detail after the result; omit execution diaries and routine success summaries. Keep the essential explanation at the authorized answer destination so understanding requires no links.
 
 - **Keep claims honest:** Separate observed results, assessment and unavailable proof. Include request-relevant failures, limits and next actions. Never remove an authority/correctness condition for brevity.
 
-- **Check before delivery:** Verify designs/reports start with the plain-language mental model. For answers/reports, verify the opening then gives the answer/action; check applicable reading guidance and CJK spacing; verify paragraph/item starts expose the rest. Split long or multi-concept blocks without losing meaning or decision-changing limits. Apply the comprehension standard above: can the intended reader explain the result, who does what, why it matters and any needed decision/action? Rewrite gaps until self-contained and unambiguous. Cut points that do not answer the request, affect the decision or support assessing it; link records instead of repeating them. Compare against the full request and surrounding rules for omissions/conflicts. Preserve required fields, notices, receipts and handoffs; style grants no authority.
+- **Check before delivery:** Verify designs/reports start with the plain-language mental model. For answers/reports, verify the opening then gives the answer/action; check applicable reading guidance and CJK spacing; verify paragraph/item starts expose the rest. Split long or multi-concept blocks without losing meaning or decision-changing limits. Apply the comprehension standard above: can the intended reader explain the result, who does what, why it matters and any needed decision/action? Break up long series of distinct items into one item per bullet. Rewrite gaps until self-contained and unambiguous. Cut points that do not answer the request, affect the decision or support assessing it; link records instead of repeating them. Compare against the full request and surrounding rules for omissions/conflicts. Preserve required fields, notices, receipts and handoffs; style grants no authority.
 
 - **Explain consequential choices:** Before asking for a consequential decision, including changes to accepted outcomes, guarantees or owner-chosen designs, explain the current/requested approach and each alternative: who does what, retained capabilities, changes/losses and effect on the owner’s goal. Explain consequences, any recommendation and its reason; separate independent choices from option-dependent questions. Name rule conflicts without silently changing the goal; distinguish tested behavior from assumptions/illustrations. Seek decisions on unresolved consequences, respect settled decisions/authority, and rewrite before asking if an unfamiliar reader cannot retell the work and consequence.
 
 - **Question context in external answers:** Directly below each answer heading in a report/file outside the devlog, quote at least the first 50 Unicode code points of each answered original question (whole if shorter). Preserve wording/graphemes, mark omissions `...` and redact credentials; quote grouped questions separately. Keep required document openings, Reply excerpts and historical bytes unchanged.
 
 - **Tool and workflow explanations:** Even in short replies, lead with what the user does, what happens next, who acts and any follow-up. Reread it as a first-time user would before sending. Preserve required receipt and notice formats.
+
+
+## Grouped list example
+
+Use this shape for a long series under one label in any language.
+
+```markdown
+- **Tools**
+
+  - Press C to open the panel.
+
+  - Drag the title to move the panel.
+
+  - Double-click the title to collapse the panel.
+```

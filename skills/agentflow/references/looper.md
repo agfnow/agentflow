@@ -12,7 +12,13 @@ Task/repair use `pipeline-roles.implementation`; review/renewed acceptance share
 
 Apply [latest selectors](review.md#worker-settings) only to new selections. Use the selected Codex executable’s paginated `app-server` `model/list` or Claude executable’s stream-JSON initialization metadata, without inference. Codex requires its default OpenAI provider and rejects configured catalog or endpoint overrides. Catalog metadata may be cached or depend on CLI version. Require a versioned concrete model and exact effort. For CLI Copilot or native looper routes, configure a verified literal pair. Save the concrete pair with its attempt and reuse it for resume or coordinator technical retry. Status and literal pairs need no discovery. Failed lookup blocks the selected dispatch without rewriting settings.
 
-Optional `looper-limits` holds `max-workers` (positive integer, default 3) and `max-repairs` (nonnegative integer, default 2). These are settings, not switches. Limits and routes belong only in ag.json; reject queue worker/limit overrides.
+Set limits only in ag.json; reject queue worker/limit overrides. Optional `looper-limits` settings:
+
+- `max-workers`: positive integer, default 3.
+
+- `max-repairs`: nonnegative integer, default 2.
+
+- `worker-timeout-minutes`: integer 1–1440, default 20. Applies to each new CLI launch, including time the task spends waiting for ordinary review. Record the applied duration in milliseconds in `launch.json`. Native handoffs, model discovery and checks use their own limits.
 
 
 ## Looper execution exception
@@ -40,7 +46,7 @@ Codex CLI task/repair commands retain workspace-write filesystem restrictions an
 
 CLI tasks request ordinary separate review through the attempt-bound isolated-record mailbox described in their generated assignment; do not launch nested review CLIs. The coordinator may already own/create its directory: verify exact attempt path, regular nonsymlink directories and ownership, then reuse safely; never replace an outstanding request. Use atomic request writes. Check optional-file existence; required missing inputs still block. Read-only reviewers avoid shell forms requiring temporary files when restricted; diff exit 1 alone means differences, not failed acceptance. The coordinator reuses the configured acceptance route/model/effort in a fresh read-only sibling session, binds request and source bytes, returns the result, and settles both sessions before releasing ownership. The task resolves findings and performs ordinary closeout; no mandatory verifier, group/final gate or review waiver follows. Queue state owns review identity/results; task-writable responses are transport only. Changed/stale source or requests, missing proof and uncertain writers remain blocked. Native task sessions retain their live-host workflow.
 
-Require Git, Node.js and supported configured task providers. Resolve installed skill/provider controls and permissions; never invent flags, models or authority. CLI ordinary task sessions support Codex/Claude/Copilot. Native task selection reserves its group slot until a stopped result and requires live-host dispatch and result-mailbox handoff; without that host, block native dispatch until `run-tasks`, never substitute CLI. Retain explicit model/effort and ordinary review/executor rules. Each CLI attempt retains a 20-minute timeout; preserve/block unfinished work on timeout, without a new timeout switch or stage. Codex/Claude sessions inherit environment/network; Copilot uses its curated environment and private home. Tool/prompt restrictions are not OS containment. No detached writers, daemon or automatic restart.
+Require Git, Node.js and supported configured task providers. Resolve installed skill/provider controls and permissions; never invent flags, models or authority. CLI ordinary task sessions support Codex/Claude/Copilot. Native task selection reserves its group slot until a stopped result and requires live-host dispatch and result-mailbox handoff; without that host, block native dispatch until `run-tasks`, never substitute CLI. Retain explicit model/effort and ordinary review/executor rules. On CLI worker timeout, stop the attempt and preserve/block unfinished work. Codex/Claude sessions inherit environment/network; Copilot uses its curated environment and private home. Tool/prompt restrictions are not OS containment. No detached writers, daemon or automatic restart.
 
 ## Queue and records
 

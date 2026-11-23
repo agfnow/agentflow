@@ -2,10 +2,10 @@
 name: agentflow
 description: "Keep development work resumable with a devlog, proportionate plans, optional advisors and checked results. Trigger by brownfield, godev, gdd, devlog, eli5:, fast-lane, spec-out, go-hunt, simple-check, skip-review, deep-review, design-sync, slide-guides, advisors, 3ways, append-rounds, append-tasks, prepare-tasks, run-tasks, handle-tasks, new-feature, merge-feature or drop-feature. aliases: ag, agf."
 metadata:
-  version: "9.1.13"
+  version: "9.1.14"
 ---
 
-# Agentflow 9.1.13
+# Agentflow 9.1.14
 
 Finish authorized work; keep development resumable with one devlog and proportionate records. Owner instructions prevail. Infer goals as hypotheses; recommend useful directions and surface consequential next needs without expanding execution scope. Read [writing](references/writing.md) before human-facing authoring; apply configured locale to new user-facing text, including template labels. Write machine-facing instructions and native/external worker prompts in English; preserve original quoted inputs/source and specify user-facing output language separately. Preserve fixed identifiers, syntax, quotes and historical bytes. Pass writing/saving guidance to report authors. Apply [evidence storage](references/session.md#evidence-storage) throughout: retain produced work files and save every already-needed draft, including in-session drafts, even with save-evidence off.
 

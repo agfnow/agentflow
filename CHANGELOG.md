@@ -1,5 +1,15 @@
 # Changelog
 
+## 9.1.14 — 2026-11-24
+
+- Put each item in a long series on its own line in user-facing writing. Use nested bullets under a shared label in any language.
+
+- Configure the looper's CLI worker timeout with `looper-limits.worker-timeout-minutes` (default 20), including time spent waiting for ordinary review.
+
+- Pass standard HTTP, HTTPS and bypass proxy settings through to Copilot CLI workers. Keep credential-bearing proxy values out of shell tool environments.
+
+- Clarify how devlog Replies excerpt owner requests and present risk assessments for human code review.
+
 ## 9.1.13 — 2026-11-22
 
 - Pick up unresolved inline owner comments when resuming a notebook and recheck them before delivery.

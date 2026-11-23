@@ -1,4 +1,4 @@
-# Agentflow 9.1.13 — everyday guide
+# Agentflow 9.1.14 — everyday guide
 
 English · [繁體中文](AG-GUIDE.tw.md)
 
@@ -369,6 +369,8 @@ Use `deep-review [target]` to request it at any risk. For example, `deep-review 
 
 Every review of an implementation result, including a retrospective review, states its risk level and a short reason. Answers also tell you about blockers, uncertainty that affects your decision, sensitive actions needing attention and actual approval requests. Other routine review accounting stays out of the answer and is saved only when evidence storage is on. When you need to inspect a sensitive change, the host identifies the path and consequence.
 
+In the devlog Reply, look just before Questions for a flush-left paragraph that introduces the change’s risk assessment as a reference for human code review.
+
 The host may retain a verified recurring or severe review lesson in the existing team review record or `<ag-dir>/sys-review.md`. Lessons guide future reviews. See [triage (review.md, line 134)](../references/review.md#risk-triage) and [deep review (deep-review.md, line 1)](../references/deep-review.md).
 
 Checks are selected by the failure they can expose. For a consequential requirement that remains unproved, the agent chooses the cheapest check that distinguishes correct behavior from a plausible defect. It can use examples, properties, reference comparisons, input fuzzing, targeted mutation or integration/failure tests; these are options, not a fixed tool sequence.
@@ -489,7 +491,7 @@ Switching branches, rewriting history, uncertain integration results or conflict
 
 An active Git operation or lock can pause landing. Resume the same queue after it ends; successful tasks stay preserved.
 
-Defaults are 3 working groups and 2 repairs per group, set in `looper-limits`. Active attempts retain their selections; new attempts use the settings read for that run. Each CLI attempt has a 20-minute timeout that preserves and blocks unfinished work on expiry.
+Defaults are 3 working groups and 2 repairs per group, set in `looper-limits`. Active attempts retain their selections; new attempts use the settings read for that run. Set `looper-limits.worker-timeout-minutes` to a whole number from 1 to 1440 (default 20). This covers each new CLI worker session, including time spent waiting for ordinary review. On timeout, the looper stops the attempt and preserves and blocks unfinished work. [Copilot workers inherit standard proxy settings and hide credential-bearing values from shell tools](../references/copilot.md#standalone-cli).
 
 Native dispatch needs the live host and its result mailbox. Closing the host does not authorize switching to CLI or another provider.
 
@@ -555,7 +557,7 @@ On the next `run-tasks` or `agf looper run <run-root>`, the coordinator imports 
 
 Identical answers are idempotent; conflicting replacements are rejected. An answer alone does not fix the cause or prove a worker stopped.
 
-Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 115)](../references/looper.md#115).
+Outstanding native work additionally needs actual stopped-result proof; see [the inbox contract (looper.md, line 107)](../references/looper.md#native-handoff-and-owner-inbox).
 
 “Resume” means continue preserved work, not roll the repository back or rerun everything. Repair/review of merge conflicts is bounded (default 2 repairs). Failed tasks, provider errors and timeouts have no general automatic retry/backoff; technical corrections and another invocation may be needed. Missing identity or unknown external effects can still require human investigation.
 

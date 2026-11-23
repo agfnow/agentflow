@@ -6,7 +6,7 @@ That change has concrete consequences. An assistant can still violate the same w
 
 Treat this as a migration to a redesigned product. Agentflow 8 configuration and queues are not supported as drop-in inputs; configuration has a guarded conversion path, while old queues require separate recovery and new preparation. Start with the [guarded legacy migration rules](../references/legacy-migration.md); retain v8 for active work that cannot yet be safely handed off.
 
-This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.13**, configuration schema **14**. Current source references below belong to this package.
+This public edition compares Agentflow **8.4.15** with **Agentflow 9.1.14**, configuration schema **14**. Current source references below belong to this package.
 
 Version 8 is preserved at [`agfnow/agentflow-v8`](https://github.com/agfnow/agentflow-v8); stable v9 uses [`agfnow/agentflow`](https://github.com/agfnow/agentflow). Use the matching repository’s installation instructions. Existing installations must be rebound deliberately; the repository rename alone does not migrate them.
 

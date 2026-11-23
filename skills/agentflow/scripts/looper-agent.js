@@ -495,15 +495,26 @@ function provider_error(source) {
   }
   return [...new Set(messages.filter(value => typeof value === 'string'))].slice(-3).join('; ')
 }
+const proxy_url_credentials = /((?:https?|socks5h?):\/\/)[^\s/?#]+@/gi
+
 function diagnostic_text(value) {
   return String(value).replace(/[\x00-\x1f\x7f]/g, ' ')
+    .replace(proxy_url_credentials, '$1[redacted]@')
+    .replace(/(Proxy-Authorization\s*:\s*Basic\s+)\S+/gi, '$1[redacted]')
     .replace(/\b(?:sk-[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9_]{8,})\b/g, '[redacted]')
     .replace(/(Bearer\s+|(?:api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*)[^\s,;]+/gi, '$1[redacted]')
     .slice(0, 800)
 }
 
+const default_worker_timeout_minutes = 20
+const copilot_proxy_names = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'NO_PROXY', 'no_proxy']
+const copilot_auth_names = ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN',
+  'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_BEARER_TOKEN', 'COPILOT_PROVIDER_HEADERS']
+
 async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir,
-  signal, on_launch, on_descendant }) {
+  signal, timeout_ms = default_worker_timeout_minutes * 60_000, on_launch, on_descendant }) {
+  if (!Number.isSafeInteger(timeout_ms) || timeout_ms < 1 || timeout_ms > 2_147_483_647)
+    throw Error('Invalid CLI worker timeout in milliseconds')
   safe_directory(attempt_dir)
   const schema = result_schema(attempt)
   const schema_file = path.join(attempt_dir, 'schema.json')
@@ -511,10 +522,13 @@ async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir
   const task = role === 'task'
   const editing = task || role === 'repair'
   const transcript = path.join(attempt_dir, 'transcript.log')
+  const proxy_secrets = []
   const failure = (stage, cause, observation) => {
     let detail = ''
     try { detail = provider_error(fs.readFileSync(transcript, 'utf8')) } catch {}
-    const message = diagnostic_text(detail || cause.message || cause)
+    let safe_detail = String(detail || cause.message || cause)
+    for (const secret of proxy_secrets) safe_detail = safe_detail.replaceAll(secret, '[redacted proxy]')
+    const message = diagnostic_text(safe_detail)
     const file = path.join(attempt_dir, 'failure.json')
     write_json(file, { attempt_id: attempt.id, provider: selection.provider, role, stage,
       message, transcript, result: result_file, ...(observation ? { observation } : {}) })
@@ -557,11 +571,14 @@ async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir
     copilot = { session_id: randomUUID(), home: path.join(attempt_dir, `copilot-${randomUUID()}`) }
     safe_directory(copilot.home)
     copilot.env = copilot_environment(copilot.home)
+    const secret_proxies = copilot_proxy_names.filter(name =>
+      name.toUpperCase() !== 'NO_PROXY' && copilot.env[name]?.includes('@'))
+    for (const name of secret_proxies) proxy_secrets.push(copilot.env[name])
     const tools = copilot_tools(editing)
     args = ['--no-auto-update', '--disable-client-telemetry', '--disable-builtin-mcps',
       '--no-custom-instructions', '--no-remote-export', '--no-bash-env', '--no-ask-user',
       '--no-color', '--disallow-temp-dir',
-      '--secret-env-vars=COPILOT_GITHUB_TOKEN,GH_TOKEN,GITHUB_TOKEN,COPILOT_PROVIDER_API_KEY,COPILOT_PROVIDER_BEARER_TOKEN,COPILOT_PROVIDER_HEADERS',
+      `--secret-env-vars=${[...copilot_auth_names, ...secret_proxies].join(',')}`,
       '--session-id', copilot.session_id,
       '--model', selection.model, '--reasoning-effort', selection.effort,
       '--output-format', 'json', '--available-tools', ...tools, '--allow-tool', 'read']
@@ -572,11 +589,11 @@ async function launch_agent({ selection, role, cwd, prompt, attempt, attempt_dir
   let resolved_command
   try { resolved_command = resolve_command(command, { env: copilot ? copilot.env : process.env, cwd }) }
   catch (error) { throw failure('launch', error) }
-  fs.writeFileSync(path.join(attempt_dir, 'launch.json'), JSON.stringify({ selection, role, cwd, command, resolved_command,
+  fs.writeFileSync(path.join(attempt_dir, 'launch.json'), JSON.stringify({ selection, role, cwd, command, resolved_command, timeout_ms,
     ...(copilot ? { session_id: copilot.session_id, home: copilot.home, environment_names: Object.keys(copilot.env) } : {}) }))
   let observation
   try { observation = await execute({ command, cwd, log: transcript,
-    stdin: full, ...(copilot ? { env: copilot.env } : {}), signal, timeout_ms: 20 * 60 * 1000,
+    stdin: full, ...(copilot ? { env: copilot.env } : {}), signal, timeout_ms,
     on_launch: async identity => {
       write_json(path.join(attempt_dir, 'process.json'), identity)
       await on_launch?.(identity)
@@ -621,7 +638,8 @@ function parse_claude_result(source) {
     throw Error('Claude result failed or ambiguous')
   return finals[0].structured_output
 }
-Object.assign(module.exports, { launch_agent, validate_result, result_schema, parse_claude_result, provider_error, diagnostic_text })
+Object.assign(module.exports, { launch_agent, default_worker_timeout_minutes, validate_result, result_schema,
+  parse_claude_result, provider_error, diagnostic_text })
 
 const latest_selector = /^(gpt|claude)-latest-([a-z][a-z0-9]*)$/
 
@@ -769,7 +787,7 @@ function copilot_environment(home, source = process.env) {
     'COPILOT_PROVIDER_TYPE', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_BEARER_TOKEN',
     'COPILOT_PROVIDER_WIRE_API', 'COPILOT_PROVIDER_TRANSPORT', 'COPILOT_PROVIDER_AZURE_API_VERSION',
     'COPILOT_PROVIDER_HEADERS', 'COPILOT_PROVIDER_MODEL_ID', 'COPILOT_PROVIDER_WIRE_MODEL',
-    'COPILOT_PROVIDER_MAX_PROMPT_TOKENS', 'COPILOT_PROVIDER_MAX_OUTPUT_TOKENS']
+    'COPILOT_PROVIDER_MAX_PROMPT_TOKENS', 'COPILOT_PROVIDER_MAX_OUTPUT_TOKENS', ...copilot_proxy_names]
   const env = Object.fromEntries(names.filter(name => source[name] !== undefined).map(name => [name, source[name]]))
   return { ...env, COPILOT_HOME: home, COPILOT_AUTO_UPDATE: 'false', USE_TGREP: 'false' }
 }

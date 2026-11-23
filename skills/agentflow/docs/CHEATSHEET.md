@@ -134,7 +134,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
   Looper retains its permitted fresh reviewer and route, with no nested reviewers.
 
-  Reuse matching proof and run only checks that address remaining gaps. Every implementation-result review, including a retrospective review, states risk level and a short reason. Answers also surface decision-changing blockers/uncertainty, sensitive actions needing attention and actual approval requests. Other routine route/approval accounting stays only in enabled evidence; off saves no substitute. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
+  Reuse matching proof and run only checks that address remaining gaps. Every implementation-result review, including a retrospective review, gives the change’s risk level and a short reason. In a devlog Reply, a flush-left paragraph before Questions introduces this as an assessment for human code review. Answers also surface decision-changing blockers/uncertainty, sensitive actions needing attention and actual approval requests. Other routine route/approval accounting stays only in enabled evidence; off saves no substitute. Existing approval rules apply. [Procedure (deep-review.md, line 1)](../references/deep-review.md).
 
 - **`design-sync [scope]`** — Inventory shared design assets read-only and list concrete changes to approve individually. Agentflow may also suggest synchronization at closeout when a change to a shared asset or its usage exposed a concrete discrepancy. [Design synchronization](../references/design-sync.md)
 
@@ -174,7 +174,7 @@ Once selected, the [bundled reference (brownfield.md, line 1)](../references/bro
 
 - **`godev [request]`** — Start/resume; initialize eligible fresh folders, asking before non-Git setup whether to create a Git repository; ask for work when idle.
 
-- **`handle-tasks <request>`** — Prepare groups with optional earlier-group dependencies, then execute their queue; combines `prepare-tasks` and `run-tasks`. [Contract (looper.md, line 25)](../references/looper.md#prepare-and-route).
+- **`handle-tasks <request>`** — Prepare groups with optional earlier-group dependencies, then execute their queue; combines `prepare-tasks` and `run-tasks`. [Contract (looper.md, line 31)](../references/looper.md#prepare-and-route).
 
 - **`merge-feature <name>`** — Verify/merge with feature-specific records/claims only; exclude main root-notebook/archive/claim changes. Retain checkout/branch; `and cleanup` retires both after required gates. Main’s notebook/claim never blocks it; Git conflicts/locks still apply.
 
@@ -336,7 +336,7 @@ Queue JSON alone owns scheduling/progress; `ag.json` alone owns editable setting
 
 Set transport/provider/catalog in `looper-routes.task`, `repair`, `acceptance`; task/repair reuse `implementation`, review/renewed acceptance reuse `acceptance`.
 
-Set `looper-limits.max-workers` (default 3), `max-repairs` (default 2). [Settings (looper.md, line 5)](../references/looper.md#looper-settings).
+Set `looper-limits.max-workers` (default 3), `max-repairs` (default 2) and `worker-timeout-minutes` (whole minutes from 1 to 1440, default 20). [Settings (looper.md, line 5)](../references/looper.md#looper-settings).
 
 New configuration detects supported Codex/Claude CLIs (lookup/help only), preferring Codex when both exist, and fills all three routes from the selected CLI/catalog. The Codex template is adapted at setup; existing settings stay unchanged. Neither CLI: use supported observed native controls with a live-host disclosure, otherwise report missing capability. Detection proves no authentication/model access. [Defaults](../references/setup.md#detected-worker-defaults).
 
@@ -362,7 +362,7 @@ Ready groups merge FIFO through one target-wide lane. Unchanged-contract clean c
 
 Questions block their group; answer the host while independent groups continue.
 
-Resume preserves unfinished work and first proves old writers stopped; unresolved native attempts require host stopped attestation before supersession. Unsettled writers retain claims/slots. Each CLI attempt times out after 20 minutes and preserves/blocks unfinished work. No group gates, waves, final gate, promotion, implicit cleanup, push or release authority.
+Resume preserves unfinished work and first proves old writers stopped; unresolved native attempts require host stopped attestation before supersession. Unsettled writers retain claims/slots. The configured timeout covers each new CLI worker session, including ordinary review waits. On timeout, the looper stops the attempt and preserves/blocks unfinished work. No group gates, waves, final gate, promotion, implicit cleanup, push or release authority.
 
 ## Quick recipes
 
@@ -424,7 +424,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
 - **Ask rounds:** Prefix every new Ask heading with standalone `---`, one blank line before and after, including initial and feature notebooks; preserve existing history. See [notebook rules (delivery.md, line 5)](../references/delivery.md#notebook-and-delivery).
 
-- **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Every `design.md` and report of any kind starts with a brief, conversational, plain-language overview of the whole subject’s structure and operation, giving an unfamiliar reader a high-level mental model. Conclusions follow in plain words. The opening overview may be a short paragraph or bullet.
+- **Replies/reports:** [Ultimate comprehension first (writing.md, line 1)](../references/writing.md): brevity/formatting/terminology serve understanding. Every `design.md` and report of any kind starts with a brief, conversational, plain-language overview of the whole subject’s structure and operation, giving an unfamiliar reader a high-level mental model. Conclusions follow in plain words. The opening overview may be a short paragraph or bullet. Put each item in a long series on its own line, with nested bullets under a shared label.
 
   Explain what readers will learn and why it matters. In long or multi-audience documents, put compact linked contents and purpose-based reading paths after the opening overview and any key answer, before detail: where to start, what matters and what can be skipped. Explain how the main parts help; short documents serving one audience need only a clear opening and headings. See [reading guidance (writing.md, line 11)](../references/writing.md#11).
 
@@ -440,7 +440,7 @@ These checks add no document, mandatory alternative or review stage and do not r
 
   Never use report-relative `../` in chat. Wrap targets containing spaces in `<...>`.
 
-  Reply/subrequest quotes: first paragraph, at most 100 Unicode code points including spaces/punctuation, without splitting a combined character (grapheme); `...` whenever text is omitted. Keep literal backticks without backslash escapes; cut before an unmatched backtick left by truncation. Preserve credential redaction and full Ask input.
+  Reply and subrequest quotes use the full first paragraph when it fits, or the longest safe prefix within 100 Unicode code points including spaces and punctuation. Keep graphemes intact and preserve literal backticks without backslash escapes. Cut before an unmatched backtick left by truncation, mark omitted text with `...` and redact credentials. Keep the full Ask input. Link directly to the source Ask when the excerpt leaves the request unclear.
 
   External report/file answers quote each original question directly below its answer heading: at least the first 50 Unicode code points, or the whole question if shorter. Preserve wording and combined characters, mark omissions `...`, redact credentials and quote grouped questions separately. Keep document openings, Reply excerpts and history unchanged. See [question context (writing.md, line 29)](../references/writing.md#29).
 
